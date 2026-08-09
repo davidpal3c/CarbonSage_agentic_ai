@@ -1,9 +1,13 @@
 # CarbonSage Infrastructure
 
-CarbonSage is the public product name. The existing `nzeroesg-client`,
-`nzeroesg-api`, Render service, Vercel project, environment-variable, database,
-and cookie identifiers remain unchanged so the verified deployment is not
-broken by the rebrand.
+CarbonSage is the public product and service identity. The internal
+`nzeroesg-client` and `nzeroesg-api` source directories, Vercel project,
+environment-variable, database, and cookie identifiers remain unchanged to
+avoid a low-value source-layout migration. The existing Render service is
+renamed in place to `carbonsage-api`; it is not recreated, and it retains its
+database, secrets, deployment history, and production role. Render preserves
+the existing `nzeroesg-api` URL slug during an in-place service rename, so the
+verified API origin remains stable.
 
 ## Cost and service boundary
 
@@ -82,6 +86,8 @@ merge into `dev` for CI and evaluation without deploying either public service.
 - Vercel free tier;
 - build from `nzeroesg-client`;
 - configure `NEXT_PUBLIC_BACKEND_URL` with the public FastAPI origin;
+- retain `https://nzeroesg-api.onrender.com` as that origin after the Render
+  display-name change; no Vercel environment migration is required;
 - no server-side user data stored in the frontend deployment;
 - host the future control plane, agent playground, and isolated embed route in
   the same Next.js application.
@@ -89,6 +95,8 @@ merge into `dev` for CI and evaluation without deploying either public service.
 ### Backend
 
 - one Render web service built from `nzeroesg-api`;
+- the existing Render resource is named `carbonsage-api` and remains the only
+  API service;
 - expose the FastAPI service and health endpoint;
 - allow CORS only from the deployed frontend and documented local origins;
 - keep the optional assistant disabled unless a provider and quota policy are
@@ -167,12 +175,13 @@ CI must remain credential-free and run:
 The browser suite is a local/CI gate; it does not substitute for the public
 deployment smoke check.
 
-Public verification snapshot from August 6, 2026:
+Public verification snapshot from August 8, 2026:
 
 - `https://n-zero-esg-scope3.vercel.app/` serves the rebuilt client from
   `main`, and `/login` returns `200`.
-- `https://nzeroesg-api.onrender.com/health` serves the rebuilt FastAPI service
-  with Neon-backed production persistence.
+- `https://nzeroesg-api.onrender.com/health` serves the `carbonsage-api`
+  FastAPI service with Neon-backed production persistence and reports semantic
+  search enabled.
 - The exact Vercel-origin CORS preflight passes.
 - The assistant health route is reachable and the disabled assistant fails
   closed with `503` rather than affecting the deterministic workflow.
