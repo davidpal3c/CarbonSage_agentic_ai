@@ -54,4 +54,5 @@ async def health():
         "status": "ok",
         "environment": settings.environment,
         "assistant_enabled": settings.assistant_enabled,
+        "semantic_search_enabled": bool(settings.embedding_provider),
     }

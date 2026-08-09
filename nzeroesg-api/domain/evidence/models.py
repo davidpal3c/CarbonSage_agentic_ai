@@ -59,6 +59,14 @@ class EvidenceMatch:
     page_number: int | None
     chunk_index: int
     document_sha256: str
+    retrieval_mode: str = "lexical"
+    score: float | None = None
+    lexical_rank: int | None = None
+    semantic_rank: int | None = None
+
+    @property
+    def identity(self) -> tuple[str, int]:
+        return (self.document_sha256, self.chunk_index)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -70,5 +78,11 @@ class EvidenceMatch:
                 "chunk_index": self.chunk_index,
                 "document_sha256": self.document_sha256,
                 "filename": self.filename,
+            },
+            "retrieval": {
+                "mode": self.retrieval_mode,
+                "score": self.score,
+                "lexical_rank": self.lexical_rank,
+                "semantic_rank": self.semantic_rank,
             },
         }

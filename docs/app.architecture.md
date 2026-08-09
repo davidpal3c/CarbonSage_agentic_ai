@@ -230,6 +230,13 @@ of which mode wins a particular evaluation. CarbonSage should claim semantic
 or hybrid improvement only when recall-at-k, citation coverage, and answer
 support demonstrate it.
 
+The first pgvector contract stores 1,536-dimensional embeddings separately
+from immutable evidence chunks, with provider, model, content hash, and
+workspace metadata. Retrieval uses exact cosine distance for the bounded demo
+corpus and reciprocal-rank fusion with `k = 60`. Approximate indexing remains a
+future scale decision because a shared tenant-filtered HNSW index can trade
+away recall before the workspace predicate is applied.
+
 ### Former ChromaDB path
 
 The earlier NZeroESG prototype used ChromaDB as a standalone vector database.

@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "captured_on": "2026-08-07",
+  "mode": "lexical",
+  "cases": "../retrieval_cases.json",
+  "corpus": "../retrieval_corpus.json",
+  "database": "PostgreSQL 16 with pgvector 0.8.6",
+  "environment": "disposable local container",
+  "k": 5,
+  "metrics": {
+    "case_count": 25,
+    "recall_at_k": 1.0,
+    "mean_reciprocal_rank": 0.977273,
+    "citation_coverage": 1.0,
+    "answer_support_rate": 0.0,
+    "unsupported_answer_rate": 0.0,
+    "mean_latency_ms": 18.167,
+    "provider_cost_usd": 0.0
+  },
+  "notes": [
+    "This is a retrieval-only baseline; no generated answers were evaluated.",
+    "Latency is a local reference measurement, not a production service-level objective.",
+    "Semantic and hybrid reports require an explicitly configured embedding provider."
+  ]
+}

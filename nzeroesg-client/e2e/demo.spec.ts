@@ -54,6 +54,15 @@ test("completes the five-minute demo workflow and exports a report", async ({
   await expect(page.getByText(/Supplier ABC holds ISO 14001/)).toBeVisible();
   await expect(page.getByText(/Citation: supplier.txt/)).toBeVisible();
 
+  await page.getByLabel("Retrieval mode").selectOption("hybrid");
+  await page.getByRole("button", { name: "Search citations" }).click();
+  await expect(
+    page.getByText(/Used lexical retrieval · semantic provider unavailable/),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/hybrid search used the lexical baseline/),
+  ).toBeVisible();
+
   await page.getByRole("button", { name: "Run scenario" }).click();
   await expect(page.getByText("Current baseline")).toBeVisible();
   await expect(page.getByText("Scenario comparison")).toBeVisible();

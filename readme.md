@@ -61,7 +61,14 @@ evidence-grounded CarbonSage agent described in the roadmap.
 - Shipment CSV ingestion with bounded validation, row-level errors, normalized
   records, mode breakdowns, hotspots, and quality warnings.
 - Text and text-based PDF evidence ingestion with structured supplier records,
-  PostgreSQL full-text retrieval, and recoverable page/chunk citations.
+  recoverable page/chunk citations, and PostgreSQL full-text retrieval.
+- Explicit lexical, pgvector semantic, and deterministic hybrid retrieval
+  modes with workspace filtering, versioned embedding metadata, and a safe
+  lexical fallback when no embedding provider is configured.
+- A checked-in 25-case retrieval evaluation: lexical and hybrid both reached
+  `1.0` recall@5, while hybrid recovered the one expected result missed by
+  semantic-only retrieval. The reports avoid claiming generated-answer
+  quality, which is evaluated in the next agent phase.
 - Scenario comparisons, accessible chart alternatives, printable report
   previews, and authenticated CSV export.
 - A Vercel client, Render API, Neon PostgreSQL database, and credential-free CI
@@ -72,18 +79,15 @@ evidence-grounded CarbonSage agent described in the roadmap.
 CarbonSage will build on that baseline in a controlled order:
 
 1. A small workspace artifact catalog with CRUD and provenance.
-2. Hybrid retrieval combining PostgreSQL full-text search with pgvector-backed
-   semantic search. Evaluation will tune fusion and query routing, not decide
-   whether vector search is implemented.
-3. Typed, workspace-scoped tools for evidence search, emissions calculations,
+2. Typed, workspace-scoped tools for evidence search, emissions calculations,
    scenario comparison, and reports.
-4. A versioned response protocol for text, metrics, tables, charts, citations,
+3. A versioned response protocol for text, metrics, tables, charts, citations,
    warnings, artifact references, and confirmed actions.
-5. A dashboard agent playground using the same runtime and renderer as the
+4. A dashboard agent playground using the same runtime and renderer as the
    embedded experience.
-6. A framework-independent JavaScript loader and authenticated iframe.
-7. One explicit, read-only Google Drive selected-file import.
-8. Optionally, a read-only MCP adapter over the same stable application tools.
+5. A framework-independent JavaScript loader and authenticated iframe.
+6. One explicit, read-only Google Drive selected-file import.
+7. Optionally, a read-only MCP adapter over the same stable application tools.
 
 Dropbox, billing, organization administration, background synchronization,
 enterprise RBAC, and a family of framework-specific SDKs are intentionally
@@ -126,7 +130,7 @@ The detailed decisions and delivery gates live in:
 | Neon PostgreSQL | Workspace data, evidence, full-text search, and evaluated vector retrieval |
 | LangChain | Optional orchestration adapter, not domain logic or source of truth |
 | Vercel | Public client deployment from `main` |
-| Render | FastAPI deployment using the existing service configuration |
+| Render | FastAPI deployment from the production `main` branch |
 | Docker and GitHub Actions | Reproducible local setup and automated checks |
 
 ## Run locally
@@ -189,6 +193,18 @@ OPENAI_MODEL=...
 
 OpenRouter is also supported. No provider credential is required for the
 deterministic workflow, CI, or the primary public demo.
+
+Semantic and hybrid retrieval can be enabled independently of the assistant:
+
+```dotenv
+EMBEDDING_PROVIDER=openai
+EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_DIMENSIONS=1536
+```
+
+For OpenRouter, use `openrouter` as the provider and its provider-qualified
+embedding model identifier. Lexical retrieval remains available without these
+settings.
 
 ## Quality checks
 

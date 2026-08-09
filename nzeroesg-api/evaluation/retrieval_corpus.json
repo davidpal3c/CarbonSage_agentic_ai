@@ -1,0 +1,65 @@
+[
+  {
+    "evidence_id": "northstar",
+    "supplier_name": "Northstar Logistics",
+    "region": "Canada",
+    "certifications": ["ISO 14001"],
+    "transport_modes": ["rail", "truck"],
+    "filename": "northstar-logistics.txt",
+    "content": "Northstar Logistics operates in Canada and maintains ISO 14001 certification. Its 2030 target is to reduce freight emissions by 30 percent from its 2024 baseline. The supplier is shifting long-haul freight from road transport to lower-emission rail routes while retaining trucks for final-mile delivery."
+  },
+  {
+    "evidence_id": "pacific",
+    "supplier_name": "Pacific Maritime",
+    "region": "Singapore",
+    "certifications": ["ISO 50001"],
+    "transport_modes": ["ocean", "rail"],
+    "filename": "pacific-maritime.txt",
+    "content": "Pacific Maritime reports ISO 50001 certification for its energy-management system. At participating ports, vessels use shore power through electrified connections to reduce emissions while berthed. Its freight policy avoids routine air freight and prioritizes ocean and rail transport except when safety or emergency requirements prevent those choices."
+  },
+  {
+    "evidence_id": "alpine",
+    "supplier_name": "Alpine Components",
+    "region": "Germany",
+    "certifications": ["ISO 14001"],
+    "transport_modes": ["truck", "rail"],
+    "filename": "alpine-components.txt",
+    "content": "Alpine Components is a German supplier. Its regional delivery program uses battery-electric trucks, and the company plans to complete that fleet transition by 2028. Alpine also operates a distribution depot powered by contracted renewable electricity and uses rail for selected inbound materials."
+  },
+  {
+    "evidence_id": "desert",
+    "supplier_name": "Desert Air Cargo",
+    "region": "United Arab Emirates",
+    "certifications": [],
+    "transport_modes": ["air"],
+    "filename": "desert-air-cargo.txt",
+    "content": "Desert Air Cargo is based in the United Arab Emirates and depends primarily on air freight. It purchases sustainable aviation fuel certificates covering ten percent of reported flights. The supplier has announced an emissions-reduction target, but the provided evidence does not show that the target was independently audited or externally validated."
+  },
+  {
+    "evidence_id": "circular",
+    "supplier_name": "Circular Packaging",
+    "region": "United Kingdom",
+    "certifications": ["FSC chain-of-custody"],
+    "transport_modes": ["truck"],
+    "filename": "circular-packaging.txt",
+    "content": "Circular Packaging is a United Kingdom supplier with FSC chain-of-custody certification. Its packaging circularity program reports that 85 percent of packaging material comes from recovered or recycled sources. The supplier also offers reusable transport packaging for selected customer routes."
+  },
+  {
+    "evidence_id": "tundra",
+    "supplier_name": "Tundra Cold Chain",
+    "region": "Canada",
+    "certifications": [],
+    "transport_modes": ["refrigerated truck"],
+    "filename": "tundra-cold-chain.txt",
+    "content": "Tundra Cold Chain manages temperature-controlled deliveries across Canada. The supplier operates refrigerated logistics and records fuel-efficiency data for its reefer trailers. Its monthly review compares refrigeration-unit fuel consumption, route distance, and cargo temperature exceptions."
+  },
+  {
+    "evidence_id": "solaris",
+    "supplier_name": "Solaris Manufacturing",
+    "region": "Mexico",
+    "certifications": ["ISO 14064"],
+    "transport_modes": ["rail", "truck"],
+    "filename": "solaris-manufacturing.txt",
+    "content": "Solaris Manufacturing operates in Mexico and reports ISO 14064 verification of its greenhouse-gas inventory. The primary facility uses on-site solar generation for part of its electricity demand. Solaris publishes Scope 3 value-chain emissions information covering purchased materials and outbound freight."
+  }
+]

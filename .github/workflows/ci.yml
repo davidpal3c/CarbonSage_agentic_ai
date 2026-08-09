@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16.9
+        image: pgvector/pgvector:0.8.6-pg16-bookworm
         env:
           POSTGRES_DB: nzeroesg_test
           POSTGRES_USER: nzeroesg
@@ -77,7 +77,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16.9
+        image: pgvector/pgvector:0.8.6-pg16-bookworm
         env:
           POSTGRES_DB: nzeroesg_test
           POSTGRES_USER: nzeroesg

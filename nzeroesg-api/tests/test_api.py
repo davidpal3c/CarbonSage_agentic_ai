@@ -1,8 +1,43 @@
+import pytest
 from fastapi.testclient import TestClient
 
+import api.evidence as evidence_api
+from domain.evidence.embeddings import (
+    EMBEDDING_DIMENSIONS,
+    EmbeddingProviderError,
+    EmbeddingSpec,
+)
 from main import app
 
 client = TestClient(app)
+
+
+class FixtureEmbeddingAdapter:
+    spec = EmbeddingSpec(provider="fixture", model="semantic-v1")
+
+    @staticmethod
+    def _vector(text: str) -> tuple[float, ...]:
+        values = [0.0] * EMBEDDING_DIMENSIONS
+        normalized = text.casefold()
+        if any(term in normalized for term in ("rail", "lower transport emissions")):
+            values[0] = 1.0
+        else:
+            values[1] = 1.0
+        return tuple(values)
+
+    def embed_documents(self, texts):
+        return tuple(self._vector(text) for text in texts)
+
+    def embed_query(self, text):
+        return self._vector(text)
+
+
+class FailingEmbeddingAdapter(FixtureEmbeddingAdapter):
+    def embed_documents(self, texts):
+        raise EmbeddingProviderError("fixture provider unavailable")
+
+    def embed_query(self, text):
+        raise EmbeddingProviderError("fixture provider unavailable")
 
 
 def authenticated_client() -> TestClient:
@@ -20,6 +55,7 @@ def test_health_is_available_without_provider_credentials():
         "status": "ok",
         "environment": "development",
         "assistant_enabled": False,
+        "semantic_search_enabled": False,
     }
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["x-frame-options"] == "DENY"
@@ -263,6 +299,126 @@ def test_evidence_upload_and_search_return_recoverable_citation():
     assert match["citation"]["filename"] == "supplier.txt"
     assert match["citation"]["chunk_index"] == 0
     assert "ISO 14001" in match["excerpt"]
+
+
+def test_evidence_semantic_and_hybrid_modes_use_versioned_embeddings(monkeypatch):
+    monkeypatch.setattr(evidence_api, "embedding_adapter", FixtureEmbeddingAdapter())
+    first_client = authenticated_client()
+    second_client = authenticated_client()
+
+    upload = first_client.post(
+        "/evidence/upload",
+        data={"supplier_name": "Supplier ABC"},
+        files={
+            "file": (
+                "supplier.txt",
+                b"Supplier ABC shifts freight from road to lower-emission rail routes.",
+                "text/plain",
+            )
+        },
+    )
+
+    assert upload.status_code == 200
+    assert upload.json()["embedding_status"] == "indexed"
+    semantic = first_client.get(
+        "/evidence/search",
+        params={"query": "lower transport emissions", "mode": "semantic"},
+    )
+    hybrid = first_client.get(
+        "/evidence/search",
+        params={"query": "rail", "mode": "hybrid"},
+    )
+    isolated = second_client.get(
+        "/evidence/search",
+        params={"query": "lower transport emissions", "mode": "semantic"},
+    )
+
+    assert semantic.status_code == 200
+    assert semantic.json()["mode"] == "semantic"
+    assert semantic.json()["matches"][0]["citation"]["filename"] == "supplier.txt"
+    assert semantic.json()["matches"][0]["retrieval"]["semantic_rank"] == 1
+    assert hybrid.status_code == 200
+    assert hybrid.json()["mode"] == "hybrid"
+    assert hybrid.json()["matches"][0]["retrieval"] == {
+        "mode": "hybrid",
+        "score": pytest.approx(2 / 61),
+        "lexical_rank": 1,
+        "semantic_rank": 1,
+    }
+    assert isolated.status_code == 200
+    assert isolated.json()["matches"] == []
+
+
+def test_semantic_mode_reports_when_embedding_provider_is_unavailable():
+    demo_client = authenticated_client()
+
+    semantic = demo_client.get(
+        "/evidence/search",
+        params={"query": "supplier policy", "mode": "semantic"},
+    )
+    hybrid = demo_client.get(
+        "/evidence/search",
+        params={"query": "supplier policy", "mode": "hybrid"},
+    )
+
+    assert semantic.status_code == 503
+    assert hybrid.status_code == 200
+    assert hybrid.json()["mode"] == "lexical"
+    assert hybrid.json()["warning"]
+
+
+def test_provider_failure_preserves_upload_and_hybrid_uses_lexical_fallback(monkeypatch):
+    monkeypatch.setattr(evidence_api, "embedding_adapter", FailingEmbeddingAdapter())
+    demo_client = authenticated_client()
+
+    upload = demo_client.post(
+        "/evidence/upload",
+        data={"supplier_name": "Supplier ABC"},
+        files={
+            "file": (
+                "supplier.txt",
+                b"Supplier ABC holds ISO 14001 certification.",
+                "text/plain",
+            )
+        },
+    )
+    hybrid = demo_client.get(
+        "/evidence/search",
+        params={"query": "ISO 14001", "mode": "hybrid"},
+    )
+
+    assert upload.status_code == 200
+    assert upload.json()["embedding_status"] == "failed"
+    assert hybrid.status_code == 200
+    assert hybrid.json()["mode"] == "lexical"
+    assert hybrid.json()["semantic_available"] is False
+    assert hybrid.json()["matches"][0]["citation"]["filename"] == "supplier.txt"
+    assert "Semantic retrieval failed" in hybrid.json()["warning"]
+
+
+def test_semantic_search_lazily_indexes_existing_workspace_documents(monkeypatch):
+    demo_client = authenticated_client()
+    upload = demo_client.post(
+        "/evidence/upload",
+        data={"supplier_name": "Supplier ABC"},
+        files={
+            "file": (
+                "existing.txt",
+                b"Supplier ABC shifts freight from road to lower-emission rail routes.",
+                "text/plain",
+            )
+        },
+    )
+    assert upload.json()["embedding_status"] == "not_configured"
+
+    monkeypatch.setattr(evidence_api, "embedding_adapter", FixtureEmbeddingAdapter())
+    semantic = demo_client.get(
+        "/evidence/search",
+        params={"query": "lower transport emissions", "mode": "semantic"},
+    )
+
+    assert semantic.status_code == 200
+    assert semantic.json()["matches"][0]["citation"]["filename"] == "existing.txt"
 
 
 def test_evidence_documents_are_workspace_isolated_and_quota_limited():

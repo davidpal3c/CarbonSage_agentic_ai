@@ -41,6 +41,9 @@ class Settings:
     openai_model: str | None = os.getenv("OPENAI_MODEL")
     openrouter_api_key: str | None = os.getenv("OPENROUTER_API_KEY")
     openrouter_model: str | None = os.getenv("OPENROUTER_MODEL")
+    embedding_provider: str = os.getenv("EMBEDDING_PROVIDER", "").strip().lower()
+    embedding_model: str | None = os.getenv("EMBEDDING_MODEL") or None
+    embedding_dimensions: int = int(os.getenv("EMBEDDING_DIMENSIONS", "1536"))
     carbon_interface_api_key: str | None = os.getenv("CARBON_INTERFACE_API_KEY")
     cors_origins: tuple[str, ...] = _as_csv(
         os.getenv("CORS_ORIGINS"),

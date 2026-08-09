@@ -40,7 +40,7 @@ flowchart TD
     D --> E[Normalize and hash chunks]
     E --> F[PostgreSQL full-text index]
     E --> G[Embedding provider adapter]
-    G --> H[PostgreSQL vector index]
+    G --> H[PostgreSQL pgvector storage and query]
     F --> I[Hybrid retrieval service]
     H --> I
     I --> J[Ranked excerpts with recoverable citations]
@@ -56,9 +56,17 @@ Credential-free tests use deterministic fixture embeddings to verify vector
 storage, workspace filtering, distance ordering, and hybrid fusion without
 calling an external embedding provider.
 
-Embedding records must include model identifier, dimensions, content hash, and
-creation time so an index can be rebuilt or compared without silently mixing
-incompatible vectors.
+The first storage contract uses 1,536-dimensional vectors. Embedding records
+include provider, model identifier, dimensions, content hash, and creation and
+update times so the corpus can be rebuilt or compared without silently mixing
+incompatible vectors. New evidence is embedded synchronously when a provider
+is configured; existing workspace evidence is lazily and retryably backfilled
+before its first semantic or hybrid query.
+
+Exact cosine search is intentional for the bounded initial corpus. It avoids
+approximate-recall loss after workspace filtering and gives the evaluation a
+stable baseline. HNSW should only be introduced after row counts and latency
+show a need and tenant-filtered recall is measured.
 
 ## Retrieval modes
 
@@ -66,17 +74,23 @@ The evaluation compares three explicit modes:
 
 1. **Lexical** — current PostgreSQL full-text search.
 2. **Semantic** — vector similarity over the same normalized chunks.
-3. **Hybrid** — deterministic fusion of lexical and semantic candidates.
+3. **Hybrid** — reciprocal-rank fusion of lexical and semantic candidates,
+   using `k = 60` for the first deterministic contract.
 
 Structured supplier filters and the workspace identifier are applied before or
 during retrieval, never left to the model. Candidate fusion should use a stable
-method such as reciprocal-rank fusion rather than model-generated ranking for
-the first implementation.
+reciprocal-rank fusion rather than model-generated ranking. The authenticated
+`GET /evidence/search` endpoint accepts `mode=lexical|semantic|hybrid` and
+returns the requested and actual mode, semantic availability, fallback
+warnings, per-mode ranks, and the original citation identity.
 
 ## Retrieval evaluation
 
-A checked-in evaluation set should contain approximately 25–40 representative
-questions spanning:
+The checked-in `nzeroesg-api/evaluation/retrieval_cases.json` contains 25
+representative questions, and `retrieval_corpus.json` contains the seven
+synthetic supplier records those questions reference. Together they make the
+comparison reproducible without using private or production evidence. The
+questions span:
 
 - exact certification names and policy phrases;
 - paraphrased supplier commitments;
@@ -85,8 +99,51 @@ questions spanning:
 - questions with related but unsupported language;
 - questions that should return insufficient evidence.
 
-Each case records expected artifact identifiers or relevant chunks. The gate
-compares:
+Each case records expected evidence identifiers and whether a supported answer
+should be possible. The database-backed capture runner creates an isolated,
+temporary workspace, ingests the corpus through the production evidence
+repository, runs one requested retrieval mode, and revokes the workspace when
+finished:
+
+```bash
+python -m scripts.run_retrieval_evaluation \
+  --mode lexical \
+  --output /tmp/carbonsage-lexical.json
+python -m scripts.evaluate_retrieval /tmp/carbonsage-lexical.json
+```
+
+`DATABASE_URL` is required. Semantic and hybrid captures additionally require
+an explicit embedding provider, model, and credential; they are never invoked
+by credential-free CI. `--provider-cost-usd` records the observed total charge
+when one is available from the provider. The capture runner records retrieval
+and citation candidates only. Answer fields must come from an actual grounded
+agent run, so a raw retrieval capture correctly receives no answer-support
+credit.
+
+The checked-in comparison now records all three modes on the same 25 cases and
+seven-record synthetic corpus:
+
+| Mode | Recall@5 | Mean reciprocal rank | Citation coverage | Mean retrieval latency | Estimated provider cost |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Lexical | `1.0` | `0.977273` | `1.0` | `18.167 ms` | `$0` |
+| Semantic | `0.954545` | `0.901515` | `1.0` | `2280.352 ms` | `$0.00001226` |
+| Hybrid | `1.0` | `0.969697` | `1.0` | `2260.406 ms` | `$0.00001226` |
+
+The lexical baseline ran in a disposable local PostgreSQL 16/pgvector 0.8.6
+container. The semantic and hybrid captures used an isolated temporary
+workspace in Neon PostgreSQL 18.4/pgvector 0.8.1 and
+`openai/text-embedding-3-small` through OpenRouter at 1,536 dimensions. Their
+latency therefore includes remote provider and database round trips and is a
+reference measurement, not a production service-level objective. Cost is an
+estimate based on 613 input tokens and the provider's listed input-token
+price.
+
+All answer-support scores are deliberately `0.0` because no generated answers
+were part of these retrieval-only runs. Reports are stored in
+`evaluation/reports/lexical-baseline.json`,
+`semantic-openrouter-baseline.json`, and `hybrid-openrouter-baseline.json`.
+
+The gate compares:
 
 - recall at k;
 - mean reciprocal rank or reciprocal-rank position;
@@ -95,10 +152,21 @@ compares:
 - unsupported-answer rate;
 - processing time and provider cost.
 
-The pgvector-backed semantic path is implemented regardless of the comparison
-result. Evaluation determines fusion weights, query routing, and when lexical,
-semantic, or hybrid ranking should lead. Product claims about improvement are
-made only when the measured results support them.
+The measured routing decision is deliberately conservative:
+
+- keep lexical retrieval as the low-latency, credential-free control-plane
+  default and provider-failure fallback;
+- use hybrid retrieval for the grounded agent when embeddings are healthy,
+  because it retained lexical recall@5 and recovered the expected result in
+  the one case missed by semantic-only retrieval;
+- keep semantic-only mode available for diagnostics and future comparison,
+  but do not route agent questions to it by default;
+- retain reciprocal-rank fusion with `k = 60` for the next vertical slice.
+
+Hybrid's mean reciprocal rank was slightly below lexical retrieval, so
+CarbonSage claims measured semantic capability and full hybrid recall on this
+corpus—not a blanket retrieval-quality improvement. Phase 9 must separately
+measure answer support once the grounded agent produces cited responses.
 
 ## Agent workflow
 

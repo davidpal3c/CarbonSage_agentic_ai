@@ -38,7 +38,7 @@ localhost:3000  Next.js frontend
 localhost:8000  FastAPI backend
        │
        ▼
-local PostgreSQL   workspace/quota records
+local PostgreSQL + pgvector   workspace, evidence, and embedding records
 ```
 
 Start it with:
@@ -47,10 +47,10 @@ Start it with:
 docker compose up --build
 ```
 
-Compose applies the checked-in workspace migration and uses PostgreSQL for
-session-backed workspace records. Native development without `DATABASE_URL`
-uses the explicitly documented in-memory adapter; production must configure a
-managed PostgreSQL URL.
+Compose uses the pinned `pgvector/pgvector:0.8.6-pg16-bookworm` image and
+applies the checked-in migrations for workspace, evidence, and vector records.
+Native development without `DATABASE_URL` uses the explicitly documented
+in-memory adapter; production must configure a managed PostgreSQL URL.
 
 The Compose configuration intentionally sets `ASSISTANT_ENABLED=false`. This
 keeps the baseline reproducible without provider credentials and verifies that
@@ -67,11 +67,15 @@ The backend health check gates frontend startup in Compose.
 ## Target deployment
 
 The checked-in [`render.yaml`](../render.yaml) is the deployment handoff for
-the API. It intentionally uses the `dev` branch, waits for CI checks to pass,
+the API. It uses the production `main` branch and waits for CI checks to pass,
 generates the session secret in Render, and declares `DATABASE_URL` as a
 dashboard-supplied secret. Create or review the Blueprint in the Render
-Dashboard, enter the Neon connection string, and deploy the current `dev`
-branch; this repository does not contain a deploy hook or provider token.
+Dashboard, enter the Neon connection string, and deploy `main` only after a
+verified `dev` release is promoted; this repository does not contain a deploy
+hook or provider token.
+
+Both Vercel and Render use `main` as the production boundary. Feature branches
+merge into `dev` for CI and evaluation without deploying either public service.
 
 ### Frontend
 
@@ -89,6 +93,10 @@ branch; this repository does not contain a deploy hook or provider token.
 - allow CORS only from the deployed frontend and documented local origins;
 - keep the optional assistant disabled unless a provider and quota policy are
   explicitly configured;
+- configure `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, and the matching provider
+  credential only when semantic retrieval should call an external embedding
+  API; use `text-embedding-3-small` for OpenAI or the provider-qualified model
+  identifier for OpenRouter, while lexical search remains credential-free;
 - keep artifact, retrieval, conversation, embed-auth, and typed-tool modules in
   the same deployable service.
 
@@ -101,6 +109,18 @@ branch; this repository does not contain a deploy hook or provider token.
 - provision pgvector through checked-in migrations and store versioned
   embeddings in PostgreSQL; evaluation tunes retrieval behavior rather than
   gating vector capability.
+
+Migration `004_pgvector_retrieval.sql` enables the `vector` extension and adds
+workspace-scoped 1,536-dimensional embedding records with provider, model,
+content-hash, and timestamp metadata. Existing evidence is lazily backfilled
+within the current three-document workspace limit when semantic or hybrid
+search is first requested.
+
+The initial vector query is exact cosine search rather than an approximate
+index. With the bounded demo corpus this preserves perfect recall and applies
+the workspace predicate directly. HNSW remains a measured scale optimization,
+not a prerequisite; shared approximate indexes can reduce recall after tenant
+filtering.
 
 Neon is a better fit than Render Postgres for this prototype: the current Neon
 Free plan is $0, provides PostgreSQL with scale-to-zero, and is intended for

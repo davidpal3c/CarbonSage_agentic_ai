@@ -70,6 +70,8 @@ type SupplierCard = {
   missing_fields: string[];
 };
 
+type RetrievalMode = "lexical" | "semantic" | "hybrid";
+
 type EvidenceMatch = {
   supplier_name: string;
   filename: string;
@@ -80,6 +82,21 @@ type EvidenceMatch = {
     document_sha256: string;
     filename: string;
   };
+  retrieval: {
+    mode: RetrievalMode;
+    score: number | null;
+    lexical_rank: number | null;
+    semantic_rank: number | null;
+  };
+};
+
+type EvidenceSearchData = {
+  query: string;
+  requested_mode: RetrievalMode;
+  mode: RetrievalMode;
+  semantic_available: boolean;
+  warning: string | null;
+  matches: EvidenceMatch[];
 };
 
 type ScenarioData = {
@@ -138,6 +155,9 @@ export default function UserPortalPage() {
   const [transportModes, setTransportModes] = useState("");
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [evidenceQuery, setEvidenceQuery] = useState("");
+  const [evidenceMode, setEvidenceMode] = useState<RetrievalMode>("lexical");
+  const [evidenceSearchData, setEvidenceSearchData] =
+    useState<EvidenceSearchData | null>(null);
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
   const [isEvidenceUploading, setIsEvidenceUploading] = useState(false);
   const [isSearchingEvidence, setIsSearchingEvidence] = useState(false);
@@ -342,16 +362,24 @@ export default function UserPortalPage() {
     }
     setIsSearchingEvidence(true);
     setEvidenceError(null);
+    setEvidenceMatches([]);
+    setEvidenceSearchData(null);
     try {
       const response = await fetch(
-        `${getBackendUrl()}/evidence/search?query=${encodeURIComponent(evidenceQuery.trim())}`,
+        `${getBackendUrl()}/evidence/search?query=${encodeURIComponent(evidenceQuery.trim())}&mode=${evidenceMode}`,
         { credentials: "include" },
       );
       if (!response.ok) {
-        throw new Error("Evidence search could not be completed.");
+        const detail = (await response.json().catch(() => null)) as {
+          detail?: string;
+        } | null;
+        throw new Error(
+          detail?.detail ?? "Evidence search could not be completed.",
+        );
       }
-      const payload = (await response.json()) as { matches: EvidenceMatch[] };
+      const payload = (await response.json()) as EvidenceSearchData;
       setEvidenceMatches(payload.matches);
+      setEvidenceSearchData(payload);
     } catch (requestError) {
       setEvidenceError(
         requestError instanceof Error
@@ -441,7 +469,8 @@ export default function UserPortalPage() {
         credentials: "include",
       });
     } finally {
-      window.location.assign("/");
+      router.replace("/");
+      router.refresh();
     }
   }
 
@@ -991,25 +1020,51 @@ export default function UserPortalPage() {
           </div>
 
           <form onSubmit={searchEvidence} className="mt-8">
-            <label className="flex flex-col gap-2 text-sm font-semibold text-primary">
-              Search document evidence
-              <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="flex w-full min-w-0 flex-1 flex-col gap-2 text-sm font-semibold text-primary sm:min-w-64">
+                Search document evidence
                 <input
                   value={evidenceQuery}
                   onChange={(event) => setEvidenceQuery(event.target.value)}
                   placeholder="ISO 14001"
-                  className="w-full min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 font-normal sm:min-w-64"
+                  className="w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 font-normal"
                 />
-                <button
-                  type="submit"
-                  disabled={isSearchingEvidence}
-                  className="rounded-full border border-secondary px-5 py-2 font-semibold text-secondary transition hover:bg-secondary hover:text-white disabled:cursor-wait disabled:opacity-60"
+              </label>
+              <label className="flex flex-col gap-2 text-sm font-semibold text-primary">
+                Retrieval mode
+                <select
+                  value={evidenceMode}
+                  onChange={(event) =>
+                    setEvidenceMode(event.target.value as RetrievalMode)
+                  }
+                  className="rounded-lg border border-border bg-background px-3 py-2 font-normal capitalize"
                 >
-                  {isSearchingEvidence ? "Searching…" : "Search citations"}
-                </button>
-              </div>
-            </label>
+                  <option value="lexical">Lexical</option>
+                  <option value="semantic">Semantic</option>
+                  <option value="hybrid">Hybrid</option>
+                </select>
+              </label>
+              <button
+                type="submit"
+                disabled={isSearchingEvidence}
+                className="rounded-full border border-secondary px-5 py-2 font-semibold text-secondary transition hover:bg-secondary hover:text-white disabled:cursor-wait disabled:opacity-60"
+              >
+                {isSearchingEvidence ? "Searching…" : "Search citations"}
+              </button>
+            </div>
           </form>
+
+          {evidenceSearchData ? (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Used {evidenceSearchData.mode} retrieval · semantic provider{" "}
+              {evidenceSearchData.semantic_available
+                ? "available"
+                : "unavailable"}
+              {evidenceSearchData.warning
+                ? ` · ${evidenceSearchData.warning}`
+                : ""}
+            </p>
+          ) : null}
 
           {evidenceMatches.length > 0 ? (
             <div className="mt-5 space-y-3">
@@ -1029,6 +1084,15 @@ export default function UserPortalPage() {
                     {match.citation.chunk_index}
                     {match.citation.page_number
                       ? `, page ${match.citation.page_number}`
+                      : ""}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Retrieval: {match.retrieval.mode}
+                    {match.retrieval.lexical_rank
+                      ? ` · lexical rank ${match.retrieval.lexical_rank}`
+                      : ""}
+                    {match.retrieval.semantic_rank
+                      ? ` · semantic rank ${match.retrieval.semantic_rank}`
                       : ""}
                   </p>
                 </article>

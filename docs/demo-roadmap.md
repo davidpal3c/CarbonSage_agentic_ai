@@ -467,8 +467,8 @@ Initial implementation evidence:
   including session creation, shipment analysis, supplier citation retrieval,
   scenario/report actions, print styling, and two-workspace isolation. It is
   wired as a separate CI job against disposable PostgreSQL.
-- A non-secret `render.yaml` Blueprint now defines the intended public API
-  service on `dev` with CI-gated auto-deploy and a generated session secret.
+- A non-secret `render.yaml` Blueprint defines the public API service on
+  production `main` with CI-gated auto-deploy and a generated session secret.
   `DATABASE_URL` is deliberately a dashboard-supplied secret for a Neon
   PostgreSQL project rather than a Render database resource. This keeps the
   database at the current Neon Free-plan price of $0 for the bounded demo.
@@ -591,6 +591,50 @@ Verification:
   fixture embeddings and no paid provider credential.
 - Evaluation tunes fusion weights and query routing while the pgvector-backed
   semantic capability remains available.
+
+Implementation evidence (completed 2026-08-08):
+
+- Migration `004_pgvector_retrieval.sql` enables pgvector and stores
+  workspace-scoped 1,536-dimensional vectors with provider, model, dimension,
+  content-hash, and timestamp metadata.
+- The provider-neutral adapter supports configured OpenAI-compatible embedding
+  endpoints while deterministic fixtures keep CI credential-free.
+- Evidence upload indexes bounded chunks when configured. Semantic and hybrid
+  requests lazily backfill pre-existing workspace evidence after validating
+  chunk hashes.
+- `GET /evidence/search` exposes lexical, semantic, and hybrid modes. Exact
+  cosine search preserves the workspace predicate and deterministic
+  reciprocal-rank fusion records both source ranks.
+- Local Compose and both PostgreSQL CI jobs use the pinned pgvector
+  0.8.6/PostgreSQL 16 image.
+- The checked-in 25-case evaluation set covers exact terms, paraphrases,
+  structured context, dates, evidence limitations, and unsupported questions.
+  A seven-supplier synthetic corpus makes every expected evidence identifier
+  reproducible. The isolated database-backed capture runner and grader report
+  recall at k, mean reciprocal rank, citation coverage, answer support,
+  unsupported answers, latency, and explicitly supplied provider cost.
+- Local credential-free tests pass, and the full backend suite passes against
+  a disposable pgvector/PostgreSQL database. Dev CI
+  [run 31209187231](https://github.com/davidpal3c/NZeroESG_Scope3/actions/runs/31209187231)
+  passed repository, backend, frontend, and browser jobs on 2026-08-07.
+- The reproducible PostgreSQL lexical baseline records recall@5 `1.0`, mean
+  reciprocal rank `0.977273`, and citation coverage `1.0`; answer support
+  remains explicitly unmeasured until a grounded agent run supplies answers.
+- Provider-backed captures with 1,536-dimensional
+  `openai/text-embedding-3-small` embeddings through OpenRouter are checked in
+  beside the lexical baseline. Semantic retrieval measured recall@5
+  `0.954545`, mean reciprocal rank `0.901515`, and citation coverage `1.0`.
+  Hybrid retrieval measured recall@5 `1.0`, mean reciprocal rank `0.969697`,
+  and citation coverage `1.0`.
+- Semantic-only retrieval missed one expected policy record in the top five;
+  deterministic hybrid fusion restored it at rank three. Hybrid therefore
+  leads for the future grounded agent when embeddings are healthy, lexical
+  remains the low-latency default and failure fallback, and semantic-only mode
+  remains available for diagnostics.
+- Hybrid matched lexical recall with a slightly lower reciprocal-rank score,
+  so the current claim is measured semantic capability and hybrid recall—not
+  a blanket quality improvement over lexical search. Answer support remains a
+  Phase 9 measurement because these captures did not generate answers.
 
 Exit gate:
 

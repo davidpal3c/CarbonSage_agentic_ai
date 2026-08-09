@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from contextlib import closing
+from hashlib import sha256
+from math import sqrt
 from typing import Protocol
 from uuid import uuid4
 
@@ -11,12 +13,20 @@ try:
 except ImportError:  # pragma: no cover - exercised only before optional local setup
     psycopg = None
 
+from domain.evidence.embeddings import (
+    ChunkEmbedding,
+    EmbeddingSpec,
+    PendingEmbeddingDocument,
+    validate_vector,
+)
 from domain.evidence.models import (
+    EvidenceChunk,
     EvidenceDocument,
     EvidenceMatch,
     SupplierCard,
     SupplierMetadata,
 )
+from domain.evidence.retrieval import RetrievalMode, rank_matches
 
 
 class EvidenceRepository(Protocol):
@@ -29,7 +39,41 @@ class EvidenceRepository(Protocol):
 
     def list_suppliers(self, workspace_id: str) -> tuple[SupplierCard, ...]: ...
 
-    def search(self, workspace_id: str, query: str) -> tuple[EvidenceMatch, ...]: ...
+    def store_embeddings(
+        self,
+        workspace_id: str,
+        document_sha256: str,
+        spec: EmbeddingSpec,
+        embeddings: tuple[ChunkEmbedding, ...],
+    ) -> int: ...
+
+    def list_unembedded_documents(
+        self,
+        workspace_id: str,
+        spec: EmbeddingSpec,
+    ) -> tuple[PendingEmbeddingDocument, ...]: ...
+
+    def search_lexical(self, workspace_id: str, query: str) -> tuple[EvidenceMatch, ...]: ...
+
+    def search_semantic(
+        self,
+        workspace_id: str,
+        query_embedding: tuple[float, ...],
+        spec: EmbeddingSpec,
+    ) -> tuple[EvidenceMatch, ...]: ...
+
+
+def _vector_literal(values: tuple[float, ...]) -> str:
+    return "[" + ",".join(format(value, ".12g") for value in values) + "]"
+
+
+def _cosine_similarity(left: tuple[float, ...], right: tuple[float, ...]) -> float:
+    numerator = sum(a * b for a, b in zip(left, right, strict=True))
+    left_norm = sqrt(sum(value * value for value in left))
+    right_norm = sqrt(sum(value * value for value in right))
+    if not left_norm or not right_norm:
+        return 0.0
+    return numerator / (left_norm * right_norm)
 
 
 def _missing_fields(
@@ -75,6 +119,7 @@ class InMemoryEvidenceRepository:
     def __init__(self) -> None:
         self._suppliers: dict[tuple[str, str], tuple[str, SupplierMetadata, int]] = {}
         self._documents: dict[tuple[str, str], tuple[str, SupplierMetadata, EvidenceDocument]] = {}
+        self._embeddings: dict[tuple[str, str, int, str, str], ChunkEmbedding] = {}
 
     def store(
         self,
@@ -106,7 +151,72 @@ class InMemoryEvidenceRepository:
         ]
         return tuple(sorted(cards, key=lambda card: card.name.casefold()))
 
-    def search(self, workspace_id: str, query: str) -> tuple[EvidenceMatch, ...]:
+    def store_embeddings(
+        self,
+        workspace_id: str,
+        document_sha256: str,
+        spec: EmbeddingSpec,
+        embeddings: tuple[ChunkEmbedding, ...],
+    ) -> int:
+        document_record = self._documents.get((workspace_id, document_sha256))
+        if document_record is None:
+            raise ValueError("Evidence document was not found in this workspace.")
+        document = document_record[2]
+        chunks_by_index = {chunk.chunk_index: chunk for chunk in document.chunks}
+        for embedding in embeddings:
+            chunk = chunks_by_index.get(embedding.chunk_index)
+            if chunk is None:
+                raise ValueError("Embedding references an unknown evidence chunk.")
+            content_hash = sha256(chunk.content.encode("utf-8")).hexdigest()
+            if content_hash != embedding.content_sha256:
+                raise ValueError("Embedding content hash does not match the evidence chunk.")
+            validate_vector(embedding.values, spec.dimensions)
+            self._embeddings[
+                (
+                    workspace_id,
+                    document_sha256,
+                    embedding.chunk_index,
+                    spec.provider,
+                    spec.model,
+                )
+            ] = embedding
+        return len(embeddings)
+
+    def list_unembedded_documents(
+        self,
+        workspace_id: str,
+        spec: EmbeddingSpec,
+    ) -> tuple[PendingEmbeddingDocument, ...]:
+        pending: list[PendingEmbeddingDocument] = []
+        for (record_workspace, document_sha), (
+            _supplier_id,
+            _supplier,
+            document,
+        ) in self._documents.items():
+            if record_workspace != workspace_id:
+                continue
+            missing_chunks = tuple(
+                chunk
+                for chunk in document.chunks
+                if (
+                    workspace_id,
+                    document_sha,
+                    chunk.chunk_index,
+                    spec.provider,
+                    spec.model,
+                )
+                not in self._embeddings
+            )
+            if missing_chunks:
+                pending.append(
+                    PendingEmbeddingDocument(
+                        document_sha256=document_sha,
+                        chunks=missing_chunks,
+                    )
+                )
+        return tuple(sorted(pending, key=lambda document: document.document_sha256))
+
+    def search_lexical(self, workspace_id: str, query: str) -> tuple[EvidenceMatch, ...]:
         terms = {term.casefold() for term in query.split() if term.strip()}
         matches: list[tuple[int, EvidenceMatch]] = []
         for (record_workspace, _), (_supplier_id, supplier, document) in self._documents.items():
@@ -126,14 +236,78 @@ class InMemoryEvidenceRepository:
                                 page_number=chunk.page_number,
                                 chunk_index=chunk.chunk_index,
                                 document_sha256=document.sha256,
+                                score=float(score),
                             ),
                         )
                     )
-        return tuple(match for _, match in sorted(matches, key=lambda item: -item[0])[:20])
+        ordered = tuple(
+            match
+            for _, match in sorted(
+                matches,
+                key=lambda item: (-item[0], item[1].document_sha256, item[1].chunk_index),
+            )[:20]
+        )
+        return rank_matches(ordered, mode=RetrievalMode.LEXICAL)
+
+    def search_semantic(
+        self,
+        workspace_id: str,
+        query_embedding: tuple[float, ...],
+        spec: EmbeddingSpec,
+    ) -> tuple[EvidenceMatch, ...]:
+        validated_query = validate_vector(query_embedding, spec.dimensions)
+        matches: list[EvidenceMatch] = []
+        for (record_workspace, document_sha), (
+            _supplier_id,
+            supplier,
+            document,
+        ) in self._documents.items():
+            if record_workspace != workspace_id:
+                continue
+            for chunk in document.chunks:
+                embedding = self._embeddings.get(
+                    (
+                        workspace_id,
+                        document_sha,
+                        chunk.chunk_index,
+                        spec.provider,
+                        spec.model,
+                    )
+                )
+                if embedding is None:
+                    continue
+                matches.append(
+                    EvidenceMatch(
+                        supplier_name=supplier.name,
+                        filename=document.filename,
+                        excerpt=chunk.content,
+                        page_number=chunk.page_number,
+                        chunk_index=chunk.chunk_index,
+                        document_sha256=document.sha256,
+                        retrieval_mode=RetrievalMode.SEMANTIC.value,
+                        score=_cosine_similarity(embedding.values, validated_query),
+                    )
+                )
+        ordered = tuple(
+            sorted(
+                matches,
+                key=lambda match: (
+                    -(match.score or 0.0),
+                    match.document_sha256,
+                    match.chunk_index,
+                ),
+            )[:20]
+        )
+        return rank_matches(ordered, mode=RetrievalMode.SEMANTIC)
+
+    def search(self, workspace_id: str, query: str) -> tuple[EvidenceMatch, ...]:
+        """Compatibility alias for the lexical baseline."""
+
+        return self.search_lexical(workspace_id, query)
 
 
 class PostgresEvidenceRepository:
-    """PostgreSQL full-text evidence repository."""
+    """PostgreSQL lexical and pgvector evidence repository."""
 
     def __init__(self, database_url: str) -> None:
         if psycopg is None:
@@ -265,14 +439,134 @@ class PostgresEvidenceRepository:
             for row in rows
         )
 
-    def search(self, workspace_id: str, query: str) -> tuple[EvidenceMatch, ...]:
+    def store_embeddings(
+        self,
+        workspace_id: str,
+        document_sha256: str,
+        spec: EmbeddingSpec,
+        embeddings: tuple[ChunkEmbedding, ...],
+    ) -> int:
+        if not embeddings:
+            return 0
         with closing(self._connect()) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
+                    SELECT c.chunk_id, c.chunk_index, c.content
+                    FROM evidence_chunks AS c
+                    JOIN evidence_documents AS d
+                        ON d.document_id = c.document_id
+                       AND d.workspace_id = c.workspace_id
+                    WHERE c.workspace_id = %s AND d.sha256 = %s
+                    ORDER BY c.chunk_index
+                    """,
+                    (workspace_id, document_sha256),
+                )
+                chunks = {row[1]: (str(row[0]), row[2]) for row in cursor.fetchall()}
+                if not chunks:
+                    raise ValueError("Evidence document was not found in this workspace.")
+
+                records: list[tuple[object, ...]] = []
+                for embedding in embeddings:
+                    chunk = chunks.get(embedding.chunk_index)
+                    if chunk is None:
+                        raise ValueError("Embedding references an unknown evidence chunk.")
+                    chunk_id, content = chunk
+                    content_hash = sha256(content.encode("utf-8")).hexdigest()
+                    if content_hash != embedding.content_sha256:
+                        raise ValueError(
+                            "Embedding content hash does not match the evidence chunk."
+                        )
+                    vector = validate_vector(embedding.values, spec.dimensions)
+                    records.append(
+                        (
+                            str(uuid4()),
+                            workspace_id,
+                            chunk_id,
+                            spec.provider,
+                            spec.model,
+                            spec.dimensions,
+                            embedding.content_sha256,
+                            _vector_literal(vector),
+                        )
+                    )
+                cursor.executemany(
+                    """
+                    INSERT INTO evidence_chunk_embeddings
+                        (embedding_id, workspace_id, chunk_id, provider, model,
+                         dimensions, content_sha256, embedding)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s::vector)
+                    ON CONFLICT (chunk_id, provider, model)
+                    DO UPDATE SET dimensions = EXCLUDED.dimensions,
+                                  content_sha256 = EXCLUDED.content_sha256,
+                                  embedding = EXCLUDED.embedding,
+                                  updated_at = CURRENT_TIMESTAMP
+                    """,
+                    records,
+                )
+            connection.commit()
+        return len(records)
+
+    def list_unembedded_documents(
+        self,
+        workspace_id: str,
+        spec: EmbeddingSpec,
+    ) -> tuple[PendingEmbeddingDocument, ...]:
+        with closing(self._connect()) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT d.sha256, c.chunk_index, c.content, c.page_number, c.section
+                    FROM evidence_documents AS d
+                    JOIN evidence_chunks AS c
+                        ON c.document_id = d.document_id
+                       AND c.workspace_id = d.workspace_id
+                    LEFT JOIN evidence_chunk_embeddings AS e
+                        ON e.chunk_id = c.chunk_id
+                       AND e.workspace_id = c.workspace_id
+                       AND e.provider = %s
+                       AND e.model = %s
+                    WHERE d.workspace_id = %s
+                      AND e.chunk_id IS NULL
+                    ORDER BY d.sha256, c.chunk_index
+                    """,
+                    (spec.provider, spec.model, workspace_id),
+                )
+                rows = cursor.fetchall()
+
+        grouped: dict[str, list[EvidenceChunk]] = {}
+        for row in rows:
+            grouped.setdefault(row[0], []).append(
+                EvidenceChunk(
+                    chunk_index=row[1],
+                    content=row[2],
+                    page_number=row[3],
+                    section=row[4],
+                )
+            )
+        return tuple(
+            PendingEmbeddingDocument(
+                document_sha256=document_sha,
+                chunks=tuple(chunks),
+            )
+            for document_sha, chunks in grouped.items()
+        )
+
+    def search_lexical(self, workspace_id: str, query: str) -> tuple[EvidenceMatch, ...]:
+        with closing(self._connect()) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    WITH lexical_query AS (
+                        SELECT replace(
+                            plainto_tsquery('english', %s)::text,
+                            ' & ',
+                            ' | '
+                        )::tsquery AS value
+                    )
                     SELECT s.name, d.filename, c.content, c.page_number,
                            c.chunk_index, d.sha256,
-                           ts_rank(c.search_vector, plainto_tsquery('english', %s)) AS rank
+                           ts_rank(c.search_vector, lexical_query.value) AS rank
                     FROM evidence_chunks AS c
                     JOIN evidence_documents AS d
                         ON d.document_id = c.document_id
@@ -280,15 +574,16 @@ class PostgresEvidenceRepository:
                     JOIN suppliers AS s
                         ON s.supplier_id = c.supplier_id
                        AND s.workspace_id = c.workspace_id
+                    CROSS JOIN lexical_query
                     WHERE c.workspace_id = %s
-                      AND c.search_vector @@ plainto_tsquery('english', %s)
-                    ORDER BY rank DESC, c.chunk_index
+                      AND c.search_vector @@ lexical_query.value
+                    ORDER BY rank DESC, d.sha256, c.chunk_index
                     LIMIT 20
                     """,
-                    (query, workspace_id, query),
+                    (query, workspace_id),
                 )
                 rows = cursor.fetchall()
-        return tuple(
+        matches = tuple(
             EvidenceMatch(
                 supplier_name=row[0],
                 filename=row[1],
@@ -296,9 +591,72 @@ class PostgresEvidenceRepository:
                 page_number=row[3],
                 chunk_index=row[4],
                 document_sha256=row[5],
+                score=float(row[6]),
             )
             for row in rows
         )
+        return rank_matches(matches, mode=RetrievalMode.LEXICAL)
+
+    def search_semantic(
+        self,
+        workspace_id: str,
+        query_embedding: tuple[float, ...],
+        spec: EmbeddingSpec,
+    ) -> tuple[EvidenceMatch, ...]:
+        vector = _vector_literal(validate_vector(query_embedding, spec.dimensions))
+        with closing(self._connect()) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT s.name, d.filename, c.content, c.page_number,
+                           c.chunk_index, d.sha256,
+                           1 - (e.embedding <=> %s::vector) AS similarity
+                    FROM evidence_chunk_embeddings AS e
+                    JOIN evidence_chunks AS c
+                        ON c.chunk_id = e.chunk_id
+                       AND c.workspace_id = e.workspace_id
+                    JOIN evidence_documents AS d
+                        ON d.document_id = c.document_id
+                       AND d.workspace_id = c.workspace_id
+                    JOIN suppliers AS s
+                        ON s.supplier_id = c.supplier_id
+                       AND s.workspace_id = c.workspace_id
+                    WHERE e.workspace_id = %s
+                      AND e.provider = %s
+                      AND e.model = %s
+                      AND e.dimensions = %s
+                    ORDER BY e.embedding <=> %s::vector, d.sha256, c.chunk_index
+                    LIMIT 20
+                    """,
+                    (
+                        vector,
+                        workspace_id,
+                        spec.provider,
+                        spec.model,
+                        spec.dimensions,
+                        vector,
+                    ),
+                )
+                rows = cursor.fetchall()
+        matches = tuple(
+            EvidenceMatch(
+                supplier_name=row[0],
+                filename=row[1],
+                excerpt=row[2],
+                page_number=row[3],
+                chunk_index=row[4],
+                document_sha256=row[5],
+                retrieval_mode=RetrievalMode.SEMANTIC.value,
+                score=float(row[6]),
+            )
+            for row in rows
+        )
+        return rank_matches(matches, mode=RetrievalMode.SEMANTIC)
+
+    def search(self, workspace_id: str, query: str) -> tuple[EvidenceMatch, ...]:
+        """Compatibility alias for the lexical baseline."""
+
+        return self.search_lexical(workspace_id, query)
 
 
 def build_evidence_repository(database_url: str | None) -> EvidenceRepository:
