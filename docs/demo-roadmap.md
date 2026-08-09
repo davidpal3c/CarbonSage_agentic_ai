@@ -592,7 +592,7 @@ Verification:
 - Evaluation tunes fusion weights and query routing while the pgvector-backed
   semantic capability remains available.
 
-Implementation evidence (active sprint):
+Implementation evidence (completed 2026-08-08):
 
 - Migration `004_pgvector_retrieval.sql` enables pgvector and stores
   workspace-scoped 1,536-dimensional vectors with provider, model, dimension,
@@ -620,13 +620,21 @@ Implementation evidence (active sprint):
 - The reproducible PostgreSQL lexical baseline records recall@5 `1.0`, mean
   reciprocal rank `0.977273`, and citation coverage `1.0`; answer support
   remains explicitly unmeasured until a grounded agent run supplies answers.
-
-Remaining exit-gate evidence:
-
-- Run the checked-in cases with the selected deployed embedding model and
-  capture semantic and hybrid reports alongside the lexical baseline.
-- Use those measured reports to confirm or tune fusion and routing before
-  claiming retrieval-quality improvement.
+- Provider-backed captures with 1,536-dimensional
+  `openai/text-embedding-3-small` embeddings through OpenRouter are checked in
+  beside the lexical baseline. Semantic retrieval measured recall@5
+  `0.954545`, mean reciprocal rank `0.901515`, and citation coverage `1.0`.
+  Hybrid retrieval measured recall@5 `1.0`, mean reciprocal rank `0.969697`,
+  and citation coverage `1.0`.
+- Semantic-only retrieval missed one expected policy record in the top five;
+  deterministic hybrid fusion restored it at rank three. Hybrid therefore
+  leads for the future grounded agent when embeddings are healthy, lexical
+  remains the low-latency default and failure fallback, and semantic-only mode
+  remains available for diagnostics.
+- Hybrid matched lexical recall with a slightly lower reciprocal-rank score,
+  so the current claim is measured semantic capability and hybrid recall—not
+  a blanket quality improvement over lexical search. Answer support remains a
+  Phase 9 measurement because these captures did not generate answers.
 
 Exit gate:
 

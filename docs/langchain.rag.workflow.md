@@ -120,12 +120,28 @@ and citation candidates only. Answer fields must come from an actual grounded
 agent run, so a raw retrieval capture correctly receives no answer-support
 credit.
 
-The checked-in lexical baseline, captured against PostgreSQL 16 and pgvector
-0.8.6, achieved recall@5 of `1.0`, mean reciprocal rank of `0.977273`, and
-citation coverage of `1.0` on this synthetic corpus. Its answer-support score
-is deliberately `0.0` because no generated answers were part of that run. The
-report is stored at `evaluation/reports/lexical-baseline.json`; its local
-latency is a reference measurement, not a production service-level objective.
+The checked-in comparison now records all three modes on the same 25 cases and
+seven-record synthetic corpus:
+
+| Mode | Recall@5 | Mean reciprocal rank | Citation coverage | Mean retrieval latency | Estimated provider cost |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Lexical | `1.0` | `0.977273` | `1.0` | `18.167 ms` | `$0` |
+| Semantic | `0.954545` | `0.901515` | `1.0` | `2280.352 ms` | `$0.00001226` |
+| Hybrid | `1.0` | `0.969697` | `1.0` | `2260.406 ms` | `$0.00001226` |
+
+The lexical baseline ran in a disposable local PostgreSQL 16/pgvector 0.8.6
+container. The semantic and hybrid captures used an isolated temporary
+workspace in Neon PostgreSQL 18.4/pgvector 0.8.1 and
+`openai/text-embedding-3-small` through OpenRouter at 1,536 dimensions. Their
+latency therefore includes remote provider and database round trips and is a
+reference measurement, not a production service-level objective. Cost is an
+estimate based on 613 input tokens and the provider's listed input-token
+price.
+
+All answer-support scores are deliberately `0.0` because no generated answers
+were part of these retrieval-only runs. Reports are stored in
+`evaluation/reports/lexical-baseline.json`,
+`semantic-openrouter-baseline.json`, and `hybrid-openrouter-baseline.json`.
 
 The gate compares:
 
@@ -136,10 +152,21 @@ The gate compares:
 - unsupported-answer rate;
 - processing time and provider cost.
 
-The pgvector-backed semantic path is implemented regardless of the comparison
-result. Evaluation determines fusion weights, query routing, and when lexical,
-semantic, or hybrid ranking should lead. Product claims about improvement are
-made only when the measured results support them.
+The measured routing decision is deliberately conservative:
+
+- keep lexical retrieval as the low-latency, credential-free control-plane
+  default and provider-failure fallback;
+- use hybrid retrieval for the grounded agent when embeddings are healthy,
+  because it retained lexical recall@5 and recovered the expected result in
+  the one case missed by semantic-only retrieval;
+- keep semantic-only mode available for diagnostics and future comparison,
+  but do not route agent questions to it by default;
+- retain reciprocal-rank fusion with `k = 60` for the next vertical slice.
+
+Hybrid's mean reciprocal rank was slightly below lexical retrieval, so
+CarbonSage claims measured semantic capability and full hybrid recall on this
+corpus—not a blanket retrieval-quality improvement. Phase 9 must separately
+measure answer support once the grounded agent produces cited responses.
 
 ## Agent workflow
 

@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "captured_on": "2026-08-08",
+  "mode": "hybrid",
+  "cases": "../retrieval_cases.json",
+  "corpus": "../retrieval_corpus.json",
+  "database": "Neon PostgreSQL 18.4 with pgvector 0.8.1",
+  "environment": "isolated temporary workspace in the configured development database",
+  "embedding": {
+    "provider": "openrouter",
+    "model": "openai/text-embedding-3-small",
+    "dimensions": 1536,
+    "fusion": "reciprocal-rank fusion",
+    "fusion_k": 60,
+    "estimated_input_tokens": 613,
+    "estimated_provider_cost_usd": 0.00001226
+  },
+  "k": 5,
+  "indexing_latency_ms": 19795.041,
+  "metrics": {
+    "case_count": 25,
+    "recall_at_k": 1.0,
+    "mean_reciprocal_rank": 0.969697,
+    "citation_coverage": 1.0,
+    "answer_support_rate": 0.0,
+    "unsupported_answer_rate": 0.0,
+    "mean_latency_ms": 2260.406,
+    "provider_cost_usd": 0.00001226
+  },
+  "notes": [
+    "This is a retrieval-only baseline; no generated answers were evaluated.",
+    "The estimated cost uses 613 input tokens and the provider's listed $0.02 per million input-token price.",
+    "Latency includes remote embedding-provider and Neon round trips from a development machine and is not a production service-level objective.",
+    "Hybrid retrieval restored the expected Pacific Components record at rank three for the case missed by semantic-only retrieval.",
+    "Hybrid matched lexical recall at five with a slightly lower mean reciprocal rank; this report does not claim a quality improvement over lexical retrieval."
+  ]
+}
