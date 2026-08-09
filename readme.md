@@ -65,6 +65,10 @@ evidence-grounded CarbonSage agent described in the roadmap.
 - Explicit lexical, pgvector semantic, and deterministic hybrid retrieval
   modes with workspace filtering, versioned embedding metadata, and a safe
   lexical fallback when no embedding provider is configured.
+- A checked-in 25-case retrieval evaluation: lexical and hybrid both reached
+  `1.0` recall@5, while hybrid recovered the one expected result missed by
+  semantic-only retrieval. The reports avoid claiming generated-answer
+  quality, which is evaluated in the next agent phase.
 - Scenario comparisons, accessible chart alternatives, printable report
   previews, and authenticated CSV export.
 - A Vercel client, Render API, Neon PostgreSQL database, and credential-free CI
@@ -75,17 +79,15 @@ evidence-grounded CarbonSage agent described in the roadmap.
 CarbonSage will build on that baseline in a controlled order:
 
 1. A small workspace artifact catalog with CRUD and provenance.
-2. Measured lexical, semantic, and hybrid retrieval comparisons using the
-   checked-in evaluation corpus to tune fusion and query routing.
-3. Typed, workspace-scoped tools for evidence search, emissions calculations,
+2. Typed, workspace-scoped tools for evidence search, emissions calculations,
    scenario comparison, and reports.
-4. A versioned response protocol for text, metrics, tables, charts, citations,
+3. A versioned response protocol for text, metrics, tables, charts, citations,
    warnings, artifact references, and confirmed actions.
-5. A dashboard agent playground using the same runtime and renderer as the
+4. A dashboard agent playground using the same runtime and renderer as the
    embedded experience.
-6. A framework-independent JavaScript loader and authenticated iframe.
-7. One explicit, read-only Google Drive selected-file import.
-8. Optionally, a read-only MCP adapter over the same stable application tools.
+5. A framework-independent JavaScript loader and authenticated iframe.
+6. One explicit, read-only Google Drive selected-file import.
+7. Optionally, a read-only MCP adapter over the same stable application tools.
 
 Dropbox, billing, organization administration, background synchronization,
 enterprise RBAC, and a family of framework-specific SDKs are intentionally
