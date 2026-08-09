@@ -10,12 +10,14 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from config import settings
+from domain.artifacts.models import ArtifactKind, ArtifactSourceType, create_artifact
 from domain.evidence.embeddings import EmbeddingAdapter, build_embedding_adapter, chunk_embeddings
 from domain.evidence.evaluation import RetrievalEvaluationCase, RetrievalEvaluationResult
 from domain.evidence.ingestion import extract_evidence
 from domain.evidence.models import EvidenceMatch, SupplierMetadata
 from domain.evidence.retrieval import RetrievalMode, reciprocal_rank_fusion
 from domain.workspaces.sessions import SessionSigner
+from persistence.artifacts import PostgresArtifactRepository
 from persistence.evidence import PostgresEvidenceRepository
 from persistence.workspaces import build_workspace_repository
 
@@ -140,6 +142,7 @@ def capture_results(
     adapter = _embedding_adapter(mode)
     workspace_repository = build_workspace_repository(database_url)
     evidence_repository = PostgresEvidenceRepository(database_url)
+    artifact_repository = PostgresArtifactRepository(database_url)
     signer = SessionSigner(
         "carbonsage-retrieval-evaluation-only-secret",
         ttl_seconds=3_600,
@@ -156,8 +159,18 @@ def capture_results(
                 filename=record.filename,
                 content_type="text/plain",
             ).document
+            artifact = create_artifact(
+                workspace_id=workspace.workspace_id,
+                kind=ArtifactKind.EVIDENCE_DOCUMENT,
+                title=document.filename,
+                source_type=ArtifactSourceType.LOCAL_UPLOAD,
+                created_by="retrieval-evaluation",
+                content_sha256=document.sha256,
+            )
+            artifact_repository.create(artifact)
             evidence_repository.store(
                 workspace.workspace_id,
+                artifact.artifact_id,
                 SupplierMetadata(
                     name=record.supplier_name,
                     region=record.region,

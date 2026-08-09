@@ -53,6 +53,7 @@ class SupplierCard:
 
 @dataclass(frozen=True)
 class EvidenceMatch:
+    artifact_id: str
     supplier_name: str
     filename: str
     excerpt: str
@@ -74,6 +75,7 @@ class EvidenceMatch:
             "filename": self.filename,
             "excerpt": self.excerpt,
             "citation": {
+                "artifact_id": self.artifact_id,
                 "page_number": self.page_number,
                 "chunk_index": self.chunk_index,
                 "document_sha256": self.document_sha256,

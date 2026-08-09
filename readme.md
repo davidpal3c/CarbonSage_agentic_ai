@@ -71,6 +71,9 @@ evidence-grounded CarbonSage agent described in the roadmap.
   quality, which is evaluated in the next agent phase.
 - Scenario comparisons, accessible chart alternatives, printable report
   previews, and authenticated CSV export.
+- A workspace artifact catalog for shipment datasets, evidence documents, and
+  report snapshots, with provenance, citation identity, rename, bounded
+  soft-deletion, and cross-workspace isolation.
 - A Vercel client, Render API, Neon PostgreSQL database, and credential-free CI
   and browser checks.
 
@@ -78,16 +81,15 @@ evidence-grounded CarbonSage agent described in the roadmap.
 
 CarbonSage will build on that baseline in a controlled order:
 
-1. A small workspace artifact catalog with CRUD and provenance.
-2. Typed, workspace-scoped tools for evidence search, emissions calculations,
+1. Typed, workspace-scoped tools for evidence search, emissions calculations,
    scenario comparison, and reports.
-3. A versioned response protocol for text, metrics, tables, charts, citations,
+2. A versioned response protocol for text, metrics, tables, charts, citations,
    warnings, artifact references, and confirmed actions.
-4. A dashboard agent playground using the same runtime and renderer as the
+3. A dashboard agent playground using the same runtime and renderer as the
    embedded experience.
-5. A framework-independent JavaScript loader and authenticated iframe.
-6. One explicit, read-only Google Drive selected-file import.
-7. Optionally, a read-only MCP adapter over the same stable application tools.
+4. A framework-independent JavaScript loader and authenticated iframe.
+5. One explicit, read-only Google Drive selected-file import.
+6. Optionally, a read-only MCP adapter over the same stable application tools.
 
 Dropbox, billing, organization administration, background synchronization,
 enterprise RBAC, and a family of framework-specific SDKs are intentionally
@@ -123,15 +125,15 @@ The detailed decisions and delivery gates live in:
 
 ## Stack
 
-| Part | Role |
-| --- | --- |
-| Next.js and React | Public site, control plane, agent playground, embed UI, and structured renderers |
-| FastAPI | Sessions, artifacts, retrieval, typed tools, conversations, and reports |
-| Neon PostgreSQL | Workspace data, evidence, full-text search, and evaluated vector retrieval |
-| LangChain | Optional orchestration adapter, not domain logic or source of truth |
-| Vercel | Public client deployment from `main` |
-| Render | FastAPI deployment from the production `main` branch |
-| Docker and GitHub Actions | Reproducible local setup and automated checks |
+| Part                      | Role                                                                             |
+| ------------------------- | -------------------------------------------------------------------------------- |
+| Next.js and React         | Public site, control plane, agent playground, embed UI, and structured renderers |
+| FastAPI                   | Sessions, artifacts, retrieval, typed tools, conversations, and reports          |
+| Neon PostgreSQL           | Workspace data, evidence, full-text search, and evaluated vector retrieval       |
+| LangChain                 | Optional orchestration adapter, not domain logic or source of truth              |
+| Vercel                    | Public client deployment from `main`                                             |
+| Render                    | FastAPI deployment from the production `main` branch                             |
+| Docker and GitHub Actions | Reproducible local setup and automated checks                                    |
 
 ## Run locally
 

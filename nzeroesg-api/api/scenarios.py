@@ -6,9 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from api.shipments import shipment_repository
-from api.workspaces import require_workspace_session, workspace_repository
+from api.workspaces import require_workspace_principal, workspace_repository
 from domain.scenarios.comparison import compare_shipment_modes
-from domain.workspaces.sessions import WorkspaceSession
+from domain.workspaces.principals import WorkspacePrincipal
 from persistence.workspaces import QuotaExceededError, WorkspaceNotFoundError
 
 ScenarioMode = Literal["plane", "air", "truck", "train", "ship", "ocean container"]
@@ -53,9 +53,9 @@ def _consume_analysis_run(workspace_id: str) -> None:
 @scenarios_router.post("/compare", response_model=ScenarioResponse)
 async def compare_scenario(
     payload: ScenarioRequest,
-    workspace: Annotated[WorkspaceSession, Depends(require_workspace_session)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
 ) -> ScenarioResponse:
-    shipments = shipment_repository.list_for_workspace(workspace.workspace_id)
+    shipments = shipment_repository.list_for_workspace(principal.workspace_id)
     try:
         comparison = compare_shipment_modes(
             shipments,
@@ -66,5 +66,5 @@ async def compare_scenario(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
         ) from exc
-    _consume_analysis_run(workspace.workspace_id)
+    _consume_analysis_run(principal.workspace_id)
     return ScenarioResponse.model_validate(comparison.to_dict())

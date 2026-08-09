@@ -1,12 +1,15 @@
 """Typed HTTP boundary for bounded shipment CSV ingestion."""
 
+from hashlib import sha256
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
-from api.workspaces import require_workspace_session, workspace_repository
+from api.artifacts import ArtifactResponse, artifact_repository, artifact_response
+from api.workspaces import require_workspace_principal, workspace_repository
 from config import database_url_for_runtime
+from domain.artifacts.models import Artifact, ArtifactKind, ArtifactSourceType, create_artifact
 from domain.shipments.analysis import ShipmentAnalysis, analyze_shipments
 from domain.shipments.ingestion import (
     ALLOWED_CONTENT_TYPES,
@@ -14,7 +17,7 @@ from domain.shipments.ingestion import (
     parse_shipments_csv,
 )
 from domain.shipments.models import NormalizedShipment
-from domain.workspaces.sessions import WorkspaceSession
+from domain.workspaces.principals import WorkspacePrincipal
 from persistence.shipments import build_shipment_repository
 from persistence.workspaces import QuotaExceededError, WorkspaceNotFoundError
 
@@ -67,6 +70,7 @@ class ShipmentAnalysisResponse(BaseModel):
 
 
 class ShipmentUploadResponse(BaseModel):
+    artifact: ArtifactResponse | None
     accepted_rows: int
     errors: list[ShipmentErrorResponse]
     warnings: list[str]
@@ -85,11 +89,13 @@ def _shipment_response(shipment: NormalizedShipment) -> ShipmentRowResponse:
 def _response(
     rows: tuple[NormalizedShipment, ...],
     *,
+    artifact: Artifact | None = None,
     errors: tuple[dict[str, object], ...] = (),
     warnings: tuple[str, ...] = (),
 ) -> ShipmentUploadResponse:
     analysis = analyze_shipments(rows, parser_warnings=warnings)
     return ShipmentUploadResponse(
+        artifact=artifact_response(artifact) if artifact else None,
         accepted_rows=len(rows),
         errors=[ShipmentErrorResponse.model_validate(error) for error in errors],
         warnings=list(analysis.warnings),
@@ -116,7 +122,7 @@ def _consume_analysis_run(workspace_id: str) -> None:
 @shipments_router.post("/upload", response_model=ShipmentUploadResponse)
 async def upload_shipments(
     file: Annotated[UploadFile, File(description="A UTF-8 shipment CSV")],
-    workspace: Annotated[WorkspaceSession, Depends(require_workspace_session)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
 ) -> ShipmentUploadResponse:
     media_type = (file.content_type or "").split(";", 1)[0].strip().lower()
     if media_type not in ALLOWED_CONTENT_TYPES:
@@ -129,17 +135,56 @@ async def upload_shipments(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail="File name must end with .csv.",
         )
+    if len(file.filename) > 255:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="File name must contain at most 255 characters.",
+        )
     content = await file.read(MAX_FILE_BYTES + 1)
     parsed = parse_shipments_csv(
         content,
         content_type=media_type,
         filename=file.filename,
     )
+    artifact = None
     if parsed.rows:
-        _consume_analysis_run(workspace.workspace_id)
-        shipment_repository.replace_for_workspace(workspace.workspace_id, parsed.rows)
+        _consume_analysis_run(principal.workspace_id)
+        artifact = create_artifact(
+            workspace_id=principal.workspace_id,
+            kind=ArtifactKind.SHIPMENT_DATASET,
+            title=file.filename,
+            source_type=ArtifactSourceType.LOCAL_UPLOAD,
+            source_reference=file.filename,
+            media_type=media_type,
+            content_sha256=sha256(content).hexdigest(),
+            created_by=principal.subject,
+        )
+        artifact_repository.create(artifact)
+        try:
+            shipment_repository.replace_for_workspace(
+                principal.workspace_id,
+                artifact.artifact_id,
+                parsed.rows,
+            )
+            artifact = artifact_repository.mark_ready(
+                principal.workspace_id,
+                artifact.artifact_id,
+                {
+                    "accepted_rows": len(parsed.rows),
+                    "validation_error_count": len(parsed.errors),
+                    "warning_count": len(parsed.warnings),
+                },
+            )
+            artifact_repository.soft_delete_other_ready_shipments(
+                principal.workspace_id,
+                artifact.artifact_id,
+            )
+        except Exception:
+            artifact_repository.mark_failed(principal.workspace_id, artifact.artifact_id)
+            raise
     return _response(
         parsed.rows,
+        artifact=artifact,
         errors=tuple(error.to_dict() for error in parsed.errors),
         warnings=parsed.warnings,
     )
@@ -147,7 +192,15 @@ async def upload_shipments(
 
 @shipments_router.get("", response_model=ShipmentUploadResponse)
 async def list_shipments(
-    workspace: Annotated[WorkspaceSession, Depends(require_workspace_session)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
 ) -> ShipmentUploadResponse:
-    rows = shipment_repository.list_for_workspace(workspace.workspace_id)
-    return _response(rows)
+    rows = shipment_repository.list_for_workspace(principal.workspace_id)
+    artifact = next(
+        (
+            item
+            for item in artifact_repository.list_for_workspace(principal.workspace_id)
+            if item.kind is ArtifactKind.SHIPMENT_DATASET
+        ),
+        None,
+    )
+    return _response(rows, artifact=artifact)

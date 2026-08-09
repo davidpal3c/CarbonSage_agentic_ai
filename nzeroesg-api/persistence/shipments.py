@@ -18,10 +18,13 @@ class ShipmentRepository(Protocol):
     def replace_for_workspace(
         self,
         workspace_id: str,
+        artifact_id: str,
         shipments: tuple[NormalizedShipment, ...],
     ) -> None: ...
 
     def list_for_workspace(self, workspace_id: str) -> tuple[NormalizedShipment, ...]: ...
+
+    def delete_for_artifact(self, workspace_id: str, artifact_id: str) -> int: ...
 
 
 def _clone(shipment: NormalizedShipment) -> NormalizedShipment:
@@ -40,17 +43,32 @@ class InMemoryShipmentRepository:
     """Non-persistent local fallback keyed by workspace id."""
 
     def __init__(self) -> None:
-        self._shipments: dict[str, tuple[NormalizedShipment, ...]] = {}
+        self._shipments: dict[str, tuple[str, tuple[NormalizedShipment, ...]]] = {}
 
     def replace_for_workspace(
         self,
         workspace_id: str,
+        artifact_id: str,
         shipments: tuple[NormalizedShipment, ...],
     ) -> None:
-        self._shipments[workspace_id] = tuple(_clone(shipment) for shipment in shipments)
+        self._shipments[workspace_id] = (
+            artifact_id,
+            tuple(_clone(shipment) for shipment in shipments),
+        )
 
     def list_for_workspace(self, workspace_id: str) -> tuple[NormalizedShipment, ...]:
-        return tuple(_clone(shipment) for shipment in self._shipments.get(workspace_id, ()))
+        record = self._shipments.get(workspace_id)
+        if record is None:
+            return ()
+        return tuple(_clone(shipment) for shipment in record[1])
+
+    def delete_for_artifact(self, workspace_id: str, artifact_id: str) -> int:
+        record = self._shipments.get(workspace_id)
+        if record is None or record[0] != artifact_id:
+            return 0
+        deleted = len(record[1])
+        del self._shipments[workspace_id]
+        return deleted
 
 
 class PostgresShipmentRepository:
@@ -67,6 +85,7 @@ class PostgresShipmentRepository:
     def replace_for_workspace(
         self,
         workspace_id: str,
+        artifact_id: str,
         shipments: tuple[NormalizedShipment, ...],
     ) -> None:
         with closing(self._connect()) as connection:
@@ -75,14 +94,15 @@ class PostgresShipmentRepository:
                 cursor.executemany(
                     """
                     INSERT INTO shipments
-                        (record_id, workspace_id, shipment_id, origin, destination,
+                        (record_id, workspace_id, artifact_id, shipment_id, origin, destination,
                          weight_kg, distance_km, transport_method, source_row)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     [
                         (
                             str(uuid4()),
                             workspace_id,
+                            artifact_id,
                             shipment.shipment_id,
                             shipment.origin,
                             shipment.destination,
@@ -103,8 +123,12 @@ class PostgresShipmentRepository:
                     """
                     SELECT shipment_id, origin, destination, weight_kg, distance_km,
                            transport_method, source_row
-                    FROM shipments
-                    WHERE workspace_id = %s
+                    FROM shipments AS shipment
+                    JOIN artifacts AS artifact
+                      ON artifact.artifact_id = shipment.artifact_id
+                     AND artifact.workspace_id = shipment.workspace_id
+                     AND artifact.deleted_at IS NULL
+                    WHERE shipment.workspace_id = %s
                     ORDER BY source_row, record_id
                     """,
                     (workspace_id,),
@@ -122,6 +146,20 @@ class PostgresShipmentRepository:
             )
             for row in rows
         )
+
+    def delete_for_artifact(self, workspace_id: str, artifact_id: str) -> int:
+        with closing(self._connect()) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    DELETE FROM shipments
+                    WHERE workspace_id = %s AND artifact_id = %s
+                    """,
+                    (workspace_id, artifact_id),
+                )
+                deleted = cursor.rowcount
+            connection.commit()
+        return deleted
 
 
 def build_shipment_repository(database_url: str | None) -> ShipmentRepository:

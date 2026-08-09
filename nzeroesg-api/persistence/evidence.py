@@ -33,11 +33,14 @@ class EvidenceRepository(Protocol):
     def store(
         self,
         workspace_id: str,
+        artifact_id: str,
         supplier: SupplierMetadata,
         document: EvidenceDocument,
     ) -> SupplierCard: ...
 
     def list_suppliers(self, workspace_id: str) -> tuple[SupplierCard, ...]: ...
+
+    def has_document(self, workspace_id: str, document_sha256: str) -> bool: ...
 
     def store_embeddings(
         self,
@@ -61,6 +64,8 @@ class EvidenceRepository(Protocol):
         query_embedding: tuple[float, ...],
         spec: EmbeddingSpec,
     ) -> tuple[EvidenceMatch, ...]: ...
+
+    def delete_for_artifact(self, workspace_id: str, artifact_id: str) -> int: ...
 
 
 def _vector_literal(values: tuple[float, ...]) -> str:
@@ -118,12 +123,16 @@ class InMemoryEvidenceRepository:
 
     def __init__(self) -> None:
         self._suppliers: dict[tuple[str, str], tuple[str, SupplierMetadata, int]] = {}
-        self._documents: dict[tuple[str, str], tuple[str, SupplierMetadata, EvidenceDocument]] = {}
+        self._documents: dict[
+            tuple[str, str],
+            tuple[str, str, SupplierMetadata, EvidenceDocument],
+        ] = {}
         self._embeddings: dict[tuple[str, str, int, str, str], ChunkEmbedding] = {}
 
     def store(
         self,
         workspace_id: str,
+        artifact_id: str,
         supplier: SupplierMetadata,
         document: EvidenceDocument,
     ) -> SupplierCard:
@@ -134,7 +143,7 @@ class InMemoryEvidenceRepository:
         )
         document_key = (workspace_id, document.sha256)
         if document_key not in self._documents:
-            self._documents[document_key] = (supplier_id, supplier, document)
+            self._documents[document_key] = (artifact_id, supplier_id, supplier, document)
             document_count += 1
         self._suppliers[supplier_key] = (supplier_id, supplier, document_count)
         return _card(supplier_id=supplier_id, supplier=supplier, document_count=document_count)
@@ -151,6 +160,9 @@ class InMemoryEvidenceRepository:
         ]
         return tuple(sorted(cards, key=lambda card: card.name.casefold()))
 
+    def has_document(self, workspace_id: str, document_sha256: str) -> bool:
+        return (workspace_id, document_sha256) in self._documents
+
     def store_embeddings(
         self,
         workspace_id: str,
@@ -161,7 +173,7 @@ class InMemoryEvidenceRepository:
         document_record = self._documents.get((workspace_id, document_sha256))
         if document_record is None:
             raise ValueError("Evidence document was not found in this workspace.")
-        document = document_record[2]
+        document = document_record[3]
         chunks_by_index = {chunk.chunk_index: chunk for chunk in document.chunks}
         for embedding in embeddings:
             chunk = chunks_by_index.get(embedding.chunk_index)
@@ -189,6 +201,7 @@ class InMemoryEvidenceRepository:
     ) -> tuple[PendingEmbeddingDocument, ...]:
         pending: list[PendingEmbeddingDocument] = []
         for (record_workspace, document_sha), (
+            _artifact_id,
             _supplier_id,
             _supplier,
             document,
@@ -219,7 +232,12 @@ class InMemoryEvidenceRepository:
     def search_lexical(self, workspace_id: str, query: str) -> tuple[EvidenceMatch, ...]:
         terms = {term.casefold() for term in query.split() if term.strip()}
         matches: list[tuple[int, EvidenceMatch]] = []
-        for (record_workspace, _), (_supplier_id, supplier, document) in self._documents.items():
+        for (record_workspace, _), (
+            artifact_id,
+            _supplier_id,
+            supplier,
+            document,
+        ) in self._documents.items():
             if record_workspace != workspace_id:
                 continue
             for chunk in document.chunks:
@@ -230,6 +248,7 @@ class InMemoryEvidenceRepository:
                         (
                             score,
                             EvidenceMatch(
+                                artifact_id=artifact_id,
                                 supplier_name=supplier.name,
                                 filename=document.filename,
                                 excerpt=chunk.content,
@@ -258,6 +277,7 @@ class InMemoryEvidenceRepository:
         validated_query = validate_vector(query_embedding, spec.dimensions)
         matches: list[EvidenceMatch] = []
         for (record_workspace, document_sha), (
+            artifact_id,
             _supplier_id,
             supplier,
             document,
@@ -278,6 +298,7 @@ class InMemoryEvidenceRepository:
                     continue
                 matches.append(
                     EvidenceMatch(
+                        artifact_id=artifact_id,
                         supplier_name=supplier.name,
                         filename=document.filename,
                         excerpt=chunk.content,
@@ -305,6 +326,31 @@ class InMemoryEvidenceRepository:
 
         return self.search_lexical(workspace_id, query)
 
+    def delete_for_artifact(self, workspace_id: str, artifact_id: str) -> int:
+        matching_keys = [
+            key
+            for key, record in self._documents.items()
+            if key[0] == workspace_id and record[0] == artifact_id
+        ]
+        for key in matching_keys:
+            _artifact_id, supplier_id, supplier, document = self._documents.pop(key)
+            for embedding_key in tuple(self._embeddings):
+                if embedding_key[0] == workspace_id and embedding_key[1] == document.sha256:
+                    del self._embeddings[embedding_key]
+            supplier_key = (workspace_id, supplier.name.casefold())
+            remaining = sum(
+                1
+                for record_workspace, _document_sha in self._documents
+                if record_workspace == workspace_id
+                and self._documents[(record_workspace, _document_sha)][1] == supplier_id
+            )
+            if remaining:
+                current = self._suppliers[supplier_key]
+                self._suppliers[supplier_key] = (current[0], current[1], remaining)
+            else:
+                self._suppliers.pop(supplier_key, None)
+        return len(matching_keys)
+
 
 class PostgresEvidenceRepository:
     """PostgreSQL lexical and pgvector evidence repository."""
@@ -320,6 +366,7 @@ class PostgresEvidenceRepository:
     def store(
         self,
         workspace_id: str,
+        artifact_id: str,
         supplier: SupplierMetadata,
         document: EvidenceDocument,
     ) -> SupplierCard:
@@ -360,13 +407,14 @@ class PostgresEvidenceRepository:
                     cursor.execute(
                         """
                         INSERT INTO evidence_documents
-                            (document_id, workspace_id, supplier_id, filename, media_type,
-                             sha256, page_count, extracted_chars)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                            (document_id, workspace_id, artifact_id, supplier_id,
+                             filename, media_type, sha256, page_count, extracted_chars)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                         """,
                         (
                             document_id,
                             workspace_id,
+                            artifact_id,
                             supplier_id,
                             document.filename,
                             document.media_type,
@@ -413,13 +461,18 @@ class PostgresEvidenceRepository:
                 cursor.execute(
                     """
                     SELECT s.supplier_id, s.name, s.region, s.certifications,
-                           s.transport_modes, COUNT(d.document_id)
+                           s.transport_modes, COUNT(a.artifact_id)
                     FROM suppliers AS s
                     LEFT JOIN evidence_documents AS d
                         ON d.supplier_id = s.supplier_id
                        AND d.workspace_id = s.workspace_id
+                    LEFT JOIN artifacts AS a
+                        ON a.artifact_id = d.artifact_id
+                       AND a.workspace_id = d.workspace_id
+                       AND a.deleted_at IS NULL
                     WHERE s.workspace_id = %s
                     GROUP BY s.supplier_id, s.name, s.region, s.certifications, s.transport_modes
+                    HAVING COUNT(a.artifact_id) > 0
                     ORDER BY s.name
                     """,
                     (workspace_id,),
@@ -439,6 +492,23 @@ class PostgresEvidenceRepository:
             for row in rows
         )
 
+    def has_document(self, workspace_id: str, document_sha256: str) -> bool:
+        with closing(self._connect()) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT 1
+                    FROM evidence_documents AS document
+                    JOIN artifacts AS artifact
+                      ON artifact.artifact_id = document.artifact_id
+                     AND artifact.workspace_id = document.workspace_id
+                     AND artifact.deleted_at IS NULL
+                    WHERE document.workspace_id = %s AND document.sha256 = %s
+                    """,
+                    (workspace_id, document_sha256),
+                )
+                return cursor.fetchone() is not None
+
     def store_embeddings(
         self,
         workspace_id: str,
@@ -457,6 +527,10 @@ class PostgresEvidenceRepository:
                     JOIN evidence_documents AS d
                         ON d.document_id = c.document_id
                        AND d.workspace_id = c.workspace_id
+                    JOIN artifacts AS a
+                        ON a.artifact_id = d.artifact_id
+                       AND a.workspace_id = d.workspace_id
+                       AND a.deleted_at IS NULL
                     WHERE c.workspace_id = %s AND d.sha256 = %s
                     ORDER BY c.chunk_index
                     """,
@@ -521,6 +595,10 @@ class PostgresEvidenceRepository:
                     JOIN evidence_chunks AS c
                         ON c.document_id = d.document_id
                        AND c.workspace_id = d.workspace_id
+                    JOIN artifacts AS a
+                        ON a.artifact_id = d.artifact_id
+                       AND a.workspace_id = d.workspace_id
+                       AND a.deleted_at IS NULL
                     LEFT JOIN evidence_chunk_embeddings AS e
                         ON e.chunk_id = c.chunk_id
                        AND e.workspace_id = c.workspace_id
@@ -564,7 +642,7 @@ class PostgresEvidenceRepository:
                             ' | '
                         )::tsquery AS value
                     )
-                    SELECT s.name, d.filename, c.content, c.page_number,
+                    SELECT d.artifact_id, s.name, d.filename, c.content, c.page_number,
                            c.chunk_index, d.sha256,
                            ts_rank(c.search_vector, lexical_query.value) AS rank
                     FROM evidence_chunks AS c
@@ -574,6 +652,10 @@ class PostgresEvidenceRepository:
                     JOIN suppliers AS s
                         ON s.supplier_id = c.supplier_id
                        AND s.workspace_id = c.workspace_id
+                    JOIN artifacts AS a
+                        ON a.artifact_id = d.artifact_id
+                       AND a.workspace_id = d.workspace_id
+                       AND a.deleted_at IS NULL
                     CROSS JOIN lexical_query
                     WHERE c.workspace_id = %s
                       AND c.search_vector @@ lexical_query.value
@@ -585,13 +667,14 @@ class PostgresEvidenceRepository:
                 rows = cursor.fetchall()
         matches = tuple(
             EvidenceMatch(
-                supplier_name=row[0],
-                filename=row[1],
-                excerpt=row[2],
-                page_number=row[3],
-                chunk_index=row[4],
-                document_sha256=row[5],
-                score=float(row[6]),
+                artifact_id=str(row[0]),
+                supplier_name=row[1],
+                filename=row[2],
+                excerpt=row[3],
+                page_number=row[4],
+                chunk_index=row[5],
+                document_sha256=row[6],
+                score=float(row[7]),
             )
             for row in rows
         )
@@ -608,7 +691,7 @@ class PostgresEvidenceRepository:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT s.name, d.filename, c.content, c.page_number,
+                    SELECT d.artifact_id, s.name, d.filename, c.content, c.page_number,
                            c.chunk_index, d.sha256,
                            1 - (e.embedding <=> %s::vector) AS similarity
                     FROM evidence_chunk_embeddings AS e
@@ -621,6 +704,10 @@ class PostgresEvidenceRepository:
                     JOIN suppliers AS s
                         ON s.supplier_id = c.supplier_id
                        AND s.workspace_id = c.workspace_id
+                    JOIN artifacts AS a
+                        ON a.artifact_id = d.artifact_id
+                       AND a.workspace_id = d.workspace_id
+                       AND a.deleted_at IS NULL
                     WHERE e.workspace_id = %s
                       AND e.provider = %s
                       AND e.model = %s
@@ -640,14 +727,15 @@ class PostgresEvidenceRepository:
                 rows = cursor.fetchall()
         matches = tuple(
             EvidenceMatch(
-                supplier_name=row[0],
-                filename=row[1],
-                excerpt=row[2],
-                page_number=row[3],
-                chunk_index=row[4],
-                document_sha256=row[5],
+                artifact_id=str(row[0]),
+                supplier_name=row[1],
+                filename=row[2],
+                excerpt=row[3],
+                page_number=row[4],
+                chunk_index=row[5],
+                document_sha256=row[6],
                 retrieval_mode=RetrievalMode.SEMANTIC.value,
-                score=float(row[6]),
+                score=float(row[7]),
             )
             for row in rows
         )
@@ -657,6 +745,35 @@ class PostgresEvidenceRepository:
         """Compatibility alias for the lexical baseline."""
 
         return self.search_lexical(workspace_id, query)
+
+    def delete_for_artifact(self, workspace_id: str, artifact_id: str) -> int:
+        with closing(self._connect()) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    DELETE FROM evidence_documents
+                    WHERE workspace_id = %s AND artifact_id = %s
+                    RETURNING supplier_id
+                    """,
+                    (workspace_id, artifact_id),
+                )
+                supplier_ids = [row[0] for row in cursor.fetchall()]
+                for supplier_id in supplier_ids:
+                    cursor.execute(
+                        """
+                        DELETE FROM suppliers AS supplier
+                        WHERE supplier.workspace_id = %s
+                          AND supplier.supplier_id = %s
+                          AND NOT EXISTS (
+                              SELECT 1 FROM evidence_documents AS document
+                              WHERE document.workspace_id = supplier.workspace_id
+                                AND document.supplier_id = supplier.supplier_id
+                          )
+                        """,
+                        (workspace_id, supplier_id),
+                    )
+            connection.commit()
+        return len(supplier_ids)
 
 
 def build_evidence_repository(database_url: str | None) -> EvidenceRepository:

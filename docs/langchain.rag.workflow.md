@@ -30,6 +30,12 @@ is grounded only when the system can show:
 
 Generated prose never becomes a supplier fact or calculation source.
 
+The implemented citation contract carries `artifact_id`, document SHA-256,
+filename, page when available, and chunk index. Artifact soft deletion removes
+the linked document and embeddings from active lexical, semantic, and hybrid
+retrieval, so a stale citation cannot resolve through another workspace or a
+deleted source.
+
 ## Ingestion and indexing
 
 ```mermaid
@@ -123,11 +129,11 @@ credit.
 The checked-in comparison now records all three modes on the same 25 cases and
 seven-record synthetic corpus:
 
-| Mode | Recall@5 | Mean reciprocal rank | Citation coverage | Mean retrieval latency | Estimated provider cost |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Lexical | `1.0` | `0.977273` | `1.0` | `18.167 ms` | `$0` |
-| Semantic | `0.954545` | `0.901515` | `1.0` | `2280.352 ms` | `$0.00001226` |
-| Hybrid | `1.0` | `0.969697` | `1.0` | `2260.406 ms` | `$0.00001226` |
+| Mode     |   Recall@5 | Mean reciprocal rank | Citation coverage | Mean retrieval latency | Estimated provider cost |
+| -------- | ---------: | -------------------: | ----------------: | ---------------------: | ----------------------: |
+| Lexical  |      `1.0` |           `0.977273` |             `1.0` |            `18.167 ms` |                    `$0` |
+| Semantic | `0.954545` |           `0.901515` |             `1.0` |          `2280.352 ms` |           `$0.00001226` |
+| Hybrid   |      `1.0` |           `0.969697` |             `1.0` |          `2260.406 ms` |           `$0.00001226` |
 
 The lexical baseline ran in a disposable local PostgreSQL 16/pgvector 0.8.6
 container. The semantic and hybrid captures used an isolated temporary
