@@ -111,6 +111,10 @@ def extract_evidence(
     content_type: str,
 ) -> EvidenceExtraction:
     """Extract bounded text from a TXT or text-based PDF upload."""
+    if not filename.strip() or len(filename) > 255:
+        raise EvidenceIngestionError(
+            "Evidence file name is required and must be 255 characters or fewer."
+        )
     if len(content) > MAX_FILE_BYTES:
         raise EvidenceIngestionError("Evidence file exceeds the 10 MB limit.")
     normalized_type = content_type.split(";", 1)[0].strip().lower()

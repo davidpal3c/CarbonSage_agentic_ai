@@ -4,6 +4,7 @@ from hashlib import sha256
 
 import pytest
 
+from domain.artifacts.models import ArtifactKind, ArtifactSourceType, create_artifact
 from domain.evidence.embeddings import (
     EMBEDDING_DIMENSIONS,
     ChunkEmbedding,
@@ -13,6 +14,7 @@ from domain.evidence.ingestion import extract_evidence
 from domain.evidence.models import SupplierMetadata
 from domain.evidence.retrieval import RetrievalMode
 from domain.workspaces.sessions import SessionSigner
+from persistence.artifacts import PostgresArtifactRepository
 from persistence.evidence import PostgresEvidenceRepository
 from persistence.workspaces import build_workspace_repository
 from scripts.run_retrieval_evaluation import (
@@ -36,6 +38,7 @@ def unit_vector(index: int) -> tuple[float, ...]:
 def test_pgvector_storage_query_and_workspace_isolation():
     workspace_repository = build_workspace_repository(DATABASE_URL)
     evidence_repository = PostgresEvidenceRepository(DATABASE_URL or "")
+    artifact_repository = PostgresArtifactRepository(DATABASE_URL or "")
     signer = SessionSigner("test-secret-that-is-at-least-32-characters", ttl_seconds=3_600)
     first_workspace, _ = signer.issue(now=int(time.time()))
     second_workspace, _ = signer.issue(now=int(time.time()))
@@ -55,8 +58,36 @@ def test_pgvector_storage_query_and_workspace_isolation():
     ).document
 
     try:
-        evidence_repository.store(first_workspace.workspace_id, supplier, first_document)
-        evidence_repository.store(second_workspace.workspace_id, supplier, second_document)
+        first_artifact = create_artifact(
+            workspace_id=first_workspace.workspace_id,
+            kind=ArtifactKind.EVIDENCE_DOCUMENT,
+            title=first_document.filename,
+            source_type=ArtifactSourceType.LOCAL_UPLOAD,
+            created_by="test",
+            content_sha256=first_document.sha256,
+        )
+        second_artifact = create_artifact(
+            workspace_id=second_workspace.workspace_id,
+            kind=ArtifactKind.EVIDENCE_DOCUMENT,
+            title=second_document.filename,
+            source_type=ArtifactSourceType.LOCAL_UPLOAD,
+            created_by="test",
+            content_sha256=second_document.sha256,
+        )
+        artifact_repository.create(first_artifact)
+        artifact_repository.create(second_artifact)
+        evidence_repository.store(
+            first_workspace.workspace_id,
+            first_artifact.artifact_id,
+            supplier,
+            first_document,
+        )
+        evidence_repository.store(
+            second_workspace.workspace_id,
+            second_artifact.artifact_id,
+            supplier,
+            second_document,
+        )
         pending = evidence_repository.list_unembedded_documents(
             first_workspace.workspace_id,
             spec,

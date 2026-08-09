@@ -5,14 +5,14 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from api.workspaces import require_workspace_session, workspace_repository
+from api.workspaces import require_workspace_principal, workspace_repository
 from domain.emissions.calculator import (
     CalculationResult,
     ComparisonResult,
     calculate_emissions,
     compare_emissions,
 )
-from domain.workspaces.sessions import WorkspaceSession
+from domain.workspaces.principals import WorkspacePrincipal
 from persistence.workspaces import QuotaExceededError, WorkspaceNotFoundError
 
 TransportMethod = Literal[
@@ -116,7 +116,7 @@ def _raise_calculation_error(exc: ValueError) -> HTTPException:
 @emissions_router.post("/calculate", response_model=CalculationResponse)
 async def calculate(
     payload: EmissionsRequest,
-    workspace: Annotated[WorkspaceSession, Depends(require_workspace_session)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
 ) -> CalculationResponse:
     try:
         result = calculate_emissions(
@@ -131,14 +131,14 @@ async def calculate(
         )
     except ValueError as exc:
         raise _raise_calculation_error(exc) from exc
-    _consume_analysis_run(workspace.workspace_id)
+    _consume_analysis_run(principal.workspace_id)
     return _calculation_response(result)
 
 
 @emissions_router.post("/compare", response_model=ComparisonResponse)
 async def compare(
     payload: ComparisonRequest,
-    workspace: Annotated[WorkspaceSession, Depends(require_workspace_session)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
 ) -> ComparisonResponse:
     try:
         result = compare_emissions(
@@ -153,7 +153,7 @@ async def compare(
         )
     except ValueError as exc:
         raise _raise_calculation_error(exc) from exc
-    _consume_analysis_run(workspace.workspace_id)
+    _consume_analysis_run(principal.workspace_id)
     return ComparisonResponse.model_validate(_comparison_payload(result))
 
 

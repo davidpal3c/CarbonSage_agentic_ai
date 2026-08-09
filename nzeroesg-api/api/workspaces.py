@@ -6,6 +6,7 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from pydantic import BaseModel
 
 from config import database_url_for_runtime, settings
+from domain.workspaces.principals import WorkspacePrincipal
 from domain.workspaces.sessions import SessionError, SessionSigner, WorkspaceSession
 from persistence.workspaces import build_workspace_repository
 
@@ -59,6 +60,14 @@ async def require_workspace_session(
             detail=str(exc),
             headers={"WWW-Authenticate": "Cookie"},
         ) from exc
+
+
+async def require_workspace_principal(
+    session: Annotated[WorkspaceSession, Depends(require_workspace_session)],
+) -> WorkspacePrincipal:
+    """Resolve the dashboard cookie to the common application principal."""
+
+    return WorkspacePrincipal.from_demo_session(session)
 
 
 @workspace_router.post(
