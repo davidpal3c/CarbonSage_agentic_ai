@@ -1,10 +1,10 @@
-# NZeroESG public API blueprint.
+# CarbonSage public API blueprint.
 # The web service is free. The production database is an external Neon
 # PostgreSQL project; its connection string is entered in Render, never here.
 # No credentials or deploy hooks belong in this file.
 services:
   - type: web
-    name: nzeroesg-api
+    name: carbonsage-api
     runtime: docker
     plan: free
     region: oregon
@@ -23,4 +23,12 @@ services:
       - key: DEMO_SESSION_SECRET
         generateValue: true
       - key: DATABASE_URL
+        sync: false
+      - key: EMBEDDING_PROVIDER
+        value: openrouter
+      - key: EMBEDDING_MODEL
+        value: openai/text-embedding-3-small
+      - key: EMBEDDING_DIMENSIONS
+        value: "1536"
+      - key: OPENROUTER_API_KEY
         sync: false
