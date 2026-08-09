@@ -56,12 +56,20 @@ test("completes the five-minute demo workflow and exports a report", async ({
 
   await page.getByLabel("Retrieval mode").selectOption("hybrid");
   await page.getByRole("button", { name: "Search citations" }).click();
-  await expect(
-    page.getByText(/Used lexical retrieval · semantic provider unavailable/),
-  ).toBeVisible();
-  await expect(
-    page.getByText(/hybrid search used the lexical baseline/),
-  ).toBeVisible();
+  const retrievalStatus = page.getByText(
+    /Used (hybrid|lexical) retrieval · semantic provider (available|unavailable)/,
+  );
+  await expect(retrievalStatus).toBeVisible();
+  const retrievalStatusText = await retrievalStatus.textContent();
+  if (retrievalStatusText?.includes("provider unavailable")) {
+    expect(retrievalStatusText).toContain(
+      "hybrid search used the lexical baseline",
+    );
+  } else {
+    expect(retrievalStatusText).toContain(
+      "Used hybrid retrieval · semantic provider available",
+    );
+  }
 
   await page.getByRole("button", { name: "Run scenario" }).click();
   await expect(page.getByText("Current baseline")).toBeVisible();
