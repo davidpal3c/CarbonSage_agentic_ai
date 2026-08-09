@@ -41,13 +41,14 @@ The objective is complete when a new demo user can:
 8. Complete the workflow on the public deployment while automated smoke and
    end-to-end checks pass.
 
-## Current checkpoint — August 6, 2026
+## Current checkpoint — August 9, 2026
 
 The public demo finish line is now operational. Render serves the rebuilt
 FastAPI application with Neon PostgreSQL, the optional assistant is disabled,
 and Vercel serves the rebuilt client from `main`.
 
-The deployment correction is recorded in commits `3d14052` and `e20c476`:
+The deployment correction is recorded in commits `3d14052` and `e20c476`, and
+the CarbonSage infrastructure cleanup is recorded through commit `015abf0`:
 
 - Vercel's production build uses `next build --webpack` to produce the tracing
   artifact expected by the Vercel build hook.
@@ -57,6 +58,11 @@ The deployment correction is recorded in commits `3d14052` and `e20c476`:
   return `503` when the feature is disabled.
 - The public Playwright suite passes the five-minute workflow, report export,
   workspace isolation, keyboard entry, and narrow-viewport checks.
+- The existing Render API resource is renamed in place to `carbonsage-api`
+  while retaining its verified `nzeroesg-api.onrender.com` origin.
+- The standalone `nzeroesg-embedder` service is permanently deleted; semantic
+  retrieval runs through pgvector and the configured provider adapter in the
+  modular API.
 
 The next work should be hardening and measured product improvements, not a
 return to the abandoned GraphQL or embedder branches. ChromaDB, the standalone
@@ -109,23 +115,23 @@ The demo must still work when the optional LLM feature is disabled.
 
 ## Trusted baseline scope decisions
 
-| Candidate                    | Decision for the prototype                                                                                                                                                                                 |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/login` and authentication  | Build a clearly labelled demo-access flow using a server-issued, signed session and isolated expiring workspace. Do not build production identity management yet.                                          |
-| Functional portal            | Build one focused workspace dashboard: Overview, Shipments, Suppliers/Evidence, Scenarios, and Report.                                                                                                     |
-| CSV upload                   | Required. Support one documented schema, downloadable template, row validation, and a conservative row limit.                                                                                              |
-| File/document upload         | Required. Start with text-based PDF and optionally DOCX/TXT. Do not add OCR or scanned-document support.                                                                                                   |
-| Reports                      | Required. Build a printable HTML report and CSV export first; avoid a separate report service.                                                                                                             |
-| Charts/Recharts              | Include a small set of decision-useful charts: emissions by mode, top shipment hotspots, and scenario comparison.                                                                                          |
-| Supplier cards and metadata  | Required. Show source status, certifications, region, transport modes, evidence links, data freshness, and missing fields.                                                                                 |
-| Quick replies                | Include only after the core workflow works. Quick replies should trigger explicit product actions, not decorative prompts.                                                                                 |
-| Confidence/source/time       | Always show sources and processing time. Replace uncalibrated “confidence” with evidence completeness and data-quality status.                                                                             |
-| Memory isolation             | Required. Remove process-global user memory. Store only workspace-scoped conversation/context needed for the demo and expire it.                                                                           |
-| Calculation correctness      | First implementation milestone and a release blocker.                                                                                                                                                      |
-| Supplier/RAG                 | Use structured supplier records plus cited document retrieval. Keep PostgreSQL full-text search and implement pgvector semantic retrieval; evaluation tunes deterministic hybrid ranking and query routing.           |
-| Google Drive                 | Not part of the initial public finish line. It may be used to source test documents during development. A later read-only “import selected file” experiment is acceptable after local ingestion is stable. |
-| GraphQL/NestJS/microservices | Explicitly out of scope.                                                                                                                                                                                   |
-| Billing                      | Out of scope. Protect costs with quotas, rate limits, retention limits, and a demo access gate.                                                                                                            |
+| Candidate                    | Decision for the prototype                                                                                                                                                                                  |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/login` and authentication  | Build a clearly labelled demo-access flow using a server-issued, signed session and isolated expiring workspace. Do not build production identity management yet.                                           |
+| Functional portal            | Build one focused workspace dashboard: Overview, Shipments, Suppliers/Evidence, Scenarios, and Report.                                                                                                      |
+| CSV upload                   | Required. Support one documented schema, downloadable template, row validation, and a conservative row limit.                                                                                               |
+| File/document upload         | Required. Start with text-based PDF and optionally DOCX/TXT. Do not add OCR or scanned-document support.                                                                                                    |
+| Reports                      | Required. Build a printable HTML report and CSV export first; avoid a separate report service.                                                                                                              |
+| Charts/Recharts              | Include a small set of decision-useful charts: emissions by mode, top shipment hotspots, and scenario comparison.                                                                                           |
+| Supplier cards and metadata  | Required. Show source status, certifications, region, transport modes, evidence links, data freshness, and missing fields.                                                                                  |
+| Quick replies                | Include only after the core workflow works. Quick replies should trigger explicit product actions, not decorative prompts.                                                                                  |
+| Confidence/source/time       | Always show sources and processing time. Replace uncalibrated “confidence” with evidence completeness and data-quality status.                                                                              |
+| Memory isolation             | Required. Remove process-global user memory. Store only workspace-scoped conversation/context needed for the demo and expire it.                                                                            |
+| Calculation correctness      | First implementation milestone and a release blocker.                                                                                                                                                       |
+| Supplier/RAG                 | Use structured supplier records plus cited document retrieval. Keep PostgreSQL full-text search and implement pgvector semantic retrieval; evaluation tunes deterministic hybrid ranking and query routing. |
+| Google Drive                 | Not part of the initial public finish line. It may be used to source test documents during development. A later read-only “import selected file” experiment is acceptable after local ingestion is stable.  |
+| GraphQL/NestJS/microservices | Explicitly out of scope.                                                                                                                                                                                    |
+| Billing                      | Out of scope. Protect costs with quotas, rate limits, retention limits, and a demo access gate.                                                                                                             |
 
 ## Trusted baseline architecture
 
@@ -484,7 +490,7 @@ Verification:
 - [x] Scenario totals reconcile with the calculation engine.
 - [x] Charts and report values come from the same typed result payload.
 - [x] Exported data matches the displayed workspace state.
-- [ ] Keyboard and responsive checks pass for the primary workflow.
+- [x] Keyboard and responsive checks pass for the primary workflow.
 
 The remaining Phase 5 browser gate is now complete. The local and public
 Chromium suites cover the full interaction, including keyboard navigation,
@@ -555,6 +561,34 @@ Deliverables:
   artifacts without replacing their domain schemas with generic JSON.
 - Define a common internal workspace principal for the existing dashboard
   session and future embed credentials.
+
+Implementation evidence (completed locally 2026-08-09; promotion pending):
+
+- Migration `005_artifact_catalog.sql` adds workspace-owned shipment dataset,
+  evidence document, and report snapshot records with status, provenance,
+  content identity, version, authorship, timestamps, and soft-deletion state.
+- Existing normalized shipment rows and evidence documents carry mandatory
+  workspace/artifact foreign keys. Evidence search citations now preserve the
+  artifact id in addition to document, page, and chunk identity.
+- `GET /artifacts`, `GET /artifacts/{id}`, `PATCH /artifacts/{id}`, and
+  `DELETE /artifacts/{id}` provide bounded list, detail, rename, and
+  soft-delete operations. Cross-workspace requests receive the same `404` as
+  absent records.
+- Shipment and evidence uploads create provenance-bearing artifacts through
+  their existing validated domain pipelines. `POST /reports/snapshots` stores
+  a versioned typed report payload instead of genericizing shipment or
+  evidence domain records.
+- `WorkspacePrincipal` adapts the signed dashboard session into workspace,
+  subject, audience, method, scope, and expiry claims without moving mutable
+  quotas into the credential.
+- Deleting a shipment or evidence artifact immediately removes its normalized
+  data from active calculations, retrieval, citations, and supplier counts;
+  workspace expiry remains the outer retention boundary. Report snapshots are
+  hidden from both catalog and typed snapshot reads.
+- The dashboard exposes provenance inspection, rename, confirmed delete, and
+  report-snapshot actions. Local gates pass with 79 credential-free backend
+  tests, 81 PostgreSQL/pgvector tests, the production frontend build, and four
+  PostgreSQL-backed Playwright journeys.
 
 Verification:
 
