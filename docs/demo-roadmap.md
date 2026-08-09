@@ -589,6 +589,10 @@ Implementation evidence (completed locally 2026-08-09; promotion pending):
   report-snapshot actions. Local gates pass with 79 credential-free backend
   tests, 81 PostgreSQL/pgvector tests, the production frontend build, and four
   PostgreSQL-backed Playwright journeys.
+- Pull request `#10` passed GitHub Actions run
+  [`31325975412`](https://github.com/davidpal3c/NZeroESG_Scope3/actions/runs/31325975412),
+  including repository, backend, frontend, and PostgreSQL-backed browser jobs;
+  its Vercel preview deployment also completed successfully.
 
 Verification:
 
