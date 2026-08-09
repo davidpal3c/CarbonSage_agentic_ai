@@ -7,8 +7,10 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
-from api.workspaces import require_workspace_session, workspace_repository
+from api.artifacts import ArtifactResponse, artifact_repository, artifact_response
+from api.workspaces import require_workspace_principal, workspace_repository
 from config import database_url_for_runtime, settings
+from domain.artifacts.models import ArtifactKind, ArtifactSourceType, create_artifact
 from domain.evidence.embeddings import (
     EmbeddingProviderError,
     build_embedding_adapter,
@@ -27,7 +29,7 @@ from domain.evidence.models import (
     SupplierMetadata,
 )
 from domain.evidence.retrieval import RetrievalMode, reciprocal_rank_fusion
-from domain.workspaces.sessions import WorkspaceSession
+from domain.workspaces.principals import WorkspacePrincipal
 from persistence.evidence import build_evidence_repository
 from persistence.workspaces import QuotaExceededError, WorkspaceNotFoundError
 
@@ -54,6 +56,7 @@ class SupplierResponse(BaseModel):
 
 
 class CitationResponse(BaseModel):
+    artifact_id: str
     page_number: int | None
     chunk_index: int
     document_sha256: str
@@ -76,6 +79,7 @@ class EvidenceMatchResponse(BaseModel):
 
 
 class EvidenceUploadResponse(BaseModel):
+    artifact: ArtifactResponse
     supplier: SupplierResponse
     filename: str
     media_type: str
@@ -236,7 +240,7 @@ async def _search_with_mode(
 async def upload_evidence(
     file: Annotated[UploadFile, File(description="A UTF-8 TXT or text-based PDF")],
     supplier_name: Annotated[str, Form()],
-    workspace: Annotated[WorkspaceSession, Depends(require_workspace_session)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
     supplier_region: Annotated[str | None, Form()] = None,
     certifications: Annotated[str | None, Form()] = None,
     transport_modes: Annotated[str | None, Form()] = None,
@@ -265,14 +269,47 @@ async def upload_evidence(
         certifications=normalized_supplier[2],
         transport_modes=normalized_supplier[3],
     )
-    _consume_document_quota(workspace.workspace_id)
-    stored_supplier = evidence_repository.store(
-        workspace.workspace_id,
-        supplier,
-        extraction.document,
+    if evidence_repository.has_document(principal.workspace_id, extraction.document.sha256):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This evidence document already exists in the workspace.",
+        )
+    _consume_document_quota(principal.workspace_id)
+    artifact = create_artifact(
+        workspace_id=principal.workspace_id,
+        kind=ArtifactKind.EVIDENCE_DOCUMENT,
+        title=extraction.document.filename,
+        source_type=ArtifactSourceType.LOCAL_UPLOAD,
+        source_reference=extraction.document.filename,
+        media_type=extraction.document.media_type,
+        content_sha256=extraction.document.sha256,
+        created_by=principal.subject,
     )
-    embedding_status = await _index_document(workspace.workspace_id, extraction.document)
+    artifact_repository.create(artifact)
+    try:
+        stored_supplier = evidence_repository.store(
+            principal.workspace_id,
+            artifact.artifact_id,
+            supplier,
+            extraction.document,
+        )
+        embedding_status = await _index_document(principal.workspace_id, extraction.document)
+        artifact = artifact_repository.mark_ready(
+            principal.workspace_id,
+            artifact.artifact_id,
+            {
+                "supplier_id": stored_supplier.supplier_id,
+                "supplier_name": stored_supplier.name,
+                "page_count": extraction.document.page_count,
+                "chunk_count": len(extraction.document.chunks),
+                "embedding_status": embedding_status,
+            },
+        )
+    except Exception:
+        artifact_repository.mark_failed(principal.workspace_id, artifact.artifact_id)
+        raise
     return EvidenceUploadResponse(
+        artifact=artifact_response(artifact),
         supplier=_supplier_response(stored_supplier),
         filename=extraction.document.filename,
         media_type=extraction.document.media_type,
@@ -286,12 +323,12 @@ async def upload_evidence(
 
 @evidence_router.get("/suppliers", response_model=SupplierListResponse)
 async def list_suppliers(
-    workspace: Annotated[WorkspaceSession, Depends(require_workspace_session)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
 ) -> SupplierListResponse:
     return SupplierListResponse(
         suppliers=[
             _supplier_response(supplier)
-            for supplier in evidence_repository.list_suppliers(workspace.workspace_id)
+            for supplier in evidence_repository.list_suppliers(principal.workspace_id)
         ]
     )
 
@@ -299,7 +336,7 @@ async def list_suppliers(
 @evidence_router.get("/evidence/search", response_model=EvidenceSearchResponse)
 async def search_evidence(
     query: Annotated[str, Query(min_length=2, max_length=200)],
-    workspace: Annotated[WorkspaceSession, Depends(require_workspace_session)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
     mode: Annotated[RetrievalMode, Query()] = RetrievalMode.LEXICAL,
 ) -> EvidenceSearchResponse:
     normalized_query = query.strip()
@@ -309,7 +346,7 @@ async def search_evidence(
             detail="Evidence search query must contain at least two characters.",
         )
     mode_used, matches, warning, semantic_available = await _search_with_mode(
-        workspace_id=workspace.workspace_id,
+        workspace_id=principal.workspace_id,
         query=normalized_query,
         requested_mode=mode,
     )

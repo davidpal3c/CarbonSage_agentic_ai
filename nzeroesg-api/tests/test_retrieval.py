@@ -59,8 +59,8 @@ def test_in_memory_semantic_search_is_workspace_and_model_scoped():
     ).document
     supplier = SupplierMetadata("Supplier ABC", "Canada", (), ("train",))
 
-    repository.store("workspace-a", supplier, first_document)
-    repository.store("workspace-b", supplier, second_document)
+    repository.store("workspace-a", "artifact-a", supplier, first_document)
+    repository.store("workspace-b", "artifact-b", supplier, second_document)
     pending = repository.list_unembedded_documents("workspace-a", spec)
 
     assert [document.document_sha256 for document in pending] == [first_document.sha256]
@@ -111,6 +111,7 @@ def test_in_memory_semantic_search_is_workspace_and_model_scoped():
 
 def test_reciprocal_rank_fusion_preserves_citations_and_both_rank_signals():
     first = EvidenceMatch(
+        artifact_id="artifact-a",
         supplier_name="Supplier ABC",
         filename="first.txt",
         excerpt="Rail commitment",

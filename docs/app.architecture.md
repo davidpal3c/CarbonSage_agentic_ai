@@ -125,6 +125,19 @@ Raw uploaded files remain temporary unless a measured requirement changes the
 retention policy. The artifact catalog retains provenance and normalized
 results, not an unbounded file store.
 
+The implemented lifecycle keeps creation behind the validated shipment,
+evidence, and report services rather than exposing an arbitrary file endpoint.
+Soft deletion removes an artifact from active catalog reads immediately.
+Shipment and evidence derivatives are then removed from active calculations,
+supplier cards, retrieval, embeddings, and citations; the workspace TTL is the
+outer cleanup boundary. A deleted report snapshot remains inaccessible and is
+removed when its workspace expires.
+
+The dashboard cookie resolves to a common `WorkspacePrincipal` containing the
+workspace, subject, audience, authentication method, scopes, and expiry. Quota
+state remains server-side. A future embed-token adapter must resolve to the
+same principal contract rather than adding a parallel authorization path.
+
 ## Source-of-truth boundaries
 
 Deterministic application code owns:

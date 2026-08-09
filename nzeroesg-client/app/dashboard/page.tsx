@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { getBackendUrl } from "@/app/api/urls";
+import ArtifactCatalog, {
+  type ArtifactKind,
+} from "@/app/dashboard/ArtifactCatalog";
 
 type Quota = { used: number; limit: number };
 
@@ -77,6 +80,7 @@ type EvidenceMatch = {
   filename: string;
   excerpt: string;
   citation: {
+    artifact_id: string;
     page_number: number | null;
     chunk_index: number;
     document_sha256: string;
@@ -126,6 +130,7 @@ type ScenarioData = {
 
 const navigation = [
   { label: "Overview", status: "Ready", href: "#overview" },
+  { label: "Artifacts", status: "Ready", href: "#artifacts" },
   { label: "Shipments", status: "Ready", href: "#shipments" },
   { label: "Suppliers / Evidence", status: "Ready", href: "#evidence" },
   { label: "Scenarios", status: "Ready", href: "#scenarios" },
@@ -166,6 +171,9 @@ export default function UserPortalPage() {
   const [scenarioError, setScenarioError] = useState<string | null>(null);
   const [isRunningScenario, setIsRunningScenario] = useState(false);
   const [isExportingReport, setIsExportingReport] = useState(false);
+  const [isSavingSnapshot, setIsSavingSnapshot] = useState(false);
+  const [artifactRefreshToken, setArtifactRefreshToken] = useState(0);
+  const [artifactStatus, setArtifactStatus] = useState<string | null>(null);
 
   useEffect(() => {
     let isCurrent = true;
@@ -276,6 +284,7 @@ export default function UserPortalPage() {
         );
       }
       setShipmentData((await response.json()) as ShipmentData);
+      setArtifactRefreshToken((current) => current + 1);
       setSelectedFile(null);
       const workspaceResponse = await fetch(`${getBackendUrl()}/demo/session`, {
         credentials: "include",
@@ -334,6 +343,7 @@ export default function UserPortalPage() {
         };
         setSuppliers(payload.suppliers);
       }
+      setArtifactRefreshToken((current) => current + 1);
       setEvidenceFile(null);
       setSupplierName("");
       setEvidenceError(null);
@@ -460,6 +470,73 @@ export default function UserPortalPage() {
     } finally {
       setIsExportingReport(false);
     }
+  }
+
+  async function saveReportSnapshot() {
+    setIsSavingSnapshot(true);
+    setScenarioError(null);
+    setArtifactStatus(null);
+    try {
+      const response = await fetch(`${getBackendUrl()}/reports/snapshots`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          alternative_mode: scenarioData?.alternative_mode ?? null,
+        }),
+      });
+      if (!response.ok) {
+        const detail = (await response.json().catch(() => null)) as {
+          detail?: string;
+        } | null;
+        throw new Error(
+          detail?.detail ?? "Report snapshot could not be saved.",
+        );
+      }
+      const payload = (await response.json()) as {
+        artifact: { title: string };
+      };
+      setArtifactRefreshToken((current) => current + 1);
+      setArtifactStatus(`Saved ${payload.artifact.title}.`);
+    } catch (requestError) {
+      setScenarioError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Report snapshot could not be saved.",
+      );
+    } finally {
+      setIsSavingSnapshot(false);
+    }
+  }
+
+  async function handleArtifactDeleted(kind: ArtifactKind) {
+    setArtifactRefreshToken((current) => current + 1);
+    if (kind === "shipment_dataset") {
+      setShipmentData(null);
+      setScenarioData(null);
+      setArtifactStatus(
+        "The shipment dataset and its active analysis were removed.",
+      );
+      return;
+    }
+    if (kind === "evidence_document") {
+      setEvidenceMatches([]);
+      setEvidenceSearchData(null);
+      const response = await fetch(`${getBackendUrl()}/suppliers`, {
+        credentials: "include",
+      });
+      if (response.ok) {
+        const payload = (await response.json()) as {
+          suppliers: SupplierCard[];
+        };
+        setSuppliers(payload.suppliers);
+      }
+      setArtifactStatus(
+        "The evidence artifact was removed from active retrieval.",
+      );
+      return;
+    }
+    setArtifactStatus("The saved report snapshot was removed.");
   }
 
   async function leaveWorkspace() {
@@ -611,6 +688,15 @@ export default function UserPortalPage() {
             id.
           </p>
         </div>
+
+        <ArtifactCatalog
+          refreshToken={artifactRefreshToken}
+          onDeleted={handleArtifactDeleted}
+        />
+
+        <p className="sr-only" role="status" aria-live="polite">
+          {artifactStatus}
+        </p>
 
         <section
           id="shipments"
@@ -1162,7 +1248,23 @@ export default function UserPortalPage() {
             >
               {isExportingReport ? "Exporting…" : "Export CSV report"}
             </button>
+            <button
+              type="button"
+              onClick={saveReportSnapshot}
+              disabled={
+                isSavingSnapshot || !shipmentData?.analysis.shipment_count
+              }
+              className="rounded-full border border-secondary px-5 py-3 font-semibold text-secondary transition hover:bg-secondary hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSavingSnapshot ? "Saving…" : "Save report snapshot"}
+            </button>
           </form>
+
+          {artifactStatus ? (
+            <p className="mt-4 rounded-lg border border-border bg-background px-4 py-3 text-sm text-primary">
+              {artifactStatus}
+            </p>
+          ) : null}
 
           {scenarioError ? (
             <p className="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">

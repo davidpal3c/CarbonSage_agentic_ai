@@ -91,6 +91,7 @@ def test_cors_allows_frontend_workspace_logout():
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:3000"
     assert "DELETE" in response.headers["access-control-allow-methods"]
+    assert "PATCH" in response.headers["access-control-allow-methods"]
 
 
 def test_disabled_assistant_has_an_explicit_response():

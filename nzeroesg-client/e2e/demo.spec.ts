@@ -37,6 +37,16 @@ test("completes the five-minute demo workflow and exports a report", async ({
   ).toBeVisible();
   await expect(page.getByText("Emissions by mode")).toBeVisible();
   await expect(page.getByText("Top shipment hotspots")).toBeVisible();
+  await expect(
+    page.getByText("Shipment dataset", { exact: true }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Rename shipments.csv" }).click();
+  await page.getByLabel("Artifact title").fill("Q3 freight baseline");
+  await page.getByRole("button", { name: "Save name" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Q3 freight baseline" }),
+  ).toBeVisible();
 
   await page.getByLabel("Supplier name").fill("Supplier ABC");
   await page
@@ -79,6 +89,14 @@ test("completes the five-minute demo workflow and exports a report", async ({
     page.getByRole("table", { name: "Scenario result by shipment" }),
   ).toBeVisible();
 
+  await page.getByRole("button", { name: "Save report snapshot" }).click();
+  await expect(
+    page.locator("#scenarios").getByText(/Saved Decision report/),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Report snapshot", { exact: true }),
+  ).toBeVisible();
+
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export CSV report" }).click();
   const download = await downloadPromise;
@@ -113,7 +131,39 @@ test("keeps two demo workspaces isolated", async ({ page, browser }) => {
       "No supplier evidence has been uploaded in this workspace.",
     ),
   ).toBeVisible();
+  await expect(
+    secondPage.getByText(
+      "No active artifacts yet. Upload shipment data or supplier evidence to create the first workspace artifact.",
+    ),
+  ).toBeVisible();
   await secondContext.close();
+});
+
+test("soft-deletes a shipment artifact and removes its active analysis", async ({
+  page,
+}) => {
+  await enterWorkspace(page);
+  await page.getByLabel("Shipment CSV").setInputFiles({
+    name: "shipments.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(shipmentCsv),
+  });
+  await page.getByRole("button", { name: "Upload and analyze" }).click();
+  const deleteButton = page.getByRole("button", {
+    name: "Delete shipments.csv",
+  });
+  await expect(deleteButton).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await deleteButton.click();
+
+  await expect(
+    page.getByText(
+      "No active artifacts yet. Upload shipment data or supplier evidence to create the first workspace artifact.",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Run scenario" }),
+  ).toBeDisabled();
 });
 
 test("supports keyboard entry and a narrow viewport", async ({ page }) => {
