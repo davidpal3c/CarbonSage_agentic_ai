@@ -45,6 +45,25 @@ class Settings:
     embedding_model: str | None = os.getenv("EMBEDDING_MODEL") or None
     embedding_dimensions: int = int(os.getenv("EMBEDDING_DIMENSIONS", "1536"))
     carbon_interface_api_key: str | None = os.getenv("CARBON_INTERFACE_API_KEY")
+    artifact_storage_enabled: bool = _as_bool(os.getenv("ARTIFACT_STORAGE_ENABLED"))
+    aws_s3_bucket: str | None = os.getenv("AWS_S3_BUCKET") or None
+    aws_s3_region: str = os.getenv("AWS_S3_REGION", "ca-central-1")
+    artifact_storage_retention_hours: int = int(os.getenv("ARTIFACT_STORAGE_RETENTION_HOURS", "24"))
+    artifact_storage_max_active_bytes: int = int(
+        os.getenv("ARTIFACT_STORAGE_MAX_ACTIVE_BYTES", "4000000000")
+    )
+    artifact_storage_max_workspace_bytes: int = int(
+        os.getenv("ARTIFACT_STORAGE_MAX_WORKSPACE_BYTES", "55000000")
+    )
+    artifact_storage_max_write_requests: int = int(
+        os.getenv("ARTIFACT_STORAGE_MAX_WRITE_REQUESTS", "10000")
+    )
+    artifact_storage_max_read_requests: int = int(
+        os.getenv("ARTIFACT_STORAGE_MAX_READ_REQUESTS", "100000")
+    )
+    artifact_storage_max_egress_bytes: int = int(
+        os.getenv("ARTIFACT_STORAGE_MAX_EGRESS_BYTES", "2000000000")
+    )
     cors_origins: tuple[str, ...] = _as_csv(
         os.getenv("CORS_ORIGINS"),
         default=("http://localhost:3000", "http://127.0.0.1:3000"),
@@ -60,3 +79,18 @@ def database_url_for_runtime() -> str | None:
     if settings.environment == "production" and not settings.database_url:
         raise RuntimeError("DATABASE_URL is required when APP_ENV=production.")
     return settings.database_url
+
+
+def validate_artifact_storage_runtime() -> None:
+    """Fail closed on a configuration that cannot enforce the approved budget."""
+
+    if not settings.artifact_storage_enabled:
+        return
+    if not settings.database_url:
+        raise RuntimeError("DATABASE_URL is required when ARTIFACT_STORAGE_ENABLED=true.")
+    if not settings.aws_s3_bucket:
+        raise RuntimeError("AWS_S3_BUCKET is required when ARTIFACT_STORAGE_ENABLED=true.")
+    if settings.aws_s3_region != "ca-central-1":
+        raise RuntimeError(
+            "The approved artifact storage cost policy currently requires ca-central-1."
+        )

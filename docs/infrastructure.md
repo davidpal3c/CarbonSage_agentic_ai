@@ -19,6 +19,7 @@ flowchart LR
     A[Browser] --> B[Next.js on Vercel free tier]
     B --> C[FastAPI on one Render web service]
     C --> D[Neon free PostgreSQL database]
+    C --> F[Private AWS S3 source storage]
     C -. optional .-> E[OpenAI or OpenRouter provider]
 ```
 
@@ -26,9 +27,10 @@ The assistant provider is optional. The primary shipment, evidence, scenario,
 and report workflow must work without it.
 
 No Redis, message broker, MongoDB, former ChromaDB service, dedicated embedding
-service, background worker, or paid object storage is required for the public
-demo or the CarbonSage initial track. Semantic retrieval uses pgvector in the
-existing PostgreSQL deployment rather than a new vector service.
+service, background worker, or storage microservice is required for the public
+demo or CarbonSage initial track. Semantic retrieval uses pgvector in the
+existing PostgreSQL deployment. Validated source files use one private S3
+bucket with a separate application-enforced ceiling below USD $0.50/month.
 
 ## Local baseline
 
@@ -54,8 +56,10 @@ docker compose up --build
 Compose uses the pinned `pgvector/pgvector:0.8.6-pg16-bookworm` image and
 applies the checked-in migrations for workspace, evidence, and vector records.
 Migration `005_artifact_catalog.sql` adds the workspace artifact catalog,
-source links, and typed report snapshots without adding object storage or a
-new service.
+source links, and typed report snapshots. Migration
+`006_artifact_object_storage.sql` adds the durable breaker ledger and private
+source-object metadata; local storage remains explicitly disabled unless its
+environment switch is enabled.
 Native development without `DATABASE_URL` uses the explicitly documented
 in-memory adapter; production must configure a managed PostgreSQL URL.
 
@@ -111,6 +115,28 @@ merge into `dev` for CI and evaluation without deploying either public service.
 - keep artifact, retrieval, conversation, embed-auth, and typed-tool modules in
   the same deployable service.
 
+### Object storage
+
+- one S3 Standard bucket in `ca-central-1`;
+- private, TLS-only, bucket-owner-enforced access with complete public-access
+  blocking and SSE-S3 encryption;
+- one-day expiration and incomplete-multipart cleanup as the provider backstop;
+- a runtime IAM policy scoped to location lookup and PUT/GET/DELETE under
+  `workspaces/*`;
+- PostgreSQL reservations before each S3 operation: 4 GB active storage,
+  10,000 writes, 100,000 reads, and 2 GB egress per month;
+- an estimated priced maximum of `$0.379` and rejected startup configuration if
+  limits reach the approved `$0.50` S3 ceiling;
+- API-proxied transfers only; no public or presigned URLs in the initial slice.
+
+The checked-in CloudFormation handoff is
+[`infra/aws/artifact-storage.yaml`](../infra/aws/artifact-storage.yaml). Set
+`ARTIFACT_STORAGE_ENABLED=true`, `AWS_S3_BUCKET`, `AWS_S3_REGION`, and the
+standard AWS credential variables in Render only after the bucket, lifecycle,
+IAM policy, and AWS Budget alerts have been verified. The full decision and
+activation checklist are in
+[`decisions/001-aws-s3-artifact-source-storage.md`](decisions/001-aws-s3-artifact-source-storage.md).
+
 ### Database
 
 - one small Neon PostgreSQL project using its Free plan for this bounded demo;
@@ -152,8 +178,9 @@ The backend must enforce the public limits from the roadmap:
 - 10 analysis or scenario runs per workspace per day (enforced server-side);
 - 3 assistant requests per workspace per day when enabled.
 
-Original evidence files should be temporary in the initial bounded demo.
-Normalized text, metadata, and citations live in PostgreSQL until workspace
+Original shipment and evidence files are private and downloadable only until
+their workspace/source expiry, never longer than 24 hours. Normalized text,
+metadata, citations, and report snapshots live in PostgreSQL until workspace
 expiry.
 
 ## Deployment safety

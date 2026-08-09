@@ -1,0 +1,84 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  CarbonSage private 24-hour artifact source storage and least-privilege runtime policy.
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: Globally unique private S3 bucket name for CarbonSage artifact sources.
+
+Resources:
+  ArtifactSourceBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Ref BucketName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteArtifactSourcesAfterOneDay
+            Status: Enabled
+            ExpirationInDays: 1
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Suspended
+
+  RequireTlsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ArtifactSourceBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              - !GetAtt ArtifactSourceBucket.Arn
+              - !Sub "${ArtifactSourceBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  ArtifactStorageRuntimePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: CarbonSage API access to private workspace artifact source objects only.
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ReadBucketRegion
+            Effect: Allow
+            Action: s3:GetBucketLocation
+            Resource: !GetAtt ArtifactSourceBucket.Arn
+          - Sid: ManageWorkspaceArtifactSources
+            Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+              - s3:DeleteObject
+            Resource: !Sub "${ArtifactSourceBucket.Arn}/workspaces/*"
+
+Outputs:
+  BucketName:
+    Value: !Ref ArtifactSourceBucket
+  BucketArn:
+    Value: !GetAtt ArtifactSourceBucket.Arn
+  RuntimePolicyArn:
+    Value: !Ref ArtifactStorageRuntimePolicy
+  Region:
+    Value: !Ref AWS::Region

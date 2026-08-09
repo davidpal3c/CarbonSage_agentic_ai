@@ -32,3 +32,13 @@ services:
         value: "1536"
       - key: OPENROUTER_API_KEY
         sync: false
+      - key: ARTIFACT_STORAGE_ENABLED
+        sync: false
+      - key: AWS_S3_BUCKET
+        sync: false
+      - key: AWS_S3_REGION
+        value: ca-central-1
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false

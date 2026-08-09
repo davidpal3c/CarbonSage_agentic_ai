@@ -1,8 +1,13 @@
 from fastapi.testclient import TestClient
 
+import api.artifacts as artifacts_api
+from domain.artifacts.storage import ArtifactStoragePolicy
 from domain.workspaces.principals import AuthenticationMethod, WorkspacePrincipal
 from domain.workspaces.sessions import WorkspaceSession
+from integrations.aws_s3 import InMemoryObjectStore
 from main import app
+from persistence.artifact_storage import InMemoryArtifactStorageRepository
+from services.artifact_storage import ArtifactStorageService
 
 SHIPMENT_CSV = (
     b"shipment_id,origin,destination,weight_value,weight_unit,distance_value,"
@@ -48,6 +53,7 @@ def test_shipment_artifact_crud_is_workspace_scoped_and_deletion_hides_data():
     assert artifact["status"] == "ready"
     assert artifact["source_type"] == "local_upload"
     assert artifact["metadata"]["accepted_rows"] == 1
+    assert artifact["metadata"]["source_retention"]["status"] == "ephemeral"
 
     listed = owner.get("/artifacts")
     assert listed.status_code == 200
@@ -68,6 +74,38 @@ def test_shipment_artifact_crud_is_workspace_scoped_and_deletion_hides_data():
     assert owner.get(f"/artifacts/{artifact_id}").status_code == 404
     assert owner.get("/artifacts").json()["artifacts"] == []
     assert owner.get("/shipments").json()["accepted_rows"] == 0
+
+
+def test_retained_shipment_source_is_private_downloadable_and_deleted(monkeypatch):
+    storage = ArtifactStorageService(
+        enabled=True,
+        repository=InMemoryArtifactStorageRepository(),
+        policy=ArtifactStoragePolicy(),
+        object_store=InMemoryObjectStore(),
+        bucket="carbonsage-test",
+    )
+    monkeypatch.setattr(artifacts_api, "artifact_storage_service", storage)
+    owner = authenticated_client()
+    other = authenticated_client()
+
+    uploaded = upload_shipments(owner)
+
+    assert uploaded.status_code == 200
+    artifact = uploaded.json()["artifact"]
+    artifact_id = artifact["artifact_id"]
+    assert artifact["metadata"]["source_retention"]["status"] == "retained"
+    assert artifact["metadata"]["source_retention"]["size_bytes"] == len(SHIPMENT_CSV)
+    assert other.get(f"/artifacts/{artifact_id}/content").status_code == 404
+
+    downloaded = owner.get(f"/artifacts/{artifact_id}/content")
+    assert downloaded.status_code == 200
+    assert downloaded.content == SHIPMENT_CSV
+    assert downloaded.headers["content-type"] == "text/csv; charset=utf-8"
+    assert downloaded.headers["cache-control"] == "private, no-store"
+    assert downloaded.headers["x-content-sha256"] == artifact["content_sha256"]
+
+    assert owner.delete(f"/artifacts/{artifact_id}").status_code == 204
+    assert owner.get(f"/artifacts/{artifact_id}/content").status_code == 404
 
 
 def test_evidence_artifact_identity_flows_to_citations_and_delete_hides_evidence():

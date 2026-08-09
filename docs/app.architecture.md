@@ -49,6 +49,9 @@ Neon PostgreSQL
 ├── documents, chunks, and citations
 ├── lexical and evaluated vector indexes
 └── conversations and validated response envelopes
+                 │
+                 └── AWS S3 Standard / Canada Central
+                     └── private validated source bytes, maximum 24 hours
 ```
 
 No Redis, MongoDB, GraphQL gateway, message broker, dedicated vector database,
@@ -121,9 +124,16 @@ scenario results remain normalized domain records linked to their source
 artifact. Suppliers remain first-class domain entities rather than untyped
 artifact metadata.
 
-Raw uploaded files remain temporary unless a measured requirement changes the
-retention policy. The artifact catalog retains provenance and normalized
-results, not an unbounded file store.
+Validated shipment and evidence source uploads are retained in private AWS S3
+for the earlier of workspace expiry or 24 hours. The artifact catalog retains
+provenance and normalized results after source access expires; generated report
+snapshots remain PostgreSQL records. This is a bounded recovery and provenance
+window, not an unbounded file store.
+
+S3 access stays behind the FastAPI artifact service. PostgreSQL atomically
+reserves global bytes and monthly write/read/egress allowance before each
+billable operation, keeping the priced envelope below USD $0.50/month. The
+browser receives neither AWS credentials nor a reusable object URL.
 
 The implemented lifecycle keeps creation behind the validated shipment,
 evidence, and report services rather than exposing an arbitrary file endpoint.
