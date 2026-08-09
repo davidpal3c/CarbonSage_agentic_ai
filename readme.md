@@ -122,6 +122,9 @@ The detailed decisions and delivery gates live in:
 - [`docs/demo-roadmap.md`](docs/demo-roadmap.md)
 - [`docs/app.architecture.md`](docs/app.architecture.md)
 - [`docs/langchain.rag.workflow.md`](docs/langchain.rag.workflow.md)
+- [`docs/carbonsage-ecosystem-vision.md`](docs/carbonsage-ecosystem-vision.md)
+  records the post-initial-release open/community and commercial possibilities
+  without expanding the active roadmap.
 
 ## Stack
 

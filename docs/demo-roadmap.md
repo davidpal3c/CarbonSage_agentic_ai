@@ -10,6 +10,11 @@ migration is justified.
 The project remains a lean modular monolith, not a GraphQL or microservice
 migration.
 
+The post-initial-release opportunity across `carbonsage.org`,
+`app.carbonsage.ca`, supplier accounts, and a possible marketplace is preserved
+in [`carbonsage-ecosystem-vision.md`](carbonsage-ecosystem-vision.md). That
+document does not expand or reorder the delivery phases below.
+
 The product will demonstrate one defensible workflow:
 
 > A procurement or logistics user uploads shipment data and supplier evidence,
@@ -562,7 +567,7 @@ Deliverables:
 - Define a common internal workspace principal for the existing dashboard
   session and future embed credentials.
 
-Implementation evidence (completed locally 2026-08-09; promotion pending):
+Implementation evidence (completed and promoted to production 2026-08-09):
 
 - Migration `005_artifact_catalog.sql` adds workspace-owned shipment dataset,
   evidence document, and report snapshot records with status, provenance,
