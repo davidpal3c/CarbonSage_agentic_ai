@@ -3,23 +3,57 @@
 from __future__ import annotations
 
 from typing import Annotated, Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from api.workspaces import require_workspace_principal
-from config import database_url_for_runtime
+from config import database_url_for_runtime, settings, validate_artifact_storage_runtime
 from domain.artifacts.models import Artifact, ArtifactKind, ArtifactSourceType, ArtifactStatus
+from domain.artifacts.storage import (
+    ArtifactStorageBudgetExceededError,
+    ArtifactStorageNotFoundError,
+    ArtifactStoragePolicy,
+    ArtifactStorageProviderError,
+    SourceRetention,
+)
 from domain.workspaces.principals import WorkspacePrincipal
+from integrations.aws_s3 import S3ObjectStore
+from persistence.artifact_storage import build_artifact_storage_repository
 from persistence.artifacts import (
     ArtifactNotFoundError,
     build_artifact_repository,
     build_report_snapshot_repository,
 )
+from services.artifact_storage import ArtifactStorageService
 
 artifacts_router = APIRouter(prefix="/artifacts", tags=["artifacts"])
 artifact_repository = build_artifact_repository(database_url_for_runtime())
 report_snapshot_repository = build_report_snapshot_repository(database_url_for_runtime())
+validate_artifact_storage_runtime()
+artifact_storage_policy = ArtifactStoragePolicy(
+    max_active_storage_bytes=settings.artifact_storage_max_active_bytes,
+    max_workspace_storage_bytes=settings.artifact_storage_max_workspace_bytes,
+    max_write_requests_per_month=settings.artifact_storage_max_write_requests,
+    max_read_requests_per_month=settings.artifact_storage_max_read_requests,
+    max_egress_bytes_per_month=settings.artifact_storage_max_egress_bytes,
+    retention_hours=settings.artifact_storage_retention_hours,
+)
+artifact_storage_repository = build_artifact_storage_repository(database_url_for_runtime())
+artifact_object_store = (
+    S3ObjectStore(bucket=settings.aws_s3_bucket or "", region=settings.aws_s3_region)
+    if settings.artifact_storage_enabled
+    else None
+)
+artifact_storage_service = ArtifactStorageService(
+    enabled=settings.artifact_storage_enabled,
+    repository=artifact_storage_repository,
+    policy=artifact_storage_policy,
+    object_store=artifact_object_store,
+    bucket=settings.aws_s3_bucket or "",
+)
 
 
 class ArtifactResponse(BaseModel):
@@ -59,6 +93,55 @@ def _not_found() -> HTTPException:
     )
 
 
+def _storage_exception(exc: Exception) -> HTTPException:
+    if isinstance(exc, ArtifactStorageBudgetExceededError):
+        return HTTPException(
+            status_code=status.HTTP_507_INSUFFICIENT_STORAGE,
+            detail=(
+                "The monthly artifact-retention safety limit has been reached. "
+                "The source file was not stored."
+            ),
+        )
+    if isinstance(exc, ArtifactStorageNotFoundError):
+        return HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Retained source content is unavailable or has expired.",
+        )
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Private artifact source storage is temporarily unavailable.",
+    )
+
+
+async def retain_artifact_source(
+    artifact: Artifact,
+    content: bytes,
+    *,
+    workspace_expires_at: int,
+) -> SourceRetention:
+    try:
+        return await run_in_threadpool(
+            artifact_storage_service.retain,
+            artifact,
+            content,
+            workspace_expires_at=workspace_expires_at,
+        )
+    except (
+        ArtifactStorageBudgetExceededError,
+        ArtifactStorageNotFoundError,
+        ArtifactStorageProviderError,
+    ) as exc:
+        raise _storage_exception(exc) from exc
+
+
+async def schedule_artifact_source_delete(workspace_id: str, artifact_id: str) -> bool:
+    return await run_in_threadpool(
+        artifact_storage_service.schedule_delete,
+        workspace_id,
+        artifact_id,
+    )
+
+
 @artifacts_router.get("", response_model=ArtifactListResponse)
 async def list_artifacts(
     principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
@@ -80,6 +163,38 @@ async def get_artifact(
     if artifact is None:
         raise _not_found()
     return artifact_response(artifact)
+
+
+@artifacts_router.get("/{artifact_id}/content")
+async def download_artifact_source(
+    artifact_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
+) -> Response:
+    artifact = artifact_repository.get(principal.workspace_id, artifact_id)
+    if artifact is None:
+        raise _not_found()
+    try:
+        source, content = await run_in_threadpool(
+            artifact_storage_service.download,
+            principal.workspace_id,
+            artifact_id,
+        )
+    except (
+        ArtifactStorageBudgetExceededError,
+        ArtifactStorageNotFoundError,
+        ArtifactStorageProviderError,
+    ) as exc:
+        raise _storage_exception(exc) from exc
+    encoded_filename = quote(artifact.title, safe="")
+    return Response(
+        content=content,
+        media_type=source.media_type,
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}",
+            "Cache-Control": "private, no-store",
+            "X-Content-SHA256": source.content_sha256,
+        },
+    )
 
 
 @artifacts_router.patch("/{artifact_id}", response_model=ArtifactResponse)
@@ -113,6 +228,7 @@ async def delete_artifact(
     if artifact is None:
         raise _not_found()
 
+    await schedule_artifact_source_delete(principal.workspace_id, artifact_id)
     artifact_repository.soft_delete(principal.workspace_id, artifact_id)
 
     # Imports are intentionally local: the API modules share repository instances,

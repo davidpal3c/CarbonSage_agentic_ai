@@ -56,6 +56,7 @@ def test_health_is_available_without_provider_credentials():
         "environment": "development",
         "assistant_enabled": False,
         "semantic_search_enabled": False,
+        "artifact_storage_enabled": False,
     }
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["x-frame-options"] == "DENY"

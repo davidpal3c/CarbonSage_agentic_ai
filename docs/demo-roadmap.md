@@ -10,6 +10,12 @@ migration is justified.
 The project remains a lean modular monolith, not a GraphQL or microservice
 migration.
 
+Validated shipment and evidence source files now have an approved private AWS
+S3 boundary. They are retained for at most 24 hours under a PostgreSQL-backed
+application breaker priced below USD $0.50/month. The rationale, exact limits,
+security controls, and activation runbook are recorded in
+[`decisions/001-aws-s3-artifact-source-storage.md`](decisions/001-aws-s3-artifact-source-storage.md).
+
 The post-initial-release opportunity across `carbonsage.org`,
 `app.carbonsage.ca`, supplier accounts, and a possible marketplace is preserved
 in [`carbonsage-ecosystem-vision.md`](carbonsage-ecosystem-vision.md). That
@@ -72,7 +78,8 @@ the CarbonSage infrastructure cleanup is recorded through commit `015abf0`:
 The next work should be hardening and measured product improvements, not a
 return to the abandoned GraphQL or embedder branches. ChromaDB, the standalone
 vector database used by the former retrieval prototype, is replaced by
-pgvector in the existing PostgreSQL deployment.
+pgvector in the existing PostgreSQL deployment. Source-object retention is a
+bounded S3 integration inside the same API, not a storage microservice.
 
 ## CarbonSage initial objective
 
@@ -164,6 +171,9 @@ PostgreSQL
 ├── suppliers and structured attributes
 ├── documents, chunks, and citations
 └── scenarios and report snapshots
+             │
+             └── private AWS S3
+                 └── validated source bytes, maximum 24 hours
 ```
 
 No Redis, message broker, dedicated embedder, former ChromaDB service, MongoDB, GraphQL
@@ -174,8 +184,8 @@ For initial document retrieval:
 - extract text during a bounded upload request;
 - store normalized text chunks and document metadata;
 - use PostgreSQL full-text search and structured filters;
-- retain the original file only temporarily unless a later requirement proves
-  it is necessary;
+- retain validated shipment and evidence originals privately in S3 for no more
+  than 24 hours, with exact workspace authorization and hard cost breakers;
 - keep a retrieval interface that supports the required pgvector semantic path
   and deterministic hybrid evaluation.
 
@@ -189,7 +199,8 @@ Preferred shape:
 - One Render web service for FastAPI.
 - One small managed PostgreSQL database, preferably on the same provider.
 - No always-on embedding service.
-- No paid object storage for the initial bounded demo.
+- One private S3 Standard bucket in Canada Central, bounded to an estimated
+  maximum of $0.379/month and an approved S3 ceiling below $0.50/month.
 - No mandatory paid LLM API.
 
 Public demo limits:
@@ -201,6 +212,8 @@ Public demo limits:
 - Maximum 10 analysis/scenario runs per workspace per day.
 - Maximum 3 optional assistant requests per workspace per day when enabled.
 - Workspace and extracted document retention of 24 hours by default.
+- Source-object storage limits of 4 GB active, 10,000 writes, 100,000 reads, and
+  2 GB metered egress per calendar month, enforced before provider calls.
 - Hard server-side timeouts and upload limits.
 
 If the selected Render plan and database cannot stay under the ceiling, the
@@ -605,6 +618,26 @@ Verification:
 - Two workspaces cannot read, mutate, or infer each other's artifacts.
 - Deleting an artifact has deterministic, tested behavior for derived records.
 - Raw file retention remains bounded and documented.
+
+Follow-on source-retention implementation (approved August 9, 2026; production
+activation remains gated):
+
+- Migration `006_artifact_object_storage.sql` adds durable source-object state,
+  global byte reservations, and monthly write/read/egress counters without
+  coupling cleanup records to expiring workspace rows.
+- The provider-neutral artifact storage service uses a narrow boto3 S3 adapter,
+  content-addressed workspace keys, SSE-S3, integrity validation, API-proxied
+  downloads, and retryable physical deletion.
+- Shipment and evidence uploads expose `source_retention` metadata. The artifact
+  catalog offers source download only while a retained object is active;
+  generated report snapshots remain PostgreSQL-only.
+- The application rejects an operation with `507` before it can cross the
+  configured storage/request/egress envelope. At Canada Central rates, the
+  priced maximum is approximately `$0.379`, leaving margin below `$0.50` even
+  without credits or free egress.
+- `infra/aws/artifact-storage.yaml` defines the private encrypted bucket,
+  one-day lifecycle backstop, public-access blocking, TLS policy, and scoped IAM
+  runtime policy. No credential or external resource is created by CI.
 
 Exit gate:
 

@@ -20,6 +20,7 @@ services:
     environment:
       APP_ENV: development
       ASSISTANT_ENABLED: "false"
+      ARTIFACT_STORAGE_ENABLED: "false"
       DATABASE_URL: postgresql://nzeroesg@database:5432/nzeroesg
       CORS_ORIGINS: http://localhost:3000
     depends_on:

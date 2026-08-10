@@ -57,4 +57,5 @@ async def health():
         "environment": settings.environment,
         "assistant_enabled": settings.assistant_enabled,
         "semantic_search_enabled": bool(settings.embedding_provider),
+        "artifact_storage_enabled": settings.artifact_storage_enabled,
     }
