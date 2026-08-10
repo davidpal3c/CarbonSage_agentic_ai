@@ -141,10 +141,18 @@ class ArtifactStorageService:
             )
         return source, content
 
-    def schedule_delete(self, workspace_id: str, artifact_id: str) -> bool:
+    def schedule_delete(
+        self,
+        workspace_id: str,
+        artifact_id: str,
+        *,
+        now: datetime | None = None,
+    ) -> bool:
         if not self.enabled:
             return True
-        source = self.repository.get_ready(workspace_id, artifact_id)
+        timestamp = now or datetime.now(UTC)
+        self.sweep_expired(now=timestamp)
+        source = self.repository.get_ready(workspace_id, artifact_id, now=timestamp)
         if source is None:
             return True
         self.repository.mark_delete_pending(workspace_id, artifact_id)
@@ -152,7 +160,7 @@ class ArtifactStorageService:
             self.object_store.delete(source.object_key)
         except ArtifactStorageProviderError:
             return False
-        self.repository.mark_deleted(workspace_id, artifact_id)
+        self.repository.mark_deleted(workspace_id, artifact_id, now=timestamp)
         return True
 
     def sweep_expired(

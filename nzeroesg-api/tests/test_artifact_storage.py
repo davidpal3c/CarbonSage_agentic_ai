@@ -87,7 +87,11 @@ def test_service_retains_validates_downloads_and_deletes_private_source():
     )
     assert object_store.objects[source.object_key] == content
 
-    assert service.schedule_delete(artifact.workspace_id, artifact.artifact_id)
+    assert service.schedule_delete(
+        artifact.workspace_id,
+        artifact.artifact_id,
+        now=now,
+    )
     assert source.object_key not in object_store.objects
     assert repository.usage(now=now).active_bytes == 0
     with pytest.raises(ArtifactStorageNotFoundError):
@@ -165,7 +169,11 @@ def test_repository_blocks_storage_write_read_and_egress_overages_before_provide
     assert usage.read_requests == 1
     assert usage.egress_bytes == 5
 
-    assert service.schedule_delete(first.workspace_id, first.artifact_id)
+    assert service.schedule_delete(
+        first.workspace_id,
+        first.artifact_id,
+        now=now,
+    )
     with pytest.raises(ArtifactStorageBudgetExceededError, match="write request"):
         service.retain(
             second,
