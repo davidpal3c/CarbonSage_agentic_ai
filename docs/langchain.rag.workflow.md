@@ -171,8 +171,28 @@ The measured routing decision is deliberately conservative:
 
 Hybrid's mean reciprocal rank was slightly below lexical retrieval, so
 CarbonSage claims measured semantic capability and full hybrid recall on this
-corpus—not a blanket retrieval-quality improvement. Phase 9 must separately
-measure answer support once the grounded agent produces cited responses.
+corpus—not a blanket retrieval-quality improvement.
+
+Answer support is measured separately with
+`scripts.run_agent_answer_evaluation`. That runner fixes tool selection to
+`search_supplier_evidence` so it isolates retrieval, typed evidence-support
+classification, citation filtering, and safe abstention rather than conflating
+them with planner accuracy. It records normalized input/output token usage and
+calculates cost from explicit model prices:
+
+```bash
+python -m scripts.run_agent_answer_evaluation \
+  --mode lexical \
+  --input-price-per-million-usd 0.15 \
+  --output-price-per-million-usd 0.60 \
+  --output /tmp/carbonsage-agent-answer.json
+```
+
+`DATABASE_URL`, a compatible configured model, and explicit authorization to
+send the synthetic corpus to that provider are required. The runner uses an
+isolated workspace and revokes it after capture. A live baseline is not yet
+claimed: the first attempted run was stopped before transmission because
+external export of the checked-in corpus had not been explicitly approved.
 
 ## Agent workflow
 
@@ -184,10 +204,12 @@ flowchart TD
     D --> E[Artifact and evidence retrieval]
     D --> F[Deterministic calculation or scenario]
     D --> G[Report and data-quality services]
-    E --> H[Cited excerpts]
+    E --> H[Retrieved citation candidates]
     F --> I[Typed results with provenance and warnings]
     G --> I
-    H --> J[Validated response composer]
+    H --> Q[Typed direct-support check]
+    Q -->|approved existing citation IDs| J[Validated response composer]
+    Q -->|limited or unavailable| R[Evidence limitation]
     I --> J
     J --> K[Versioned blocks: text, metrics, tables, charts, citations, actions]
     K --> L[Shared dashboard and iframe renderer]
@@ -209,18 +231,21 @@ workspace scope, input constraints, and output provenance.
 
 ## Structured response composition
 
-Tool results are converted into a server-validated response envelope before
-they reach a renderer. The model may write a concise explanation around those
-results, but it does not emit arbitrary HTML, JavaScript, SQL, or chart code.
+Tool results are converted deterministically into a server-validated response
+envelope before they reach a renderer. The model selects a typed plan and, for
+retrieved evidence, may approve only candidate citation IDs that directly
+support the proposition. It does not write the user-visible facts, arithmetic,
+HTML, JavaScript, SQL, chart code, or citation content.
 
-Chart blocks contain constrained rows, labels, units, series definitions, and a
-table fallback. Citation blocks reference stored artifact and chunk identifiers
-rather than generated footnote text. Unknown block types render safe fallback
-content so protocol evolution does not break older clients.
+Chart blocks contain constrained rows, labels, units, series definitions, and
+an identical table fallback. Citation blocks reference stored artifact and
+chunk identifiers rather than generated footnote text; a supported envelope is
+invalid without at least one such block. Unknown block types render safe
+fallback content so protocol evolution does not break older clients.
 
 ## Observable orchestration
 
-The UI may show a concise activity trace such as:
+The conversation detail API exposes concise activity such as:
 
 ```text
 Searched 3 evidence artifacts
@@ -230,8 +255,9 @@ Built 1 comparison chart
 ```
 
 This is tool and retrieval observability, not private chain-of-thought. Stored
-events should contain tool names, timings, artifact identifiers, result counts,
-and sanitized errors without raw uploaded content or model reasoning.
+events contain tool names, timings, artifact identifiers, result counts, and
+sanitized errors without raw uploaded content or model reasoning. The full
+dashboard event-inspection treatment remains in Phase 10.
 
 ## Conversation and memory boundary
 

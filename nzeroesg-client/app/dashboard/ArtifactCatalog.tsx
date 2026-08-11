@@ -226,7 +226,7 @@ export default function ArtifactCatalog({
       className="mt-8 rounded-xl border border-border bg-muted p-6"
     >
       <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-accent">
-        Phase 7 control plane
+        Artifact registry
       </p>
       <h2 className="text-2xl font-semibold text-primary">
         Workspace artifacts

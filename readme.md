@@ -48,9 +48,9 @@ The API health endpoint is:
 
 - <https://nzeroesg-api.onrender.com/health>
 
-The current public workflow does not require an LLM. The existing assistant is
-disabled in production while it is replaced by the workspace-scoped,
-evidence-grounded CarbonSage agent described in the roadmap.
+The public workflow does not require an LLM. The typed agent reports itself as
+disabled unless a compatible model provider is explicitly configured; artifact
+management, retrieval, calculations, scenarios, and reports remain available.
 
 ## What works today
 
@@ -68,12 +68,27 @@ evidence-grounded CarbonSage agent described in the roadmap.
 - A checked-in 25-case retrieval evaluation: lexical and hybrid both reached
   `1.0` recall@5, while hybrid recovered the one expected result missed by
   semantic-only retrieval. The reports avoid claiming generated-answer
-  quality, which is evaluated in the next agent phase.
+  quality; a separate typed-agent support runner now measures that boundary.
+- An authenticated v1 conversation API with bounded workspace state, a
+  checked-in policy, seven validated tools, assistant quotas, persisted
+  citations, and concise tool events.
+- A fail-closed evidence-support gate: retrieved passages are not rendered or
+  persisted as supporting citations until a constrained typed assessment
+  approves their existing IDs. Related or unsupported evidence returns an
+  explicit limitation.
+- A shared structured-response renderer for text, metrics, tables, charts,
+  citations, artifacts, warnings, and confirmed actions. Charts include exact
+  keyboard-accessible table equivalents and unknown blocks degrade safely.
 - Scenario comparisons, accessible chart alternatives, printable report
   previews, and authenticated CSV export.
 - A workspace artifact catalog for shipment datasets, evidence documents, and
   report snapshots, with provenance, citation identity, rename, bounded
   soft-deletion, and cross-workspace isolation.
+- A routed control plane with persistent workspace navigation and standalone
+  overview, artifact, shipment, supplier-evidence, scenario, report, and agent
+  pages. Every section can be linked to or refreshed directly.
+- A dedicated decision-agent testing page using the same workspace-scoped
+  conversation API and structured renderer as the control-plane launcher.
 - A Vercel client, Render API, Neon PostgreSQL database, and credential-free CI
   and browser checks.
 
@@ -81,15 +96,13 @@ evidence-grounded CarbonSage agent described in the roadmap.
 
 CarbonSage will build on that baseline in a controlled order:
 
-1. Typed, workspace-scoped tools for evidence search, emissions calculations,
-   scenario comparison, and reports.
-2. A versioned response protocol for text, metrics, tables, charts, citations,
-   warnings, artifact references, and confirmed actions.
-3. A dashboard agent playground using the same runtime and renderer as the
-   embedded experience.
-4. A framework-independent JavaScript loader and authenticated iframe.
-5. One explicit, read-only Google Drive selected-file import.
-6. Optionally, a read-only MCP adapter over the same stable application tools.
+1. Extend the dedicated agent page with evidence-completeness and concise
+   tool-event inspection around its existing conversation history and shared
+   renderer.
+2. Add a framework-independent JavaScript loader and authenticated iframe.
+3. Add one explicit, read-only Google Drive selected-file import.
+4. Optionally expose a read-only MCP adapter over the same stable application
+   tools.
 
 Dropbox, billing, organization administration, background synchronization,
 enterprise RBAC, and a family of framework-specific SDKs are intentionally
@@ -130,7 +143,7 @@ The detailed decisions and delivery gates live in:
 
 | Part                      | Role                                                                             |
 | ------------------------- | -------------------------------------------------------------------------------- |
-| Next.js and React         | Public site, control plane, agent playground, embed UI, and structured renderers |
+| Next.js and React         | Public site, routed control plane, agent workspace, embed UI, and structured renderers |
 | FastAPI                   | Sessions, artifacts, retrieval, typed tools, conversations, and reports          |
 | Neon PostgreSQL           | Workspace data, evidence, full-text search, and evaluated vector retrieval       |
 | LangChain                 | Optional orchestration adapter, not domain logic or source of truth              |
@@ -186,8 +199,8 @@ remain unchanged so the working deployment is not broken by the public rebrand.
 
 ## Optional model provider
 
-The current assistant path is intentionally off in production. Local provider
-experiments can be enabled in `nzeroesg-api/.env`:
+The typed agent is intentionally fail-closed when no compatible provider is
+configured. It can be enabled in `nzeroesg-api/.env`:
 
 ```dotenv
 ASSISTANT_ENABLED=true

@@ -1,10 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import ThemeToggle from "@/app/components/ThemeToggle";
-import ChatInterface from "@/app/components/chat_ui/ChatInterface";
 import AboutSection from "@/app/components/page_components/AboutSection";
 import HeroSection from "@/app/components/page_components/HeroSection";
 import { comingSoonData, featuresData } from "@/app/lib/data";
@@ -16,7 +14,6 @@ const navigation = [
 ];
 
 export default function HomePage() {
-  const [isChatOpen, setIsChatOpen] = useState(false);
   const router = useRouter();
 
   return (
@@ -48,7 +45,7 @@ export default function HomePage() {
       </header>
 
       <main>
-        <HeroSection onTry={() => setIsChatOpen(true)} />
+        <HeroSection onTry={() => router.push("/login")} />
         <AboutSection />
 
         <section id="features" className="bg-background px-6 py-24">
@@ -112,8 +109,6 @@ export default function HomePage() {
           </div>
         </section>
       </main>
-
-      <ChatInterface initialOpen={isChatOpen} onOpenChange={setIsChatOpen} />
 
       <footer className="bg-gray-900 px-6 py-8 text-center text-sm text-gray-300">
         © {new Date().getFullYear()} CarbonSage · Evidence-grounded Scope 3

@@ -22,6 +22,8 @@ DASHBOARD_SCOPES = (
     "shipments:write",
     "reports:read",
     "reports:write",
+    "agent:read",
+    "agent:write",
 )
 
 

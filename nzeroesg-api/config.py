@@ -44,7 +44,6 @@ class Settings:
     embedding_provider: str = os.getenv("EMBEDDING_PROVIDER", "").strip().lower()
     embedding_model: str | None = os.getenv("EMBEDDING_MODEL") or None
     embedding_dimensions: int = int(os.getenv("EMBEDDING_DIMENSIONS", "1536"))
-    carbon_interface_api_key: str | None = os.getenv("CARBON_INTERFACE_API_KEY")
     artifact_storage_enabled: bool = _as_bool(os.getenv("ARTIFACT_STORAGE_ENABLED"))
     aws_s3_bucket: str | None = os.getenv("AWS_S3_BUCKET") or None
     aws_s3_region: str = os.getenv("AWS_S3_REGION", "ca-central-1")

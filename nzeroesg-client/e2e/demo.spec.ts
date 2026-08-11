@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, type Route, test } from "@playwright/test";
 
 const shipmentCsv = [
   "shipment_id,origin,destination,weight_value,weight_unit,distance_value,distance_unit,transport_method",
@@ -22,6 +22,20 @@ async function enterWorkspace(page: Page) {
   await page.getByRole("button", { name: "Enter demo workspace" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByText("Private workspace")).toBeVisible();
+  await expect(page.getByText(/^Ready$/)).toHaveCount(0);
+  await expect(page.getByText(/Phase\s+\d+/)).toHaveCount(0);
+  await expect(page.locator("code")).toHaveCount(0);
+}
+
+async function openWorkspacePage(page: Page, label: string, path: string) {
+  await page
+    .getByRole("navigation", { name: "Workspace navigation" })
+    .getByRole("link", { name: label, exact: true })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/dashboard/${path}$`));
+  await expect(
+    page.getByRole("link", { name: label, exact: true }),
+  ).toHaveAttribute("aria-current", "page");
 }
 
 test("completes the five-minute demo workflow and exports a report", async ({
@@ -29,6 +43,7 @@ test("completes the five-minute demo workflow and exports a report", async ({
 }) => {
   test.setTimeout(120_000);
   await enterWorkspace(page);
+  await openWorkspacePage(page, "Shipments", "shipments");
 
   await page.getByLabel("Shipment CSV").setInputFiles({
     name: "shipments.csv",
@@ -45,6 +60,7 @@ test("completes the five-minute demo workflow and exports a report", async ({
   ).toBeVisible();
   await expect(page.getByText("Emissions by mode")).toBeVisible();
   await expect(page.getByText("Top shipment hotspots")).toBeVisible();
+  await openWorkspacePage(page, "Artifacts", "artifacts");
   await expect(page.getByText("Shipment dataset", { exact: true })).toBeVisible(
     { timeout: backendActionTimeout },
   );
@@ -56,6 +72,7 @@ test("completes the five-minute demo workflow and exports a report", async ({
     page.getByRole("heading", { name: "Q3 freight baseline" }),
   ).toBeVisible();
 
+  await openWorkspacePage(page, "Suppliers & evidence", "evidence");
   await page.getByLabel("Supplier name").fill("Supplier ABC");
   await page
     .getByLabel("Evidence document (TXT or text-based PDF)")
@@ -93,23 +110,26 @@ test("completes the five-minute demo workflow and exports a report", async ({
     );
   }
 
+  await openWorkspacePage(page, "Scenarios", "scenarios");
   await page.getByRole("button", { name: "Run scenario" }).click();
   await expect(page.getByText("Current baseline")).toBeVisible({
     timeout: backendActionTimeout,
   });
   await expect(page.getByText("Scenario comparison")).toBeVisible();
-  await expect(page.getByText("Report preview · methodology")).toBeVisible();
+  await expect(page.getByText("Methodology", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("table", { name: "Scenario result by shipment" }),
   ).toBeVisible();
 
+  await openWorkspacePage(page, "Report", "report");
+  await expect(page.getByText("Current baseline")).toBeVisible({
+    timeout: backendActionTimeout,
+  });
+  await expect(page.getByText("Methodology", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Save report snapshot" }).click();
-  await expect(
-    page.locator("#scenarios").getByText(/Saved Decision report/),
-  ).toBeVisible({ timeout: backendActionTimeout });
-  await expect(
-    page.getByText("Report snapshot", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText(/Saved Decision report/)).toBeVisible({
+    timeout: backendActionTimeout,
+  });
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export CSV report" }).click();
@@ -117,46 +137,21 @@ test("completes the five-minute demo workflow and exports a report", async ({
   expect(download.suggestedFilename()).toBe("carbonsage-report.csv");
 
   await page.emulateMedia({ media: "print" });
-  await expect(page.locator("#scenarios")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Report" })).toBeVisible();
   await expect(page.locator("aside")).toBeHidden();
 
   await page.emulateMedia({ media: "screen" });
+  await openWorkspacePage(page, "Artifacts", "artifacts");
+  await expect(
+    page.getByText("Report snapshot", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Leave workspace" }).click();
   await expect(page).toHaveURL(/\/$/);
 });
 
 test("keeps two demo workspaces isolated", async ({ page, browser }) => {
   await enterWorkspace(page);
-  const firstWorkspace = await page.locator("code").first().textContent();
-
-  const secondContext = await browser.newContext();
-  const secondPage = await secondContext.newPage();
-  await enterWorkspace(secondPage);
-  const secondWorkspace = await secondPage
-    .locator("code")
-    .first()
-    .textContent();
-
-  expect(firstWorkspace).toBeTruthy();
-  expect(secondWorkspace).toBeTruthy();
-  expect(secondWorkspace).not.toBe(firstWorkspace);
-  await expect(
-    secondPage.getByText(
-      "No supplier evidence has been uploaded in this workspace.",
-    ),
-  ).toBeVisible();
-  await expect(
-    secondPage.getByText(
-      "No active artifacts yet. Upload shipment data or supplier evidence to create the first workspace artifact.",
-    ),
-  ).toBeVisible();
-  await secondContext.close();
-});
-
-test("soft-deletes a shipment artifact and removes its active analysis", async ({
-  page,
-}) => {
-  await enterWorkspace(page);
+  await openWorkspacePage(page, "Shipments", "shipments");
   await page.getByLabel("Shipment CSV").setInputFiles({
     name: "shipments.csv",
     mimeType: "text/csv",
@@ -166,6 +161,40 @@ test("soft-deletes a shipment artifact and removes its active analysis", async (
   await expect(page.getByText("Accepted shipments")).toBeVisible({
     timeout: backendActionTimeout,
   });
+
+  const secondContext = await browser.newContext();
+  const secondPage = await secondContext.newPage();
+  await enterWorkspace(secondPage);
+  await openWorkspacePage(secondPage, "Artifacts", "artifacts");
+  await expect(
+    secondPage.getByText(
+      "No active artifacts yet. Upload shipment data or supplier evidence to create the first workspace artifact.",
+    ),
+  ).toBeVisible();
+  await openWorkspacePage(secondPage, "Suppliers & evidence", "evidence");
+  await expect(
+    secondPage.getByText(
+      "No supplier evidence has been uploaded in this workspace.",
+    ),
+  ).toBeVisible();
+  await secondContext.close();
+});
+
+test("soft-deletes a shipment artifact and removes its active analysis", async ({
+  page,
+}) => {
+  await enterWorkspace(page);
+  await openWorkspacePage(page, "Shipments", "shipments");
+  await page.getByLabel("Shipment CSV").setInputFiles({
+    name: "shipments.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(shipmentCsv),
+  });
+  await page.getByRole("button", { name: "Upload and analyze" }).click();
+  await expect(page.getByText("Accepted shipments")).toBeVisible({
+    timeout: backendActionTimeout,
+  });
+  await openWorkspacePage(page, "Artifacts", "artifacts");
   const deleteButton = page.getByRole("button", {
     name: "Delete shipments.csv",
   });
@@ -178,9 +207,353 @@ test("soft-deletes a shipment artifact and removes its active analysis", async (
       "No active artifacts yet. Upload shipment data or supplier evidence to create the first workspace artifact.",
     ),
   ).toBeVisible({ timeout: backendActionTimeout });
+  await openWorkspacePage(page, "Scenarios", "scenarios");
   await expect(
     page.getByRole("button", { name: "Run scenario" }),
   ).toBeDisabled();
+});
+
+test("keeps the deterministic workspace usable when the agent is disabled", async ({
+  page,
+}) => {
+  await enterWorkspace(page);
+  await openWorkspacePage(page, "Agent", "agent");
+  await expect(
+    page.getByRole("region", { name: "CarbonSage decision agent" }),
+  ).toBeVisible();
+  await expect(page.getByText("Disabled", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Message CarbonSage")).toBeDisabled();
+
+  await openWorkspacePage(page, "Shipments", "shipments");
+  await expect(page.getByLabel("Shipment CSV")).toBeEnabled();
+  await expect(
+    page.getByRole("button", { name: "Upload and analyze" }),
+  ).toBeEnabled();
+});
+
+test("restores the latest workspace conversation before enabling input", async ({
+  page,
+}) => {
+  const now = new Date().toISOString();
+  const conversation = {
+    conversation_id: "00000000-0000-4000-8000-000000000011",
+    workspace_id: "demo-history",
+    title: "Prior workspace decision",
+    status: "active",
+    policy_version: "1.0",
+    created_by: "demo-session",
+    created_at: now,
+    updated_at: now,
+    expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+  };
+  let createRequested = false;
+
+  await page.route("**/agent/health", (route) =>
+    route.fulfill({
+      json: {
+        status: "ok",
+        available: true,
+        policy_version: "1.0",
+        response_schema_version: "1.0",
+      },
+    }),
+  );
+  await page.route("**/agent/conversations", (route) => {
+    if (route.request().method() !== "GET") {
+      createRequested = true;
+      return route.fulfill({
+        status: 500,
+        json: { detail: "Unexpected create" },
+      });
+    }
+    return route.fulfill({ json: { conversations: [conversation] } });
+  });
+  await page.route("**/agent/conversations/*", (route) =>
+    route.fulfill({
+      json: {
+        conversation,
+        messages: [
+          {
+            message_id: "00000000-0000-4000-8000-000000000012",
+            conversation_id: conversation.conversation_id,
+            workspace_id: conversation.workspace_id,
+            role: "user",
+            content: "What did we validate?",
+            response: null,
+            created_at: now,
+          },
+          {
+            message_id: "00000000-0000-4000-8000-000000000013",
+            conversation_id: conversation.conversation_id,
+            workspace_id: conversation.workspace_id,
+            role: "assistant",
+            content: "The prior validated response.",
+            created_at: now,
+            response: {
+              schema_version: "1.0",
+              response_id: "00000000-0000-4000-8000-000000000014",
+              policy_version: "1.0",
+              evidence_status: "not_required",
+              processing_time_ms: 4,
+              generated_at: now,
+              blocks: [
+                { type: "text", text: "The previous decision is restored." },
+              ],
+            },
+          },
+        ],
+        tool_events: [],
+      },
+    }),
+  );
+
+  await enterWorkspace(page);
+  await openWorkspacePage(page, "Agent", "agent");
+  const dialog = page.getByRole("region", {
+    name: "CarbonSage decision agent",
+  });
+  await expect(dialog.getByText("What did we validate?")).toBeVisible();
+  await expect(
+    dialog.getByText("The previous decision is restored."),
+  ).toBeVisible();
+  await expect(dialog.getByLabel("Message CarbonSage")).toBeEnabled();
+  expect(createRequested).toBe(false);
+});
+
+test("renders a typed interactive response with keyboard-accessible chart data", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const corsHeaders = (route: Route) => ({
+    "access-control-allow-origin":
+      route.request().headers()["origin"] ?? "http://127.0.0.1:3000",
+    "access-control-allow-credentials": "true",
+    "content-type": "application/json",
+  });
+  const now = new Date().toISOString();
+
+  await page.route("**/agent/health", (route) =>
+    route.fulfill({
+      headers: corsHeaders(route),
+      json: {
+        status: "ok",
+        available: true,
+        policy_version: "1.0",
+        response_schema_version: "1.0",
+      },
+    }),
+  );
+  await page.route("**/agent/conversations", (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({
+        headers: corsHeaders(route),
+        json: { conversations: [] },
+      });
+    }
+    return route.fulfill({
+      status: 201,
+      headers: corsHeaders(route),
+      json: {
+        conversation_id: "00000000-0000-4000-8000-000000000001",
+        workspace_id: "demo-renderer",
+        title: "CarbonSage workspace decision",
+        status: "active",
+        policy_version: "1.0",
+        created_by: "demo-session",
+        created_at: now,
+        updated_at: now,
+        expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+      },
+    });
+  });
+  await page.route("**/agent/conversations/*/messages", (route) =>
+    route.fulfill({
+      headers: corsHeaders(route),
+      json: {
+        user_message: {
+          message_id: "00000000-0000-4000-8000-000000000002",
+          conversation_id: "00000000-0000-4000-8000-000000000001",
+          workspace_id: "demo-renderer",
+          role: "user",
+          content: "Compare rail and air.",
+          response: null,
+          created_at: now,
+        },
+        assistant_message: {
+          message_id: "00000000-0000-4000-8000-000000000003",
+          conversation_id: "00000000-0000-4000-8000-000000000001",
+          workspace_id: "demo-renderer",
+          role: "assistant",
+          content: "Validated scenario response.",
+          created_at: now,
+          response: {
+            schema_version: "1.0",
+            response_id: "00000000-0000-4000-8000-000000000004",
+            policy_version: "1.0",
+            evidence_status: "supported",
+            processing_time_ms: 18,
+            generated_at: now,
+            blocks: [
+              { type: "text", text: "Validated tool results follow." },
+              {
+                type: "metric",
+                label: "Rail emissions",
+                value: 2.2,
+                unit: "kg CO2e",
+                context: "1 tonne over 100 km",
+              },
+              {
+                type: "table",
+                title: "Mode comparison",
+                columns: [
+                  { key: "mode", label: "Mode", unit: null },
+                  {
+                    key: "emissions_kg",
+                    label: "Emissions",
+                    unit: "kg CO2e",
+                  },
+                ],
+                rows: [
+                  { mode: "Rail", emissions_kg: 2.2 },
+                  { mode: "Air", emissions_kg: 60.2 },
+                ],
+                caption: "Exact mode comparison values.",
+              },
+              {
+                type: "chart",
+                chart_kind: "bar",
+                title: "Rail and air emissions",
+                x_key: "mode",
+                series: [
+                  {
+                    key: "emissions_kg",
+                    label: "Emissions",
+                    unit: "kg CO2e",
+                  },
+                ],
+                rows: [
+                  { mode: "Rail", emissions_kg: 2.2 },
+                  { mode: "Air", emissions_kg: 60.2 },
+                ],
+                table_fallback: {
+                  type: "table",
+                  title: "Rail and air emissions",
+                  columns: [
+                    { key: "mode", label: "Mode", unit: null },
+                    {
+                      key: "emissions_kg",
+                      label: "Emissions",
+                      unit: "kg CO2e",
+                    },
+                  ],
+                  rows: [
+                    { mode: "Rail", emissions_kg: 2.2 },
+                    { mode: "Air", emissions_kg: 60.2 },
+                  ],
+                  caption: "Table equivalent for the chart values.",
+                },
+              },
+              {
+                type: "citation",
+                citation_id: "00000000-0000-4000-8000-000000000005",
+                artifact_id: "00000000-0000-4000-8000-000000000006",
+                filename: "supplier.txt",
+                document_sha256:
+                  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                page_number: 1,
+                chunk_index: 0,
+                excerpt: "The supplier reports a validated transition target.",
+              },
+              {
+                type: "artifact_reference",
+                artifact_id: "00000000-0000-4000-8000-000000000006",
+                title: "Supplier evidence",
+                artifact_kind: "evidence_document",
+              },
+              {
+                type: "warning",
+                code: "retrieval_fallback",
+                message: "Semantic retrieval fell back to lexical evidence.",
+              },
+              {
+                type: "action",
+                action_id: "reports.save_snapshot",
+                label: "Save report snapshot",
+                requires_confirmation: true,
+                artifact_id: null,
+              },
+              { type: "future_decision_block", value: "safe fallback" },
+            ],
+          },
+        },
+      },
+    }),
+  );
+
+  await enterWorkspace(page);
+  const openAgent = page.getByRole("link", {
+    name: "Agent",
+    exact: true,
+  });
+  await openAgent.focus();
+  await expect(openAgent).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/dashboard\/agent$/);
+
+  const agentDialog = page.getByRole("region", {
+    name: "CarbonSage decision agent",
+  });
+  const input = agentDialog.getByLabel("Message CarbonSage");
+  await expect(input).toBeEnabled();
+  await input.fill("Compare rail and air.");
+  await page.keyboard.press("Enter");
+
+  await expect(
+    agentDialog.getByText("Rail emissions", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    agentDialog.getByText("2.2 kg CO2e", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(
+    agentDialog.getByRole("img", { name: /Rail and air emissions/ }),
+  ).toBeVisible();
+  const chartTableToggle = agentDialog.getByText("View exact chart data");
+  await chartTableToggle.focus();
+  await expect(chartTableToggle).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(
+    agentDialog.getByRole("table", {
+      name: "Table equivalent for the chart values.",
+    }),
+  ).toBeVisible();
+  await expect(
+    agentDialog.getByText(
+      "The supplier reports a validated transition target.",
+    ),
+  ).toBeVisible();
+  await expect(
+    agentDialog.getByText("Supplier evidence", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    agentDialog.getByText("Semantic retrieval fell back to lexical evidence."),
+  ).toBeVisible();
+  await expect(
+    agentDialog.getByText(/newer “future_decision_block” block/),
+  ).toBeVisible();
+
+  const action = agentDialog.getByRole("button", {
+    name: "Save report snapshot",
+  });
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await action.focus();
+  await page.keyboard.press("Enter");
+  await expect(action).toHaveText("Save report snapshot");
+
+  const viewport = await page.evaluate(() => ({
+    width: window.innerWidth,
+    documentWidth: document.documentElement.scrollWidth,
+  }));
+  expect(viewport.documentWidth).toBeLessThanOrEqual(viewport.width);
 });
 
 test("supports keyboard entry and a narrow viewport", async ({ page }) => {
@@ -203,6 +576,12 @@ test("supports keyboard entry and a narrow viewport", async ({ page }) => {
   }));
   expect(viewport.documentWidth).toBeLessThanOrEqual(viewport.width);
 
+  await openWorkspacePage(page, "Shipments", "shipments");
+  await page.reload();
+  await expect(page).toHaveURL(/\/dashboard\/shipments$/);
+  await expect(
+    page.getByRole("navigation", { name: "Workspace navigation" }),
+  ).toBeVisible();
   const shipmentInput = page.getByLabel("Shipment CSV");
   await shipmentInput.focus();
   await expect(shipmentInput).toBeFocused();
