@@ -12,9 +12,9 @@ def load_llm():
             raise RuntimeError("OPENAI_API_KEY and OPENAI_MODEL are required.")
         return ChatOpenAI(
             model=settings.openai_model,
-            temperature=0.2,
+            temperature=0,
             api_key=settings.openai_api_key,
-            max_tokens=500,
+            max_tokens=1_000,
         )
 
     if settings.llm_provider == "openrouter":
@@ -22,10 +22,10 @@ def load_llm():
             raise RuntimeError("OPENROUTER_API_KEY and OPENROUTER_MODEL are required.")
         return ChatOpenAI(
             model=settings.openrouter_model,
-            temperature=0.2,
+            temperature=0,
             api_key=settings.openrouter_api_key,
             base_url="https://openrouter.ai/api/v1",
-            max_tokens=500,
+            max_tokens=1_000,
         )
 
     raise RuntimeError("LLM_PROVIDER must be 'openai' or 'openrouter'.")

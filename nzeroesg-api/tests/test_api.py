@@ -1,7 +1,9 @@
 import pytest
 from fastapi.testclient import TestClient
 
+import api.agent as agent_api
 import api.evidence as evidence_api
+from domain.agent.tools import AgentPlan, AgentToolName, PlannedToolCall
 from domain.evidence.embeddings import (
     EMBEDDING_DIMENSIONS,
     EmbeddingProviderError,
@@ -38,6 +40,27 @@ class FailingEmbeddingAdapter(FixtureEmbeddingAdapter):
 
     def embed_query(self, text):
         raise EmbeddingProviderError("fixture provider unavailable")
+
+
+class FixtureAgentPlanner:
+    async def plan(self, *, question, history, tool_schemas):
+        assert question == "Estimate one tonne by rail for 100 km."
+        assert "calculate_freight_emissions" in tool_schemas
+        return AgentPlan(
+            calls=[
+                PlannedToolCall(
+                    call_id="api-calculation",
+                    tool_name=AgentToolName.CALCULATE_FREIGHT_EMISSIONS,
+                    arguments={
+                        "weight_value": 1,
+                        "weight_unit": "mt",
+                        "distance_value": 100,
+                        "distance_unit": "km",
+                        "transport_method": "train",
+                    },
+                )
+            ]
+        )
 
 
 def authenticated_client() -> TestClient:
@@ -95,19 +118,74 @@ def test_cors_allows_frontend_workspace_logout():
     assert "PATCH" in response.headers["access-control-allow-methods"]
 
 
-def test_disabled_assistant_has_an_explicit_response():
+def test_transitional_chat_route_is_removed():
     response = client.post("/chat", json={"message": "Compare rail and air."})
 
-    assert response.status_code == 503
-    assert response.json()["detail"] == (
-        "The CarbonSage agent preview is disabled in this environment."
+    assert response.status_code == 404
+
+
+def test_typed_agent_health_exposes_versioned_local_contracts():
+    response = client.get("/agent/health")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "available": False,
+        "policy_version": "1.0",
+        "response_schema_version": "1.0",
+    }
+
+
+def test_agent_conversations_require_a_workspace_and_disabled_submission_is_explicit():
+    assert client.post("/agent/conversations", json={}).status_code == 401
+    demo_client = authenticated_client()
+    created = demo_client.post("/agent/conversations", json={})
+
+    assert created.status_code == 201
+    conversation_id = created.json()["conversation_id"]
+    response = demo_client.post(
+        f"/agent/conversations/{conversation_id}/messages",
+        json={"content": "Compare rail and air."},
     )
 
+    assert response.status_code == 503
+    assert response.json()["detail"] == ("The CarbonSage agent is disabled in this environment.")
 
-def test_chat_request_is_validated_before_provider_work():
-    response = client.post("/chat", json={"message": ""})
 
-    assert response.status_code == 422
+def test_typed_agent_api_returns_validated_blocks_and_enforces_workspace_scope(
+    monkeypatch,
+):
+    monkeypatch.setattr(agent_api.agent_runtime_service, "planner", FixtureAgentPlanner())
+    owner = authenticated_client()
+    other_workspace = authenticated_client()
+    created = owner.post(
+        "/agent/conversations",
+        json={"title": "Freight decision"},
+    )
+    assert created.status_code == 201
+    conversation_id = created.json()["conversation_id"]
+
+    exchange = owner.post(
+        f"/agent/conversations/{conversation_id}/messages",
+        json={"content": "Estimate one tonne by rail for 100 km."},
+    )
+
+    assert exchange.status_code == 200
+    response = exchange.json()["assistant_message"]["response"]
+    assert response["schema_version"] == "1.0"
+    assert response["policy_version"] == "1.0"
+    assert response["evidence_status"] == "not_required"
+    metric = next(block for block in response["blocks"] if block["type"] == "metric")
+    assert metric == {
+        "type": "metric",
+        "label": "Train emissions",
+        "value": 2.2,
+        "unit": "kg CO2e",
+        "context": "1000 kg over 100 km · prototype-2026.1",
+    }
+    owner_session = owner.get("/demo/session").json()
+    assert owner_session["quotas"]["assistant_requests_per_day"]["used"] == 1
+    assert other_workspace.get(f"/agent/conversations/{conversation_id}").status_code == 404
 
 
 def test_deterministic_emissions_endpoint_returns_provenance_without_assistant():

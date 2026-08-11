@@ -64,7 +64,9 @@ the CarbonSage infrastructure cleanup is recorded through commit `015abf0`:
 - Vercel's production build uses `next build --webpack` to produce the tracing
   artifact expected by the Vercel build hook.
 - `/login` returns HTTP 200 on the public client.
-- Render `/health` and `/chat/health` return healthy production responses.
+- Render `/health` and the then-current `/chat/health` returned healthy
+  production responses; Phase 9 removes that transitional route in favour of
+  `/agent/health` and authenticated conversation resources.
 - The exact Vercel-origin CORS preflight passes, while assistant POST requests
   return `503` when the feature is disabled.
 - The public Playwright suite passes the five-minute workflow, report export,
@@ -733,6 +735,8 @@ Deliverables:
   citation, artifact-reference, warning, and action blocks.
 - Build one accessible renderer with safe unknown-block fallbacks and table
   equivalents for charts.
+- Mount that renderer in a dedicated workspace agent route under the persistent
+  control-plane navigation.
 
 Verification:
 
@@ -745,27 +749,66 @@ Verification:
 - The primary deterministic workflow remains usable when model and embedding
   providers are disabled.
 
+Implementation evidence (in progress 2026-08-10):
+
+- Migration `007_typed_agent_runtime.sql` and matching in-memory/PostgreSQL
+  repositories enforce three active conversations per workspace, twenty
+  messages per conversation, workspace expiry, normalized citations, validated
+  JSON response envelopes, and sanitized tool events.
+- `/agent/conversations` replaces the removed `/chat` route and requires
+  `agent:read` or `agent:write` scope resolved from the signed workspace
+  principal. Assistant quota is consumed only after provider readiness and
+  before a model plan.
+- Policy `v1.0` is checked into the application. The provider may return only a
+  maximum-three-call typed plan and a separate typed evidence-support decision;
+  runtime prompt downloads, model arithmetic, arbitrary citation IDs, and
+  model-authored executable output are absent.
+- Seven workspace-scoped tools reuse the artifact, evidence, emissions,
+  scenario, data-quality, and report services. Invalid model arguments fail
+  Pydantic validation before a deterministic service is invoked.
+- Evidence search results remain candidates until the support gate approves
+  existing citation IDs as directly supporting the question. Mere omission,
+  related, partial, contradictory, invalid, or unavailable support fails closed
+  to an `evidence_limit` response without a citation; explicit evidence of
+  absence may support only a matching negative proposition.
+- The shared Next.js renderer covers all eight v1 block types, explicit
+  confirmation for server-defined actions, exact table equivalents for charts,
+  and safe future-block fallback. The stale public chat launcher is removed;
+  the authenticated control plane mounts the shared renderer in both a compact
+  launcher and the dedicated `/dashboard/agent` testing page.
+- The former single-page dashboard is split into independently refreshable
+  overview, artifact, shipment, supplier-evidence, scenario, report, and agent
+  routes. A shared authenticated layout keeps workspace navigation visible and
+  avoids exposing internal workspace identifiers in the interface.
+- Credential-free API and browser fixtures verify provider-disabled behavior,
+  workspace isolation, typed calculations, chart/table reconciliation,
+  citation gating, narrow layout, keyboard operation, and future-block safety.
+- The 25-case `run_agent_answer_evaluation` runner measures answer support and
+  unsupported-answer rate separately from planner selection. Its provider-backed
+  baseline remains pending explicit approval to send the checked-in synthetic
+  corpus to OpenRouter; no corpus data or paid request has been sent yet.
+
 Exit gate:
 
 > A user receives a cited, interactive decision response built from validated
 > retrieval and deterministic tool outputs.
 
-### Phase 10 — Dashboard agent playground
+### Phase 10 — Control-plane agent operations
 
 Deliverables:
 
-- Add a control-plane agent-testing surface using the production conversation
-  API and shared structured renderer.
 - Let a user inspect cited artifacts, evidence completeness, processing time,
   and concise tool activity.
-- Replace stale legacy-assistant messaging and clearly report disabled or
-  unavailable providers.
+- Expand the existing dedicated agent route with operational detail while
+  clearly reporting disabled or unavailable providers.
 - Keep mutations behind server-defined action identifiers and explicit user
   confirmation.
 
 Verification:
 
 - Playground responses are scoped to the active workspace.
+- The agent route can be opened or refreshed directly without losing the
+  persistent control-plane navigation.
 - Every structured block has keyboard and narrow-viewport coverage.
 - Provider failure does not affect artifact management or deterministic tools.
 

@@ -58,8 +58,10 @@ applies the checked-in migrations for workspace, evidence, and vector records.
 Migration `005_artifact_catalog.sql` adds the workspace artifact catalog,
 source links, and typed report snapshots. Migration
 `006_artifact_object_storage.sql` adds the durable breaker ledger and private
-source-object metadata; local storage remains explicitly disabled unless its
-environment switch is enabled.
+source-object metadata. Migration `007_typed_agent_runtime.sql` adds bounded
+conversations, messages, normalized citations, and concise tool events; local
+storage and model providers remain explicitly disabled unless their respective
+environment switches are enabled.
 Native development without `DATABASE_URL` uses the explicitly documented
 in-memory adapter; production must configure a managed PostgreSQL URL.
 
@@ -71,7 +73,7 @@ Health endpoints:
 
 - frontend: `GET http://localhost:3000/`
 - backend: `GET http://localhost:8000/health`
-- assistant status: `GET http://localhost:8000/chat/health`
+- typed-agent status: `GET http://localhost:8000/agent/health`
 
 The backend health check gates frontend startup in Compose.
 
@@ -96,8 +98,8 @@ merge into `dev` for CI and evaluation without deploying either public service.
 - retain `https://nzeroesg-api.onrender.com` as that origin after the Render
   display-name change; no Vercel environment migration is required;
 - no server-side user data stored in the frontend deployment;
-- host the future control plane, agent playground, and isolated embed route in
-  the same Next.js application.
+- host the routed control plane and dedicated agent workspace in the same
+  Next.js application, with an isolated embed route added later.
 
 ### Backend
 
