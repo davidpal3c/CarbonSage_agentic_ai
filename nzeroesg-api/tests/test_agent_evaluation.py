@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
@@ -7,6 +10,13 @@ from domain.agent.models import (
     CitationRecord,
     EvidenceStatus,
     WarningBlock,
+)
+
+BASELINE_PATH = (
+    Path(__file__).parents[1]
+    / "evaluation"
+    / "reports"
+    / "agent-answer-hybrid-openrouter-baseline.json"
 )
 
 
@@ -86,3 +96,24 @@ def test_response_envelope_cannot_claim_support_without_a_citation():
             blocks=[WarningBlock(code="invalid", message="No citation is present.")],
             processing_time_ms=1,
         )
+
+
+def test_checked_in_provider_baseline_records_support_and_safe_abstention():
+    report = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
+    metadata = report["metadata"]
+    metrics = report["metrics"]
+    results = report["results"]
+
+    assert metadata["evaluation"] == "typed-agent-answer-support"
+    assert metadata["provider"] == "openrouter"
+    assert metadata["mode"] == "hybrid"
+    assert metadata["corpus_size"] == 7
+    assert metadata["case_count"] == 25
+    assert metadata["assessment_failures"] == 0
+    assert metadata["embedding_cost_included"] is False
+    assert metadata["tool_selection"] == "fixed search_supplier_evidence"
+    assert metrics["answer_support_rate"] == 1.0
+    assert metrics["unsupported_answer_rate"] == 0.0
+    assert len(results) == 25
+    assert all(result["answer_supported"] for result in results if result["should_answer"])
+    assert all(not result["answer_returned"] for result in results if not result["should_answer"])

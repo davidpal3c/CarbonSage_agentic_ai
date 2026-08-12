@@ -1,0 +1,604 @@
+{
+  "metadata": {
+    "evaluation": "typed-agent-answer-support",
+    "captured_on": "2026-08-11",
+    "mode": "hybrid",
+    "provider": "openrouter",
+    "model": "openai/gpt-3.5-turbo-16k",
+    "embedding_provider": "openrouter",
+    "embedding_model": "openai/text-embedding-3-small",
+    "corpus_size": 7,
+    "case_count": 25,
+    "indexing_latency_ms": 5320.28,
+    "assessment_failures": 0,
+    "input_tokens": 29346,
+    "output_tokens": 763,
+    "input_price_per_million_usd": 3.0,
+    "output_price_per_million_usd": 4.0,
+    "estimated_assessment_cost_usd": 0.09109,
+    "embedding_cost_included": false,
+    "cost_scope": "evidence-support chat assessments only",
+    "tool_selection": "fixed search_supplier_evidence"
+  },
+  "metrics": {
+    "case_count": 25,
+    "recall_at_k": 1.0,
+    "mean_reciprocal_rank": 0.969697,
+    "citation_coverage": 1.0,
+    "answer_support_rate": 1.0,
+    "unsupported_answer_rate": 0.0,
+    "mean_latency_ms": 1289.926,
+    "provider_cost_usd": 0.09109
+  },
+  "results": [
+    {
+      "case_id": "cert-northstar",
+      "retrieved_ids": [
+        "northstar",
+        "solaris",
+        "circular",
+        "pacific",
+        "desert"
+      ],
+      "cited_ids": [
+        "northstar"
+      ],
+      "latency_ms": 1817.1718509984203,
+      "provider_cost_usd": 0.003638,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "northstar"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "rail-paraphrase",
+      "retrieved_ids": [
+        "northstar",
+        "pacific",
+        "desert",
+        "solaris",
+        "circular"
+      ],
+      "cited_ids": [
+        "northstar"
+      ],
+      "latency_ms": 1238.4712899802253,
+      "provider_cost_usd": 0.003683,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "northstar"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "northstar-target",
+      "retrieved_ids": [
+        "northstar",
+        "desert",
+        "pacific",
+        "solaris",
+        "circular"
+      ],
+      "cited_ids": [
+        "northstar"
+      ],
+      "latency_ms": 1382.8571900376119,
+      "provider_cost_usd": 0.003651,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "northstar"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "canada-rail",
+      "retrieved_ids": [
+        "northstar",
+        "alpine",
+        "pacific",
+        "desert",
+        "tundra"
+      ],
+      "cited_ids": [
+        "northstar"
+      ],
+      "latency_ms": 1332.8787839855067,
+      "provider_cost_usd": 0.003665,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "northstar"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "pacific-cert",
+      "retrieved_ids": [
+        "pacific",
+        "northstar",
+        "solaris",
+        "circular",
+        "desert"
+      ],
+      "cited_ids": [
+        "pacific"
+      ],
+      "latency_ms": 1516.7458089999855,
+      "provider_cost_usd": 0.00372,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "pacific"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "shore-power",
+      "retrieved_ids": [
+        "pacific",
+        "northstar",
+        "desert",
+        "alpine",
+        "circular"
+      ],
+      "cited_ids": [
+        "pacific"
+      ],
+      "latency_ms": 1198.2929320074618,
+      "provider_cost_usd": 0.003661,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "pacific"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "avoid-air",
+      "retrieved_ids": [
+        "desert",
+        "northstar",
+        "pacific",
+        "circular",
+        "tundra"
+      ],
+      "cited_ids": [
+        "pacific"
+      ],
+      "latency_ms": 938.3946880116127,
+      "provider_cost_usd": 0.00365,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "pacific"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "electric-trucks",
+      "retrieved_ids": [
+        "alpine",
+        "tundra",
+        "pacific",
+        "northstar",
+        "solaris"
+      ],
+      "cited_ids": [
+        "alpine"
+      ],
+      "latency_ms": 1157.2179790236987,
+      "provider_cost_usd": 0.003629,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "alpine"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "germany-depot",
+      "retrieved_ids": [
+        "alpine",
+        "circular",
+        "northstar",
+        "pacific",
+        "desert"
+      ],
+      "cited_ids": [
+        "alpine"
+      ],
+      "latency_ms": 1125.5701549816877,
+      "provider_cost_usd": 0.003665,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "alpine"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "alpine-date",
+      "retrieved_ids": [
+        "alpine",
+        "northstar",
+        "desert",
+        "pacific",
+        "circular"
+      ],
+      "cited_ids": [
+        "alpine"
+      ],
+      "latency_ms": 893.1552979629487,
+      "provider_cost_usd": 0.003671,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "alpine"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "saf-share",
+      "retrieved_ids": [
+        "desert",
+        "northstar",
+        "circular",
+        "tundra",
+        "solaris"
+      ],
+      "cited_ids": [
+        "desert"
+      ],
+      "latency_ms": 1155.1881149644032,
+      "provider_cost_usd": 0.003636,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "desert"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "uae-air",
+      "retrieved_ids": [
+        "desert",
+        "northstar",
+        "tundra",
+        "circular",
+        "pacific"
+      ],
+      "cited_ids": [
+        "desert"
+      ],
+      "latency_ms": 844.0518830320798,
+      "provider_cost_usd": 0.003668,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "desert"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "missing-audit",
+      "retrieved_ids": [
+        "desert",
+        "northstar",
+        "solaris",
+        "circular",
+        "alpine"
+      ],
+      "cited_ids": [
+        "desert"
+      ],
+      "latency_ms": 1611.4817130146548,
+      "provider_cost_usd": 0.003668,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "desert"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "recycled-packaging",
+      "retrieved_ids": [
+        "circular",
+        "alpine",
+        "solaris",
+        "pacific",
+        "desert"
+      ],
+      "cited_ids": [
+        "circular"
+      ],
+      "latency_ms": 2259.1238789609633,
+      "provider_cost_usd": 0.003661,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "circular"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "fsc",
+      "retrieved_ids": [
+        "circular",
+        "northstar",
+        "tundra",
+        "solaris",
+        "pacific"
+      ],
+      "cited_ids": [
+        "circular"
+      ],
+      "latency_ms": 1531.0026289662346,
+      "provider_cost_usd": 0.003616,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "circular"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "uk-circularity",
+      "retrieved_ids": [
+        "circular",
+        "northstar",
+        "alpine",
+        "desert",
+        "solaris"
+      ],
+      "cited_ids": [
+        "circular"
+      ],
+      "latency_ms": 1740.0894209858961,
+      "provider_cost_usd": 0.003646,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "circular"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "refrigerated-logistics",
+      "retrieved_ids": [
+        "tundra",
+        "northstar",
+        "solaris",
+        "alpine",
+        "pacific"
+      ],
+      "cited_ids": [
+        "tundra"
+      ],
+      "latency_ms": 1290.5427340301685,
+      "provider_cost_usd": 0.003673,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "tundra"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "canada-cold-chain",
+      "retrieved_ids": [
+        "tundra",
+        "northstar",
+        "circular",
+        "alpine",
+        "solaris"
+      ],
+      "cited_ids": [
+        "tundra"
+      ],
+      "latency_ms": 1379.8531910288148,
+      "provider_cost_usd": 0.003616,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "tundra"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "reefer-efficiency",
+      "retrieved_ids": [
+        "tundra",
+        "desert",
+        "northstar",
+        "pacific",
+        "alpine"
+      ],
+      "cited_ids": [
+        "tundra"
+      ],
+      "latency_ms": 1253.2586500165053,
+      "provider_cost_usd": 0.003644,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "tundra"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "iso-14064",
+      "retrieved_ids": [
+        "solaris",
+        "circular",
+        "northstar",
+        "pacific",
+        "desert"
+      ],
+      "cited_ids": [
+        "solaris"
+      ],
+      "latency_ms": 1090.5569840106182,
+      "provider_cost_usd": 0.00363,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "solaris"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "mexico-solar",
+      "retrieved_ids": [
+        "solaris",
+        "alpine",
+        "pacific",
+        "desert",
+        "northstar"
+      ],
+      "cited_ids": [
+        "solaris"
+      ],
+      "latency_ms": 1441.518163017463,
+      "provider_cost_usd": 0.003675,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "solaris"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "scope3-disclosure",
+      "retrieved_ids": [
+        "solaris",
+        "northstar",
+        "pacific",
+        "desert",
+        "tundra"
+      ],
+      "cited_ids": [
+        "solaris"
+      ],
+      "latency_ms": 1119.5553629659116,
+      "provider_cost_usd": 0.003653,
+      "answer_returned": true,
+      "answer_supported": true,
+      "expected_ids": [
+        "solaris"
+      ],
+      "should_answer": true,
+      "evidence_status": "supported",
+      "warning_codes": []
+    },
+    {
+      "case_id": "unsupported-neutral",
+      "retrieved_ids": [
+        "northstar",
+        "tundra",
+        "solaris",
+        "alpine",
+        "circular"
+      ],
+      "cited_ids": [],
+      "latency_ms": 852.3371680057608,
+      "provider_cost_usd": 0.00352,
+      "answer_returned": false,
+      "answer_supported": false,
+      "expected_ids": [],
+      "should_answer": false,
+      "evidence_status": "limited",
+      "warning_codes": [
+        "evidence_limit"
+      ]
+    },
+    {
+      "case_id": "unsupported-sbti",
+      "retrieved_ids": [
+        "northstar",
+        "desert",
+        "solaris",
+        "pacific",
+        "tundra"
+      ],
+      "cited_ids": [],
+      "latency_ms": 1154.6274939901195,
+      "provider_cost_usd": 0.00358,
+      "answer_returned": false,
+      "answer_supported": false,
+      "expected_ids": [],
+      "should_answer": false,
+      "evidence_status": "limited",
+      "warning_codes": [
+        "evidence_limit"
+      ]
+    },
+    {
+      "case_id": "unsupported-renewable",
+      "retrieved_ids": [
+        "alpine",
+        "solaris",
+        "circular",
+        "northstar",
+        "desert"
+      ],
+      "cited_ids": [],
+      "latency_ms": 924.2045190185308,
+      "provider_cost_usd": 0.003571,
+      "answer_returned": false,
+      "answer_supported": false,
+      "expected_ids": [],
+      "should_answer": false,
+      "evidence_status": "limited",
+      "warning_codes": [
+        "evidence_limit"
+      ]
+    }
+  ]
+}

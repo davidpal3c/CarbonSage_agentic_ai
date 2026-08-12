@@ -8,6 +8,7 @@ import json
 import os
 import time
 from dataclasses import asdict
+from datetime import UTC, datetime
 from pathlib import Path
 
 from agent.evidence_support import EvidenceSupportError, LlmEvidenceSupportAssessor
@@ -212,6 +213,7 @@ async def capture_agent_answers(
         return {
             "metadata": {
                 "evaluation": "typed-agent-answer-support",
+                "captured_on": datetime.now(UTC).date().isoformat(),
                 "mode": mode.value,
                 "provider": settings.llm_provider,
                 "model": (
@@ -229,10 +231,12 @@ async def capture_agent_answers(
                 "output_tokens": total_output_tokens,
                 "input_price_per_million_usd": input_price_per_million_usd,
                 "output_price_per_million_usd": output_price_per_million_usd,
-                "estimated_provider_cost_usd": round(
+                "estimated_assessment_cost_usd": round(
                     estimated_provider_cost_usd,
                     8,
                 ),
+                "embedding_cost_included": False,
+                "cost_scope": "evidence-support chat assessments only",
                 "tool_selection": "fixed search_supplier_evidence",
             },
             "metrics": metrics.to_dict(),

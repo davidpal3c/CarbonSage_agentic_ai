@@ -67,8 +67,12 @@ management, retrieval, calculations, scenarios, and reports remain available.
   lexical fallback when no embedding provider is configured.
 - A checked-in 25-case retrieval evaluation: lexical and hybrid both reached
   `1.0` recall@5, while hybrid recovered the one expected result missed by
-  semantic-only retrieval. The reports avoid claiming generated-answer
-  quality; a separate typed-agent support runner now measures that boundary.
+  semantic-only retrieval.
+- A separate approved OpenRouter answer-support baseline over the same
+  synthetic set: `1.0` support across 22 answerable cases, `0.0` unsupported
+  answers across three abstention cases, and no typed assessment failures. It
+  fixes tool selection, so the claim is evidence gating and citation safety—not
+  general agent accuracy.
 - An authenticated v1 conversation API with bounded workspace state, a
   checked-in policy, seven validated tools, assistant quotas, persisted
   citations, and concise tool events.
