@@ -182,17 +182,36 @@ calculates cost from explicit model prices:
 
 ```bash
 python -m scripts.run_agent_answer_evaluation \
-  --mode lexical \
-  --input-price-per-million-usd 0.15 \
-  --output-price-per-million-usd 0.60 \
-  --output /tmp/carbonsage-agent-answer.json
+  --mode hybrid \
+  --input-price-per-million-usd 3.00 \
+  --output-price-per-million-usd 4.00 \
+  --output evaluation/reports/agent-answer-hybrid-openrouter-baseline.json
 ```
 
 `DATABASE_URL`, a compatible configured model, and explicit authorization to
 send the synthetic corpus to that provider are required. The runner uses an
-isolated workspace and revokes it after capture. A live baseline is not yet
-claimed: the first attempted run was stopped before transmission because
-external export of the checked-in corpus had not been explicitly approved.
+isolated workspace and revokes it after capture.
+
+The approved OpenRouter capture on August 11, 2026 used hybrid retrieval,
+`openai/text-embedding-3-small`, and `openai/gpt-3.5-turbo-16k`. The explicit
+chat-token prices were the model's listed [$3/M input and $4/M output
+rates](https://openrouter.ai/openai/gpt-3.5-turbo-16k). Results are checked in
+at `evaluation/reports/agent-answer-hybrid-openrouter-baseline.json`:
+
+| Cases | Answerable | Safe-abstention | Answer support | Unsupported answers | Recall@5 | Citation coverage | Mean assessment latency | Assessment cost |
+| ----: | ---------: | --------------: | -------------: | ------------------: | -------: | ----------------: | ----------------------: | --------------: |
+|    25 |         22 |               3 |          `1.0` |               `0.0` |    `1.0` |             `1.0` |           `1289.926 ms` |      `$0.09109` |
+
+There were no typed assessment failures. The reported cost covers 29,346 input
+tokens and 763 output tokens for the evidence-support chat assessments only;
+embedding calls are explicitly excluded from that value. Tool selection was
+fixed to `search_supplier_evidence`, so this baseline measures retrieval,
+support classification, citation filtering, and safe abstention—not planner
+selection, open-ended answer quality, or production accuracy. The first run
+also exposed an ambiguous synthetic paraphrase that genuinely matched two
+records; the prompt was narrowed to its intended long-haul road-to-rail
+proposition before the final baseline, without changing rank-one behavior in
+lexical, semantic, or hybrid retrieval.
 
 ## Agent workflow
 

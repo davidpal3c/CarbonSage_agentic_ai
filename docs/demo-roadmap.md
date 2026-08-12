@@ -784,9 +784,12 @@ Implementation evidence (in progress 2026-08-10):
   workspace isolation, typed calculations, chart/table reconciliation,
   citation gating, narrow layout, keyboard operation, and future-block safety.
 - The 25-case `run_agent_answer_evaluation` runner measures answer support and
-  unsupported-answer rate separately from planner selection. Its provider-backed
-  baseline remains pending explicit approval to send the checked-in synthetic
-  corpus to OpenRouter; no corpus data or paid request has been sent yet.
+  unsupported-answer rate separately from planner selection. The approved
+  OpenRouter hybrid baseline reached `1.0` answer support across 22 answerable
+  cases and `0.0` unsupported-answer rate across three safe-abstention cases,
+  with no assessment failures. Its `$0.09109` reported cost covers chat
+  assessment tokens only; fixed tool selection and excluded embedding cost are
+  recorded explicitly rather than presented as end-to-end agent quality.
 
 Exit gate:
 

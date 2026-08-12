@@ -1,6 +1,6 @@
 [
   {"case_id":"cert-northstar","category":"exact-certification","query":"Which supplier holds ISO 14001 certification?","expected_ids":["northstar"],"should_answer":true},
-  {"case_id":"rail-paraphrase","category":"semantic-paraphrase","query":"Who is moving freight to a lower-emission transport option?","expected_ids":["northstar"],"should_answer":true},
+  {"case_id":"rail-paraphrase","category":"semantic-paraphrase","query":"Who is shifting long-haul road freight to a lower-emission transport option?","expected_ids":["northstar"],"should_answer":true},
   {"case_id":"northstar-target","category":"target-date","query":"What reduction target is due in 2030?","expected_ids":["northstar"],"should_answer":true},
   {"case_id":"canada-rail","category":"structured-context","query":"Which Canadian supplier is increasing rail freight?","expected_ids":["northstar"],"should_answer":true},
   {"case_id":"pacific-cert","category":"exact-certification","query":"Who reports ISO 50001 certification?","expected_ids":["pacific"],"should_answer":true},
