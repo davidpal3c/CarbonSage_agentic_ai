@@ -1,4 +1,5 @@
-# 🌱 CarbonSage (formerly NZeroESG)
+# 🌱 CarbonSage 
+(formerly NZeroESG)
 
 ### Evidence-grounded Scope 3 intelligence, wherever decisions happen.
 
