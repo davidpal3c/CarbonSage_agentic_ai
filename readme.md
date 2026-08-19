@@ -206,6 +206,10 @@ cp nzeroesg-api/.env.example nzeroesg-api/.env
 cp nzeroesg-client/.env.example nzeroesg-client/.env.local
 ```
 
+Use the same local hostname for the browser and API (`localhost` or
+`127.0.0.1`). The client normalizes those two loopback aliases during local
+development so the HTTP-only workspace cookie is returned consistently.
+
 The historical directory, service, environment-variable, and public URL names
 remain unchanged so the working deployment is not broken by the public rebrand.
 
