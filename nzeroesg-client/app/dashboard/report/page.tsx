@@ -3,116 +3,54 @@
 import { useEffect, useState } from "react";
 
 import { getBackendUrl } from "@/app/api/urls";
-
-type ModeBreakdown = {
-  shipment_count: number;
-  weight_kg: number;
-  emissions_kg: number;
-};
-
-type ReportData = {
-  generated_at: number;
-  shipment_analysis: {
-    shipment_count: number;
-    total_weight_kg: number;
-    total_emissions_kg: number;
-    total_emissions_tonnes: number;
-    mode_breakdown: Record<string, ModeBreakdown>;
-  };
-  scenario: {
-    baseline_mode: string;
-    alternative_mode: string;
-    shipment_count: number;
-    baseline_total_kg: number;
-    alternative_total_kg: number;
-    delta_kg: number;
-    delta_percent: number | null;
-  } | null;
-  suppliers: Array<{
-    supplier_id: string;
-    name: string;
-    region: string | null;
-    document_count: number;
-  }>;
-  methodology: {
-    factor_source: string;
-    factor_version: string;
-    factor_applicability: string;
-    assumptions: string[];
-    warnings: string[];
-  };
-};
+import { LoadingState, Spinner } from "@/app/components/Spinner";
+import { useWorkspaceDataStore } from "@/app/dashboard/workspace-data-store";
 
 const alternatives = ["plane", "truck", "train", "ship"] as const;
 
 export default function ReportPage() {
   const [alternativeMode, setAlternativeMode] = useState("train");
-  const [report, setReport] = useState<ReportData | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const report = useWorkspaceDataStore(
+    (state) => state.reports[alternativeMode] ?? null,
+  );
+  const reportStatus = useWorkspaceDataStore(
+    (state) => state.reportStatuses[alternativeMode] ?? "idle",
+  );
+  const reportError = useWorkspaceDataStore(
+    (state) => state.reportErrors[alternativeMode] ?? null,
+  );
+  const ensureReport = useWorkspaceDataStore((state) => state.ensureReport);
+  const refreshAfterReportSnapshot = useWorkspaceDataStore(
+    (state) => state.refreshAfterReportSnapshot,
+  );
+  const [actionError, setActionError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
-  async function requestReport(mode: string) {
-    const query = mode ? `?alternative_mode=${encodeURIComponent(mode)}` : "";
-    const response = await fetch(`${getBackendUrl()}/reports/preview${query}`, {
-      credentials: "include",
-    });
-    if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as {
-        detail?: string;
-      } | null;
-      throw new Error(
-        payload?.detail ?? "The report preview could not be loaded.",
-      );
-    }
-    return (await response.json()) as ReportData;
-  }
+  const isLoading = reportStatus === "loading";
+  const error = actionError ?? reportError;
 
   useEffect(() => {
-    let isCurrent = true;
-    requestReport("train")
-      .then((payload) => {
-        if (isCurrent) setReport(payload);
-      })
-      .catch((requestError) => {
-        if (isCurrent) {
-          setError(
-            requestError instanceof Error
-              ? requestError.message
-              : "The report preview could not be loaded.",
-          );
-        }
-      })
-      .finally(() => {
-        if (isCurrent) setIsLoading(false);
-      });
-    return () => {
-      isCurrent = false;
-    };
-  }, []);
+    void ensureReport(alternativeMode).catch(() => undefined);
+  }, [alternativeMode, ensureReport]);
 
   async function refreshReport() {
-    setIsLoading(true);
-    setError(null);
+    setActionError(null);
     setStatusMessage(null);
     try {
-      setReport(await requestReport(alternativeMode));
+      await ensureReport(alternativeMode, true);
     } catch (requestError) {
-      setError(
+      setActionError(
         requestError instanceof Error
           ? requestError.message
           : "The report preview could not be loaded.",
       );
-    } finally {
-      setIsLoading(false);
     }
   }
 
   async function exportReport() {
     setIsExporting(true);
-    setError(null);
+    setActionError(null);
     try {
       const response = await fetch(
         `${getBackendUrl()}/reports/export.csv?alternative_mode=${encodeURIComponent(alternativeMode)}`,
@@ -129,7 +67,7 @@ export default function ReportPage() {
       link.remove();
       URL.revokeObjectURL(objectUrl);
     } catch (requestError) {
-      setError(
+      setActionError(
         requestError instanceof Error
           ? requestError.message
           : "Report export could not be completed.",
@@ -141,7 +79,7 @@ export default function ReportPage() {
 
   async function saveSnapshot() {
     setIsSaving(true);
-    setError(null);
+    setActionError(null);
     setStatusMessage(null);
     try {
       const response = await fetch(`${getBackendUrl()}/reports/snapshots`, {
@@ -161,9 +99,10 @@ export default function ReportPage() {
       const payload = (await response.json()) as {
         artifact: { title: string };
       };
+      await refreshAfterReportSnapshot();
       setStatusMessage(`Saved ${payload.artifact.title}.`);
     } catch (requestError) {
-      setError(
+      setActionError(
         requestError instanceof Error
           ? requestError.message
           : "Report snapshot could not be saved.",
@@ -193,7 +132,10 @@ export default function ReportPage() {
           Report alternative
           <select
             value={alternativeMode}
-            onChange={(event) => setAlternativeMode(event.target.value)}
+            onChange={(event) => {
+              setActionError(null);
+              setAlternativeMode(event.target.value);
+            }}
             className="rounded-lg border border-border bg-background px-3 py-2 font-normal capitalize"
           >
             {alternatives.map((mode) => (
@@ -207,30 +149,35 @@ export default function ReportPage() {
           type="button"
           onClick={refreshReport}
           disabled={isLoading}
-          className="rounded-full bg-secondary px-5 py-2.5 font-semibold text-white disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white disabled:opacity-60"
         >
-          {isLoading ? "Refreshing…" : "Refresh report"}
+          {isLoading ? <Spinner /> : null}
+          Refresh report
         </button>
         <button
           type="button"
           onClick={saveSnapshot}
           disabled={isSaving || !report?.shipment_analysis.shipment_count}
-          className="rounded-full border border-secondary px-5 py-2.5 font-semibold text-secondary disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-lg border border-secondary px-3.5 py-2 text-sm font-semibold text-secondary disabled:opacity-60"
         >
-          {isSaving ? "Saving…" : "Save report snapshot"}
+          {isSaving ? <Spinner /> : null}
+          Save report snapshot
         </button>
-        <button
-          type="button"
-          onClick={exportReport}
-          disabled={isExporting}
-          className="rounded-full border border-secondary px-5 py-2.5 font-semibold text-secondary disabled:opacity-60"
-        >
-          {isExporting ? "Exporting…" : "Export CSV report"}
-        </button>
+        {report?.shipment_analysis.shipment_count ? (
+          <button
+            type="button"
+            onClick={exportReport}
+            disabled={isExporting}
+            className="inline-flex items-center gap-2 rounded-lg border border-secondary px-3.5 py-2 text-sm font-semibold text-secondary disabled:opacity-60"
+          >
+            {isExporting ? <Spinner /> : null}
+            Export CSV report
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => window.print()}
-          className="rounded-full border border-border px-5 py-2.5 font-semibold text-primary"
+          className="rounded-lg border border-border px-3.5 py-2 text-sm font-semibold text-primary"
         >
           Print report
         </button>
@@ -354,7 +301,7 @@ export default function ReportPage() {
           </article>
         </div>
       ) : isLoading ? (
-        <p className="mt-6 text-sm text-muted-foreground">Loading report…</p>
+        <LoadingState label="Loading report" />
       ) : null}
     </section>
   );

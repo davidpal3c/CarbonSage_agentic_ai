@@ -85,6 +85,18 @@ def test_parser_rejects_missing_headers_bad_file_type_and_nul_content():
     assert hostile.errors[0].message == "NUL characters are not allowed in CSV content."
 
 
+def test_supplier_export_gets_a_clear_shipment_import_explanation():
+    result = parse_shipments_csv(
+        b"supplier_id,name,region,certifications,transport_modes,documents\n"
+    )
+
+    assert result.rows == ()
+    assert result.errors[0].message == (
+        "This looks like supplier data. Add supplier records from the Suppliers page, "
+        "or choose a shipment CSV/XLSX file here."
+    )
+
+
 def test_parser_rejects_oversized_and_over_row_limit_files():
     oversized = parse_shipments_csv(b"x" * (MAX_FILE_BYTES + 1))
     rows = HEADER + "".join(

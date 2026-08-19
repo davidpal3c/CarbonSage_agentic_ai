@@ -14,7 +14,8 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Building2,
   ChartNoAxesCombined,
-  ChevronUp,
+  ChevronDown,
+  CircleHelp,
   Files,
   LayoutDashboard,
   Leaf,
@@ -28,8 +29,10 @@ import {
 } from "lucide-react";
 
 import { getBackendUrl } from "@/app/api/urls";
+import { LoadingState } from "@/app/components/Spinner";
 import ChatInterface from "@/app/components/chat_ui/ChatInterface";
 import { runWorkspaceAgentAction } from "@/app/dashboard/agent-actions";
+import { useWorkspaceDataStore } from "@/app/dashboard/workspace-data-store";
 import { useTheme } from "@/app/utils/contexts/ThemeContext";
 
 export type Quota = { used: number; limit: number };
@@ -46,25 +49,30 @@ type WorkspaceContextValue = {
   refreshSession: () => Promise<void>;
 };
 
+type NavigationItem = {
+  label: string;
+  href: string;
+  icon: typeof Leaf;
+};
+
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
-const navigation = [
+const workspaceNavigation: NavigationItem[] = [
   {
     label: "Ask CarbonSage",
     href: "/dashboard/agent",
     icon: MessageSquareText,
   },
-  { label: "Integrations", href: "/dashboard/integrations", icon: Plug },
   { label: "Overview", href: "/dashboard/overview", icon: LayoutDashboard },
+  { label: "Integrations", href: "/dashboard/integrations", icon: Plug },
   { label: "Artifacts", href: "/dashboard/artifacts", icon: Files },
-  { label: "Shipments", href: "/dashboard/shipments", icon: Truck },
-  {
-    label: "Suppliers",
-    href: "/dashboard/evidence",
-    icon: Building2,
-  },
-  { label: "Scenarios", href: "/dashboard/scenarios", icon: Route },
   { label: "Report", href: "/dashboard/report", icon: ChartNoAxesCombined },
+];
+
+const simulationNavigation: NavigationItem[] = [
+  { label: "Shipments", href: "/dashboard/shipments", icon: Truck },
+  { label: "Suppliers", href: "/dashboard/evidence", icon: Building2 },
+  { label: "Scenarios", href: "/dashboard/scenarios", icon: Route },
 ];
 
 export function useWorkspace() {
@@ -75,6 +83,34 @@ export function useWorkspace() {
   return value;
 }
 
+function NavigationLink({
+  item,
+  pathname,
+  onNavigate,
+}: {
+  item: NavigationItem;
+  pathname: string;
+  onNavigate: () => void;
+}) {
+  const Icon = item.icon;
+  const active = pathname.startsWith(item.href);
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      aria-current={active ? "page" : undefined}
+      className={`inline-flex shrink-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition lg:flex ${
+        active
+          ? "bg-secondary/10 font-semibold text-secondary"
+          : "text-muted-foreground hover:bg-card hover:text-primary"
+      }`}
+    >
+      <Icon aria-hidden="true" className="h-4 w-4" />
+      {item.label}
+    </Link>
+  );
+}
+
 export default function WorkspaceShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -82,6 +118,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<WorkspaceSession | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [simulationsOpen, setSimulationsOpen] = useState(true);
   const profileRef = useRef<HTMLDivElement>(null);
 
   const refreshSession = useCallback(async () => {
@@ -95,7 +132,9 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
     if (!response.ok) {
       throw new Error("The workspace could not be loaded.");
     }
-    setSession((await response.json()) as WorkspaceSession);
+    const workspace = (await response.json()) as WorkspaceSession;
+    useWorkspaceDataStore.getState().setWorkspace(workspace.workspace_id);
+    setSession(workspace);
   }, [router]);
 
   useEffect(() => {
@@ -126,7 +165,15 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
         return (await response.json()) as WorkspaceSession;
       })
       .then((workspace) => {
-        if (workspace && isCurrent) setSession(workspace);
+        if (workspace && isCurrent) {
+          const workspaceData = useWorkspaceDataStore.getState();
+          workspaceData.setWorkspace(workspace.workspace_id);
+          setSession(workspace);
+          void useWorkspaceDataStore
+            .getState()
+            .ensureDemoData()
+            .catch(() => undefined);
+        }
       })
       .catch((requestError) => {
         if (isCurrent) {
@@ -149,6 +196,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
         credentials: "include",
       });
     } finally {
+      useWorkspaceDataStore.getState().resetWorkspace();
       router.replace("/");
       router.refresh();
     }
@@ -166,30 +214,32 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
 
   if (!session) {
     return (
-      <main className="flex min-h-screen items-center justify-center text-muted-foreground">
-        Loading private workspace…
+      <main className="flex min-h-screen items-center justify-center">
+        <LoadingState label="Loading private workspace" />
       </main>
     );
   }
 
+  const allNavigation = [...workspaceNavigation, ...simulationNavigation];
+
   return (
     <WorkspaceContext.Provider value={{ session, refreshSession }}>
-      <div className="mx-auto flex min-h-screen w-full max-w-[100rem] flex-col overflow-x-clip lg:flex-row">
-        <aside className="sticky top-0 z-40 flex border-b border-border bg-card/95 px-4 py-4 backdrop-blur lg:h-screen lg:w-72 lg:shrink-0 lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-6 lg:py-7">
+      <div className="flex min-h-screen w-full flex-col overflow-x-clip bg-background lg:flex-row">
+        <aside className="sticky top-0 z-40 flex border-b border-sidebar-border bg-sidebar px-4 py-3 lg:h-screen lg:w-64 lg:shrink-0 lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-4 lg:py-5">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-4 lg:block">
+            <div className="flex items-center justify-between gap-4 px-1">
               <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-muted text-accent">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-accent">
                   <Leaf aria-hidden="true" className="h-4 w-4" />
                 </span>
                 <div>
                   <Link
                     href="/"
-                    className="text-lg font-bold tracking-tight text-primary"
+                    className="text-base font-bold tracking-tight text-primary"
                   >
                     CarbonSage
                   </Link>
-                  <p className="text-xs text-muted-foreground">Workspace</p>
+                  <p className="text-[11px] text-muted-foreground">Workspace</p>
                 </div>
               </div>
               <button
@@ -203,42 +253,82 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
 
             <nav
               aria-label="Workspace navigation"
-              className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:mt-8 lg:block lg:space-y-1 lg:overflow-visible lg:pb-0"
+              className="mt-3 flex gap-1.5 overflow-x-auto pb-1 lg:hidden"
             >
-              {navigation.map((item) => {
-                const Icon = item.icon;
-                const active =
-                  item.href === "/dashboard"
-                    ? pathname === item.href
-                    : pathname.startsWith(item.href);
-                return (
-                  <Link
-                    href={item.href}
+              {allNavigation.map((item) => (
+                <NavigationLink
+                  key={item.href}
+                  item={item}
+                  pathname={pathname}
+                  onNavigate={() => setProfileOpen(false)}
+                />
+              ))}
+            </nav>
+
+            <nav
+              aria-label="Workspace navigation"
+              className="mt-7 hidden lg:block"
+            >
+              <p className="px-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
+                Workspace
+              </p>
+              <div className="mt-1.5 space-y-0.5">
+                {workspaceNavigation.map((item) => (
+                  <NavigationLink
                     key={item.href}
-                    onClick={() => setProfileOpen(false)}
-                    aria-current={active ? "page" : undefined}
-                    className={`inline-flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition lg:flex ${
-                      active
-                        ? "bg-primary font-semibold text-background"
-                        : "text-muted-foreground hover:bg-muted hover:text-primary"
-                    }`}
-                  >
-                    <Icon aria-hidden="true" className="h-4 w-4" />
-                    {item.label}
-                  </Link>
-                );
-              })}
+                    item={item}
+                    pathname={pathname}
+                    onNavigate={() => setProfileOpen(false)}
+                  />
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSimulationsOpen((current) => !current)}
+                aria-expanded={simulationsOpen}
+                className="mt-6 flex w-full items-center justify-between px-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80"
+              >
+                Simulations
+                <ChevronDown
+                  aria-hidden="true"
+                  className={`h-3.5 w-3.5 transition ${simulationsOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {simulationsOpen ? (
+                <div className="mt-1.5 space-y-0.5">
+                  {simulationNavigation.map((item) => (
+                    <NavigationLink
+                      key={item.href}
+                      item={item}
+                      pathname={pathname}
+                      onNavigate={() => setProfileOpen(false)}
+                    />
+                  ))}
+                </div>
+              ) : null}
             </nav>
           </div>
 
-          <div ref={profileRef} className="relative mt-6 hidden lg:block">
+          <div ref={profileRef} className="relative mt-5 hidden lg:block">
             {profileOpen ? (
-              <div className="absolute bottom-full left-0 right-0 mb-2 overflow-hidden rounded-xl border border-border bg-card p-2 shadow-xl">
+              <div className="absolute bottom-full left-0 mb-2 w-52 overflow-hidden rounded-xl border border-border bg-card p-1.5 shadow-xl">
+                <Link
+                  href="/dashboard/how-to"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-primary transition hover:bg-muted"
+                >
+                  <CircleHelp
+                    aria-hidden="true"
+                    className="h-4 w-4 text-accent"
+                  />
+                  How to use CarbonSage
+                </Link>
                 <button
                   type="button"
                   onClick={toggleTheme}
                   disabled={!mounted}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-primary transition hover:bg-muted disabled:opacity-50"
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-primary transition hover:bg-muted disabled:opacity-50"
                 >
                   {theme === "dark" ? (
                     <Sun aria-hidden="true" className="h-4 w-4 text-accent" />
@@ -250,7 +340,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
                 <button
                   type="button"
                   onClick={leaveWorkspace}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-primary transition hover:bg-muted"
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-primary transition hover:bg-muted"
                 >
                   <LogOut aria-hidden="true" className="h-4 w-4 text-accent" />
                   Sign out
@@ -260,34 +350,33 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={() => setProfileOpen((current) => !current)}
+              aria-label="Open workspace menu"
               aria-expanded={profileOpen}
-              className="flex w-full items-center gap-3 rounded-xl border border-border bg-background p-3 text-left transition hover:border-accent"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-sm font-bold text-white shadow-sm transition hover:bg-accent"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-bold text-white">
-                DW
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold text-primary">
-                  Demo Workspace
-                </span>
-                <span className="block text-xs text-muted-foreground">
-                  Temporary session
-                </span>
-              </span>
-              <ChevronUp
-                aria-hidden="true"
-                className={`h-4 w-4 text-muted-foreground transition ${profileOpen ? "rotate-180" : ""}`}
-              />
+              DW
             </button>
           </div>
         </aside>
 
         <main className="min-w-0 flex-1 bg-background text-primary">
           {children}
+          <div
+            className={
+              pathname === "/dashboard/agent"
+                ? "px-4 pb-7 sm:px-6 lg:px-10 lg:pb-9"
+                : ""
+            }
+          >
+            <ChatInterface
+              navigationKey={pathname}
+              onAction={runWorkspaceAgentAction}
+              presentation={
+                pathname === "/dashboard/agent" ? "panel" : "launcher"
+              }
+            />
+          </div>
         </main>
-        {pathname === "/dashboard/agent" ? null : (
-          <ChatInterface key={pathname} onAction={runWorkspaceAgentAction} />
-        )}
       </div>
     </WorkspaceContext.Provider>
   );

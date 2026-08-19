@@ -8,6 +8,8 @@ const shipmentCsv = [
 
 const supplierEvidence =
   "Supplier ABC holds ISO 14001 certification and operates rail routes in Canada.";
+const emptySupplierCsv =
+  "supplier_id,name,region,certifications,transport_modes,documents\n";
 
 // Render, Neon, and the configured embedding provider can need a few seconds
 // to wake up in the production smoke test. Keep action-result assertions
@@ -43,6 +45,13 @@ async function openWorkspacePage(page: Page, label: string, path: string) {
   ).toHaveAttribute("aria-current", "page");
 }
 
+async function openShipmentImport(page: Page) {
+  await page.getByRole("button", { name: "Import shipments" }).click();
+  const dialog = page.getByRole("dialog", { name: "Import shipments" });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
 test("completes the five-minute demo workflow and exports a report", async ({
   page,
 }) => {
@@ -50,12 +59,15 @@ test("completes the five-minute demo workflow and exports a report", async ({
   await enterWorkspace(page);
   await openWorkspacePage(page, "Shipments", "shipments");
 
-  await page.getByLabel("Shipment file").setInputFiles({
+  const shipmentDialog = await openShipmentImport(page);
+  await shipmentDialog.getByLabel("Shipment file").setInputFiles({
     name: "shipments.csv",
     mimeType: "text/csv",
     buffer: Buffer.from(shipmentCsv),
   });
-  await page.getByRole("button", { name: "Upload and analyze" }).click();
+  await shipmentDialog
+    .getByRole("button", { name: "Upload and analyze" })
+    .click();
   await expect(page.getByText("Shipments", { exact: true }).last()).toBeVisible(
     {
       timeout: backendActionTimeout,
@@ -72,9 +84,10 @@ test("completes the five-minute demo workflow and exports a report", async ({
     { timeout: backendActionTimeout },
   );
 
-  await page.getByRole("button", { name: "Rename shipments.csv" }).click();
+  await page.getByRole("button", { name: "Actions for shipments.csv" }).click();
+  await page.getByRole("button", { name: "Rename", exact: true }).click();
   await page.getByLabel("Artifact title").fill("Q3 freight baseline");
-  await page.getByRole("button", { name: "Save name" }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Q3 freight baseline" }),
   ).toBeVisible();
@@ -115,18 +128,17 @@ test("completes the five-minute demo workflow and exports a report", async ({
   }
 
   await openWorkspacePage(page, "Scenarios", "scenarios");
-  await page.getByRole("button", { name: "Run scenario" }).click();
-  await expect(page.getByText("Current baseline")).toBeVisible({
-    timeout: backendActionTimeout,
-  });
   await expect(
-    page.getByRole("heading", { name: "Compare an alternative" }),
+    page.getByRole("heading", { name: "Guided scenario modelling" }),
   ).toBeVisible();
-  await expect(page.getByText("Methodology", { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("table", { name: "Scenario result by shipment" }),
-  ).toBeVisible();
+  await expect(page.getByText("Coming soon", { exact: true })).toBeVisible();
 
+  let reportPreviewRequests = 0;
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/reports/preview") {
+      reportPreviewRequests += 1;
+    }
+  });
   await openWorkspacePage(page, "Report", "report");
   await expect(page.getByText("Current baseline")).toBeVisible({
     timeout: backendActionTimeout,
@@ -151,19 +163,35 @@ test("completes the five-minute demo workflow and exports a report", async ({
   await expect(
     page.getByText("Report snapshot", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: /Demo Workspace/ }).click();
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await openWorkspacePage(page, "Report", "report");
+  await expect(page.getByText("Current baseline")).toBeVisible();
+  expect(reportPreviewRequests).toBe(1);
+  const workspaceMenu = page.getByRole("button", {
+    name: "Open workspace menu",
+  });
+  await workspaceMenu.focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("link", { name: "How to use CarbonSage" }),
+  ).toBeVisible();
+  const signOut = page.getByRole("button", { name: "Sign out" });
+  await signOut.focus();
+  await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/$/);
 });
 
-test("loads the fictional demo dataset from the agent-first empty state", async ({
+test("loads the fictional demo dataset from the agent or integrations", async ({
   page,
 }) => {
   await enterWorkspace(page);
+  await expect(
+    page.getByRole("button", { name: "Load demo data" }),
+  ).toBeVisible();
 
+  await openWorkspacePage(page, "Integrations", "integrations");
   await page.getByRole("button", { name: "Load demo data" }).click();
   await expect(
-    page.getByRole("heading", { name: "What would you like to review?" }),
+    page.getByText("24 suppliers · 6 shipments · 3 cited documents"),
   ).toBeVisible({ timeout: backendActionTimeout });
 
   await openWorkspacePage(page, "Artifacts", "artifacts");
@@ -179,8 +207,19 @@ test("loads the fictional demo dataset from the agent-first empty state", async 
     }),
   ).toBeVisible();
   await expect(
+    page.getByRole("heading", {
+      name: "aurora-packaging-disclosure.txt",
+    }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Actions for / })).toHaveCount(
+    4,
+  );
+  await page
+    .getByRole("button", { name: "Actions for carbonsage-demo-shipments.csv" })
+    .click();
+  await expect(
     page.getByRole("button", { name: "Download source" }),
-  ).toHaveCount(3);
+  ).toBeVisible();
 
   await openWorkspacePage(page, "Shipments", "shipments");
   await expect(page.getByText("6", { exact: true }).first()).toBeVisible();
@@ -191,17 +230,36 @@ test("loads the fictional demo dataset from the agent-first empty state", async 
   await expect(
     page.getByText("Northstar Logistics", { exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByText("Coastal Biofuels", { exact: true }),
+  ).toBeVisible();
+
+  await openWorkspacePage(page, "Integrations", "integrations");
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Unload demo data" }).click();
+  await expect(
+    page.getByRole("button", { name: "Load demo data" }),
+  ).toBeVisible({ timeout: backendActionTimeout });
+  await openWorkspacePage(page, "Artifacts", "artifacts");
+  await expect(
+    page.getByText(
+      "No active artifacts yet. Load demo data or upload shipment and supplier sources to begin.",
+    ),
+  ).toBeVisible({ timeout: backendActionTimeout });
 });
 
 test("keeps two demo workspaces isolated", async ({ page, browser }) => {
   await enterWorkspace(page);
   await openWorkspacePage(page, "Shipments", "shipments");
-  await page.getByLabel("Shipment file").setInputFiles({
+  const shipmentDialog = await openShipmentImport(page);
+  await shipmentDialog.getByLabel("Shipment file").setInputFiles({
     name: "shipments.csv",
     mimeType: "text/csv",
     buffer: Buffer.from(shipmentCsv),
   });
-  await page.getByRole("button", { name: "Upload and analyze" }).click();
+  await shipmentDialog
+    .getByRole("button", { name: "Upload and analyze" })
+    .click();
   await expect(page.getByText("Shipments", { exact: true }).last()).toBeVisible(
     {
       timeout: backendActionTimeout,
@@ -214,9 +272,15 @@ test("keeps two demo workspaces isolated", async ({ page, browser }) => {
   await openWorkspacePage(secondPage, "Artifacts", "artifacts");
   await expect(
     secondPage.getByText(
-      "No active artifacts yet. Upload shipment data or supplier evidence to create the first workspace artifact.",
+      "No active artifacts yet. Load demo data or upload shipment and supplier sources to begin.",
     ),
   ).toBeVisible();
+  await expect(
+    secondPage.getByRole("button", { name: "Download shipments" }),
+  ).toHaveCount(0);
+  await expect(
+    secondPage.getByRole("button", { name: "Download suppliers" }),
+  ).toHaveCount(0);
   await openWorkspacePage(secondPage, "Suppliers", "evidence");
   await expect(
     secondPage.getByText("No suppliers have been added to this workspace."),
@@ -229,34 +293,58 @@ test("soft-deletes a shipment artifact and removes its active analysis", async (
 }) => {
   await enterWorkspace(page);
   await openWorkspacePage(page, "Shipments", "shipments");
-  await page.getByLabel("Shipment file").setInputFiles({
+  const shipmentDialog = await openShipmentImport(page);
+  await shipmentDialog.getByLabel("Shipment file").setInputFiles({
     name: "shipments.csv",
     mimeType: "text/csv",
     buffer: Buffer.from(shipmentCsv),
   });
-  await page.getByRole("button", { name: "Upload and analyze" }).click();
+  await shipmentDialog
+    .getByRole("button", { name: "Upload and analyze" })
+    .click();
   await expect(page.getByText("Shipments", { exact: true }).last()).toBeVisible(
     {
       timeout: backendActionTimeout,
     },
   );
   await openWorkspacePage(page, "Artifacts", "artifacts");
-  const deleteButton = page.getByRole("button", {
-    name: "Delete shipments.csv",
-  });
+  await page.getByRole("button", { name: "Actions for shipments.csv" }).click();
+  const deleteButton = page.getByRole("button", { name: "Delete" });
   await expect(deleteButton).toBeVisible({ timeout: backendActionTimeout });
   page.once("dialog", (dialog) => dialog.accept());
   await deleteButton.click();
 
   await expect(
     page.getByText(
-      "No active artifacts yet. Upload shipment data or supplier evidence to create the first workspace artifact.",
+      "No active artifacts yet. Load demo data or upload shipment and supplier sources to begin.",
     ),
   ).toBeVisible({ timeout: backendActionTimeout });
   await openWorkspacePage(page, "Scenarios", "scenarios");
   await expect(
-    page.getByRole("button", { name: "Run scenario" }),
-  ).toBeDisabled();
+    page.getByRole("heading", { name: "Guided scenario modelling" }),
+  ).toBeVisible();
+});
+
+test("explains when a supplier CSV is selected as shipment data", async ({
+  page,
+}) => {
+  await enterWorkspace(page);
+  await openWorkspacePage(page, "Shipments", "shipments");
+  const shipmentDialog = await openShipmentImport(page);
+  await shipmentDialog.getByLabel("Shipment file").setInputFiles({
+    name: "carbonsage-suppliers.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(emptySupplierCsv),
+  });
+  await shipmentDialog
+    .getByRole("button", { name: "Upload and analyze" })
+    .click();
+
+  await expect(page.getByText("We couldn’t import this file")).toBeVisible({
+    timeout: backendActionTimeout,
+  });
+  await expect(page.getByText(/This looks like supplier data/)).toBeVisible();
+  await expect(page.getByText("Emissions by mode")).toHaveCount(0);
 });
 
 test("keeps the deterministic workspace usable when the agent is disabled", async ({
@@ -269,10 +357,11 @@ test("keeps the deterministic workspace usable when the agent is disabled", asyn
   await expect(page.getByLabel("Message CarbonSage")).toBeDisabled();
 
   await openWorkspacePage(page, "Shipments", "shipments");
-  await expect(page.getByLabel("Shipment file")).toBeEnabled();
+  const shipmentDialog = await openShipmentImport(page);
+  await expect(shipmentDialog.getByLabel("Shipment file")).toBeEnabled();
   await expect(
-    page.getByRole("button", { name: "Upload and analyze" }),
-  ).toBeEnabled();
+    shipmentDialog.getByRole("button", { name: "Upload and analyze" }),
+  ).toBeDisabled();
 });
 
 test("restores the latest workspace conversation before enabling input", async ({
@@ -291,6 +380,8 @@ test("restores the latest workspace conversation before enabling input", async (
     expires_at: new Date(Date.now() + 3_600_000).toISOString(),
   };
   let createRequested = false;
+  let conversationListRequests = 0;
+  let conversationDetailRequests = 0;
 
   await page.route("**/agent/health", (route) =>
     route.fulfill({
@@ -310,10 +401,12 @@ test("restores the latest workspace conversation before enabling input", async (
         json: { detail: "Unexpected create" },
       });
     }
+    conversationListRequests += 1;
     return route.fulfill({ json: { conversations: [conversation] } });
   });
-  await page.route("**/agent/conversations/*", (route) =>
-    route.fulfill({
+  await page.route("**/agent/conversations/*", (route) => {
+    conversationDetailRequests += 1;
+    return route.fulfill({
       json: {
         conversation,
         messages: [
@@ -348,8 +441,8 @@ test("restores the latest workspace conversation before enabling input", async (
         ],
         tool_events: [],
       },
-    }),
-  );
+    });
+  });
 
   await enterWorkspace(page);
   await openWorkspacePage(page, "Ask CarbonSage", "agent");
@@ -362,6 +455,16 @@ test("restores the latest workspace conversation before enabling input", async (
   ).toBeVisible();
   await expect(dialog.getByLabel("Message CarbonSage")).toBeEnabled();
   expect(createRequested).toBe(false);
+
+  await openWorkspacePage(page, "Shipments", "shipments");
+  await openWorkspacePage(page, "Ask CarbonSage", "agent");
+  await expect(
+    page
+      .getByRole("region", { name: "CarbonSage" })
+      .getByText("The previous decision is restored."),
+  ).toBeVisible();
+  expect(conversationListRequests).toBe(1);
+  expect(conversationDetailRequests).toBe(1);
 });
 
 test("creates, switches, and closes workspace conversations", async ({
@@ -420,7 +523,7 @@ test("creates, switches, and closes workspace conversations", async ({
   await enterWorkspace(page);
   await openWorkspacePage(page, "Ask CarbonSage", "agent");
   const agent = page.getByRole("region", { name: "CarbonSage" });
-  const conversationSelect = agent.getByLabel("Conversation");
+  const conversationSelect = agent.getByLabel("Conversation", { exact: true });
   await expect(conversationSelect).toHaveValue(
     firstConversation.conversation_id,
   );
@@ -739,11 +842,12 @@ test("supports keyboard entry and a narrow viewport", async ({ page }) => {
   await expect(
     page.getByRole("navigation", { name: "Workspace navigation" }),
   ).toBeVisible();
-  const shipmentInput = page.getByLabel("Shipment file");
+  const shipmentDialog = await openShipmentImport(page);
+  const shipmentInput = shipmentDialog.getByLabel("Shipment file");
   await shipmentInput.focus();
   await expect(shipmentInput).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(
-    page.getByRole("button", { name: "Upload and analyze" }),
+    shipmentDialog.getByRole("link", { name: "Download XLSX template" }),
   ).toBeFocused();
 });

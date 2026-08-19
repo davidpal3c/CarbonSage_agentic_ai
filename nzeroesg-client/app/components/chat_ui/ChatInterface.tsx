@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Database, Leaf, Plus, Trash2, Upload, X } from "lucide-react";
 
 import { getBackendUrl } from "@/app/api/urls";
+import { LoadingState, Spinner } from "@/app/components/Spinner";
 import type {
   AgentAvailability,
   AgentConversation,
@@ -19,12 +20,14 @@ import AgentDetailsPanel from "./AgentDetailsPanel";
 import ChatInput from "./ChatInput";
 import { LoadingIndicator } from "./LoadingIndicator";
 import StructuredResponse from "./StructuredResponse";
+import { useWorkspaceDataStore } from "@/app/dashboard/workspace-data-store";
 
 interface ChatInterfaceProps {
   initialOpen?: boolean;
   onOpenChange?: (isOpen: boolean) => void;
   onAction?: (actionId: string, artifactId: string | null) => Promise<void>;
   presentation?: "launcher" | "panel";
+  navigationKey?: string;
 }
 
 const statusLabels: Record<AgentAvailability, string> = {
@@ -39,15 +42,6 @@ const suggestedPrompts = [
   "What data-quality issues should I address?",
   "Compare the current freight baseline with rail.",
 ];
-
-type DemoDataStatus = {
-  loaded: boolean;
-  has_artifacts: boolean;
-  artifact_count: number;
-  shipment_count: number;
-  supplier_count: number;
-  evidence_document_count: number;
-};
 
 async function apiDetail(response: Response, fallback: string) {
   const payload = (await response.json().catch(() => null)) as ApiError | null;
@@ -69,6 +63,7 @@ export default function ChatInterface({
   onOpenChange,
   onAction,
   presentation = "launcher",
+  navigationKey,
 }: ChatInterfaceProps) {
   const isPanel = presentation === "panel";
   const [messages, setMessages] = useState<UiMessage[]>([]);
@@ -85,10 +80,11 @@ export default function ChatInterface({
     useState<AgentAvailability>("checking");
   const [conversationReady, setConversationReady] = useState(false);
   const [controlError, setControlError] = useState<string | null>(null);
-  const [demoData, setDemoData] = useState<DemoDataStatus | null>(null);
+  const demoData = useWorkspaceDataStore((state) => state.demoData);
   const [isLoadingDemoData, setIsLoadingDemoData] = useState(false);
   const conversationId = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const previousNavigationKey = useRef(navigationKey);
 
   const applyConversationDetail = useCallback(
     (detail: ConversationDetailResponse) => {
@@ -390,30 +386,16 @@ export default function ChatInterface({
   }, [loadConversation]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    fetch(`${getBackendUrl()}/demo/data`, {
-      credentials: "include",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) return null;
-        return (await response.json()) as DemoDataStatus;
-      })
-      .then((payload) => {
-        if (payload) setDemoData(payload);
-      })
-      .catch(() => undefined);
-
-    function dataLoaded(event: Event) {
-      const customEvent = event as CustomEvent<DemoDataStatus>;
-      if (customEvent.detail) setDemoData(customEvent.detail);
+    if (
+      !isPanel &&
+      previousNavigationKey.current !== undefined &&
+      previousNavigationKey.current !== navigationKey
+    ) {
+      setIsOpen(false);
+      onOpenChange?.(false);
     }
-    window.addEventListener("carbonsage:data-loaded", dataLoaded);
-    return () => {
-      controller.abort();
-      window.removeEventListener("carbonsage:data-loaded", dataLoaded);
-    };
-  }, []);
+    previousNavigationKey.current = navigationKey;
+  }, [isPanel, navigationKey, onOpenChange]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -440,10 +422,12 @@ export default function ChatInterface({
         : assistantStatus === "available"
           ? "Ask about this workspace…"
           : "CarbonSage is not available in this environment";
+  const showInterface =
+    isPanel || (previousNavigationKey.current === navigationKey && isOpen);
 
   return (
     <div>
-      {isOpen ? (
+      {showInterface ? (
         <section
           role={isPanel ? "region" : "dialog"}
           aria-modal={isPanel ? undefined : "false"}
@@ -520,6 +504,9 @@ export default function ChatInterface({
                     </option>
                   ))}
                 </select>
+                {isSwitchingConversation ? (
+                  <Spinner label="Updating conversation" />
+                ) : null}
                 <button
                   type="button"
                   onClick={() => void handleNewConversation()}
@@ -579,7 +566,9 @@ export default function ChatInterface({
           >
             <div className="flex min-h-0 flex-col">
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-background px-4 py-5 sm:px-5">
-                {!messages.length && !isLoading ? (
+                {isSwitchingConversation ? (
+                  <LoadingState label="Loading conversation" />
+                ) : !messages.length && !isLoading ? (
                   <div className="mx-auto flex h-full max-w-xl flex-col items-center justify-center py-8 text-center">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-accent">
                       <Leaf aria-hidden="true" className="h-5 w-5" />
@@ -591,7 +580,7 @@ export default function ChatInterface({
                     </h3>
                     <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
                       {demoData && !demoData.has_artifacts
-                        ? "This workspace is empty. Load a small fictional supplier and shipment dataset, or upload CSV, XLSX, PDF, or TXT files."
+                        ? "This workspace is empty. Load 24 fictional suppliers, cited disclosures, and a shipment baseline, or upload CSV, XLSX, PDF, or TXT files."
                         : "Ask about workspace files, supplier evidence, emissions, scenarios, or report data."}
                     </p>
                     {demoData && !demoData.has_artifacts ? (
@@ -600,14 +589,18 @@ export default function ChatInterface({
                           type="button"
                           onClick={() => void handleLoadDemoData()}
                           disabled={!onAction || isLoadingDemoData}
-                          className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-xs font-semibold text-white transition hover:bg-accent disabled:opacity-50"
+                          className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-accent disabled:opacity-50"
                         >
-                          <Database aria-hidden="true" className="h-4 w-4" />
-                          {isLoadingDemoData ? "Loading…" : "Load demo data"}
+                          {isLoadingDemoData ? (
+                            <Spinner />
+                          ) : (
+                            <Database aria-hidden="true" className="h-4 w-4" />
+                          )}
+                          Load demo data
                         </button>
                         <Link
                           href="/dashboard/shipments"
-                          className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold text-primary transition hover:border-accent"
+                          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3.5 py-2 text-xs font-semibold text-primary transition hover:border-accent"
                         >
                           <Upload aria-hidden="true" className="h-4 w-4" />
                           Upload your own
@@ -620,7 +613,7 @@ export default function ChatInterface({
                             key={prompt}
                             type="button"
                             onClick={() => void handleSendMessage(prompt)}
-                            className="rounded-full border border-border bg-card px-3 py-2 text-xs font-medium text-primary transition hover:border-accent"
+                            className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-primary transition hover:border-accent"
                           >
                             {prompt}
                           </button>

@@ -8,6 +8,7 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? localBaseURL;
 const useLocalServers = !process.env.PLAYWRIGHT_BASE_URL;
 const python = process.env.E2E_PYTHON ?? "../.venv/bin/python";
 const databaseUrl = process.env.E2E_DATABASE_URL ?? "";
+const testDistDir = process.env.PLAYWRIGHT_DIST_DIR ?? ".next-playwright";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -24,13 +25,13 @@ export default defineConfig({
   webServer: useLocalServers
     ? [
         {
-          command: `cd ../nzeroesg-api && APP_ENV=development DATABASE_URL=${databaseUrl} CORS_ORIGINS=${localBaseURL} ${python} -m uvicorn main:app --host 127.0.0.1 --port ${apiPort}`,
+          command: `cd ../nzeroesg-api && APP_ENV=development DATABASE_URL=${databaseUrl} EMBEDDING_PROVIDER= ASSISTANT_ENABLED=false CORS_ORIGINS=${localBaseURL} ${python} -m uvicorn main:app --host 127.0.0.1 --port ${apiPort}`,
           url: `${localApiURL}/health`,
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,
         },
         {
-          command: `NEXT_PUBLIC_BACKEND_URL=${localApiURL} npm run dev -- --hostname 127.0.0.1 --port ${frontendPort}`,
+          command: `NEXT_DIST_DIR=${testDistDir} NEXT_PUBLIC_BACKEND_URL=${localApiURL} npm run dev -- --hostname 127.0.0.1 --port ${frontendPort}`,
           url: `${localBaseURL}/login`,
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,

@@ -31,6 +31,14 @@ XLSX_CONTENT_TYPES = {
 }
 ALLOWED_CONTENT_TYPES = CSV_CONTENT_TYPES | XLSX_CONTENT_TYPES
 ALLOWED_EXTENSIONS = {".csv", ".xlsx"}
+SUPPLIER_EXPORT_HEADERS = {
+    "supplier_id",
+    "name",
+    "region",
+    "certifications",
+    "transport_modes",
+    "documents",
+}
 
 HEADER_ALIASES = {
     "id": "shipment_id",
@@ -235,11 +243,20 @@ def parse_shipments_csv(
             header for header in REQUIRED_HEADERS if header not in normalized_headers
         ]
         if missing_headers:
+            normalized_header_set = set(normalized_headers)
+            looks_like_supplier_data = (
+                len(normalized_header_set.intersection(SUPPLIER_EXPORT_HEADERS)) >= 3
+            )
             _issue(
                 errors,
                 row_number=1,
                 field=None,
-                message=f"Missing required headers: {', '.join(missing_headers)}.",
+                message=(
+                    "This looks like supplier data. Add supplier records from the Suppliers "
+                    "page, or choose a shipment CSV/XLSX file here."
+                    if looks_like_supplier_data
+                    else f"Missing required headers: {', '.join(missing_headers)}."
+                ),
             )
             return ShipmentParseResult(rows=(), errors=tuple(errors), warnings=())
         ignored_headers = [
