@@ -214,16 +214,18 @@ CI must remain credential-free and run:
 The browser suite is a local/CI gate; it does not substitute for the public
 deployment smoke check.
 
-Public verification snapshot from August 8, 2026:
+Public verification snapshot from August 19, 2026:
 
-- `https://n-zero-esg-scope3.vercel.app/` serves the rebuilt client from
-  `main`, and `/login` returns `200`.
+- `https://www.carbonsage.ca/` serves the Vercel client; `carbonsage.ca`
+  redirects to that canonical origin. `carbonsage.org` redirects to the same
+  client while its DNS rollout is completed.
 - `https://nzeroesg-api.onrender.com/health` serves the `carbonsage-api`
   FastAPI service with Neon-backed production persistence and reports semantic
   search enabled.
-- The exact Vercel-origin CORS preflight passes.
-- The assistant health route is reachable and the disabled assistant fails
-  closed with `503` rather than affecting the deterministic workflow.
+- The assistant and custom-domain CORS deployment gates are pending a Render
+  environment update and restart. Until then, `/health` reports
+  `assistant_enabled: false`, `/agent/health` reports `available: false`, and
+  preflights from the CarbonSage domains are rejected.
 - The public Playwright journey passes shipment ingestion, cited evidence,
   scenarios, report export, workspace isolation, keyboard entry, and narrow
   viewport checks.
