@@ -19,6 +19,7 @@ from domain.artifacts.storage import (
     ArtifactStorageProviderError,
     SourceRetention,
 )
+from domain.demo_data import generated_demo_source
 from domain.workspaces.principals import WorkspacePrincipal
 from integrations.aws_s3 import S3ObjectStore
 from persistence.artifact_storage import build_artifact_storage_repository
@@ -173,6 +174,20 @@ async def download_artifact_source(
     artifact = artifact_repository.get(principal.workspace_id, artifact_id)
     if artifact is None:
         raise _not_found()
+    demo_asset = artifact.metadata.get("demo_asset")
+    generated_source = generated_demo_source(demo_asset) if isinstance(demo_asset, str) else None
+    if generated_source is not None:
+        _, media_type, content = generated_source
+        encoded_filename = quote(artifact.title, safe="")
+        return Response(
+            content=content,
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}",
+                "Cache-Control": "private, no-store",
+                "X-Content-SHA256": artifact.content_sha256 or "",
+            },
+        )
     try:
         source, content = await run_in_threadpool(
             artifact_storage_service.download,

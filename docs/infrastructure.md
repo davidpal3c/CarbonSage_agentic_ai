@@ -20,11 +20,14 @@ flowchart LR
     B --> C[FastAPI on one Render web service]
     C --> D[Neon free PostgreSQL database]
     C --> F[Private AWS S3 source storage]
-    C -. optional .-> E[OpenAI or OpenRouter provider]
+    C --> E[OpenAI or OpenRouter agent provider]
 ```
 
-The assistant provider is optional. The primary shipment, evidence, scenario,
-and report workflow must work without it.
+The deployed product configures an assistant provider because the agent is the
+primary experience. Deterministic shipment, evidence, scenario, report, and
+export services still fail independently and remain usable if that external
+provider is temporarily unavailable. Local development and CI may explicitly
+disable the provider to preserve a credential-free baseline.
 
 No Redis, message broker, MongoDB, former ChromaDB service, dedicated embedding
 service, background worker, or storage microservice is required for the public
@@ -108,8 +111,10 @@ merge into `dev` for CI and evaluation without deploying either public service.
   API service;
 - expose the FastAPI service and health endpoint;
 - allow CORS only from the deployed frontend and documented local origins;
-- keep the optional assistant disabled unless a provider and quota policy are
-  explicitly configured;
+- enable the assistant with `ASSISTANT_ENABLED=true`, set `LLM_PROVIDER`, and
+  configure the matching model name and provider credential; the checked-in
+  production baseline uses OpenRouter while retaining the existing bounded
+  request quota and fail-closed behavior;
 - configure `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, and the matching provider
   credential only when semantic retrieval should call an external embedding
   API; use `text-embedding-3-small` for OpenAI or the provider-qualified model
@@ -173,12 +178,12 @@ monthly ceiling.
 
 The backend must enforce the public limits from the roadmap:
 
-- 500 shipment rows per CSV (enforced by the upload parser);
+- 500 shipment rows per CSV or XLSX workbook (enforced by the upload parser);
 - 3 evidence documents per workspace;
 - 10 MB per file (enforced before parsing);
 - text-based evidence only;
 - 10 analysis or scenario runs per workspace per day (enforced server-side);
-- 3 assistant requests per workspace per day when enabled.
+- 3 assistant requests per workspace per day.
 
 Original shipment and evidence files are private and downloadable only until
 their workspace/source expiry, never longer than 24 hours. Normalized text,

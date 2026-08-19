@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.agent import agent_router
 from api.artifacts import artifacts_router
+from api.demo_data import demo_data_router
 from api.emissions import emissions_router
 from api.evidence import evidence_router
 from api.reports import reports_router
@@ -42,6 +43,7 @@ async def add_security_headers(request: Request, call_next):
 
 app.include_router(agent_router)
 app.include_router(workspace_router)
+app.include_router(demo_data_router)
 app.include_router(artifacts_router)
 app.include_router(emissions_router)
 app.include_router(shipments_router)

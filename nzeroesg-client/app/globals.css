@@ -15,9 +15,9 @@
   --muted-foreground: #656b66;
   --border: #d9ddd8;
   --primary: #1c201d;
-  --secondary: #28352e;
+  --secondary: #245f3e;
   --tertiary: #8a711f;
-  --accent: #607c6b;
+  --accent: #3f7f58;
 }
 
 .dark {
@@ -31,9 +31,9 @@
   --muted-foreground: #a9b0aa;
   --border: #343a35;
   --primary: #f1f3ef;
-  --secondary: #587061;
+  --secondary: #4f9669;
   --tertiary: #c7ad58;
-  --accent: #8ca696;
+  --accent: #73b388;
 }
 
 @theme {

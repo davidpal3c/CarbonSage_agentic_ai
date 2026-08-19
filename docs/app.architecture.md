@@ -65,26 +65,31 @@ capability exists.
 
 ### Control plane
 
-The control plane is a routed workspace application with one persistent
-navigation shell. Overview, artifacts, shipments, supplier evidence,
-scenarios, reports, and the decision agent each have a standalone URL that can
-be opened or refreshed directly:
+The control plane is an agent-first routed workspace application with one
+persistent navigation shell. Entering `/dashboard` opens the dedicated agent;
+integrations, overview, artifacts, shipments, suppliers, scenarios, and reports
+each have a standalone URL that can be opened or refreshed directly:
 
 ```text
 /dashboard
+├── /agent
+├── /integrations
+├── /overview
 ├── /artifacts
 ├── /shipments
 ├── /evidence
 ├── /scenarios
-├── /report
-└── /agent
+└── /report
 ```
 
 The control plane is where a demo workspace manages source material and tests
 the agent. Its bounded responsibilities are:
 
 - create, inspect, rename, and delete workspace artifacts;
-- upload shipment datasets and supplier evidence;
+- choose the checked-in fictional demo dataset or upload CSV/XLSX shipment
+  datasets and PDF/TXT supplier evidence;
+- download generated demo sources, retained uploads, and normalized shipment
+  and supplier exports;
 - import an explicitly selected Google Drive file;
 - test the agent against the same workspace context used by an embed;
 - create and revoke embed clients with exact allowed origins;

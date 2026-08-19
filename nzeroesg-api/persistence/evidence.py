@@ -30,6 +30,12 @@ from domain.evidence.retrieval import RetrievalMode, rank_matches
 
 
 class EvidenceRepository(Protocol):
+    def upsert_supplier(
+        self,
+        workspace_id: str,
+        supplier: SupplierMetadata,
+    ) -> SupplierCard: ...
+
     def store(
         self,
         workspace_id: str,
@@ -135,6 +141,23 @@ class InMemoryEvidenceRepository:
             tuple[str, str, SupplierMetadata, EvidenceDocument],
         ] = {}
         self._embeddings: dict[tuple[str, str, int, str, str], ChunkEmbedding] = {}
+
+    def upsert_supplier(
+        self,
+        workspace_id: str,
+        supplier: SupplierMetadata,
+    ) -> SupplierCard:
+        supplier_key = (workspace_id, supplier.name.casefold())
+        supplier_id, _, document_count = self._suppliers.get(
+            supplier_key,
+            (str(uuid4()), supplier, 0),
+        )
+        self._suppliers[supplier_key] = (supplier_id, supplier, document_count)
+        return _card(
+            supplier_id=supplier_id,
+            supplier=supplier,
+            document_count=document_count,
+        )
 
     def store(
         self,
@@ -379,11 +402,8 @@ class InMemoryEvidenceRepository:
                 if record_workspace == workspace_id
                 and self._documents[(record_workspace, _document_sha)][1] == supplier_id
             )
-            if remaining:
-                current = self._suppliers[supplier_key]
-                self._suppliers[supplier_key] = (current[0], current[1], remaining)
-            else:
-                self._suppliers.pop(supplier_key, None)
+            current = self._suppliers[supplier_key]
+            self._suppliers[supplier_key] = (current[0], current[1], remaining)
         return len(matching_keys)
 
 
@@ -397,6 +417,55 @@ class PostgresEvidenceRepository:
 
     def _connect(self):
         return psycopg.connect(self.database_url)
+
+    def upsert_supplier(
+        self,
+        workspace_id: str,
+        supplier: SupplierMetadata,
+    ) -> SupplierCard:
+        with closing(self._connect()) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO suppliers
+                        (supplier_id, workspace_id, name, region, certifications, transport_modes)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (workspace_id, name)
+                    DO UPDATE SET region = EXCLUDED.region,
+                                  certifications = EXCLUDED.certifications,
+                                  transport_modes = EXCLUDED.transport_modes,
+                                  updated_at = CURRENT_TIMESTAMP
+                    RETURNING supplier_id
+                    """,
+                    (
+                        str(uuid4()),
+                        workspace_id,
+                        supplier.name,
+                        supplier.region,
+                        list(supplier.certifications),
+                        list(supplier.transport_modes),
+                    ),
+                )
+                supplier_id = str(cursor.fetchone()[0])
+                cursor.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM evidence_documents AS document
+                    JOIN artifacts AS artifact
+                      ON artifact.artifact_id = document.artifact_id
+                     AND artifact.workspace_id = document.workspace_id
+                     AND artifact.deleted_at IS NULL
+                    WHERE document.workspace_id = %s AND document.supplier_id = %s
+                    """,
+                    (workspace_id, supplier_id),
+                )
+                document_count = cursor.fetchone()[0]
+            connection.commit()
+        return _card(
+            supplier_id=supplier_id,
+            supplier=supplier,
+            document_count=document_count,
+        )
 
     def store(
         self,
@@ -507,7 +576,6 @@ class PostgresEvidenceRepository:
                        AND a.deleted_at IS NULL
                     WHERE s.workspace_id = %s
                     GROUP BY s.supplier_id, s.name, s.region, s.certifications, s.transport_modes
-                    HAVING COUNT(a.artifact_id) > 0
                     ORDER BY s.name
                     """,
                     (workspace_id,),
@@ -836,20 +904,6 @@ class PostgresEvidenceRepository:
                     (workspace_id, artifact_id),
                 )
                 supplier_ids = [row[0] for row in cursor.fetchall()]
-                for supplier_id in supplier_ids:
-                    cursor.execute(
-                        """
-                        DELETE FROM suppliers AS supplier
-                        WHERE supplier.workspace_id = %s
-                          AND supplier.supplier_id = %s
-                          AND NOT EXISTS (
-                              SELECT 1 FROM evidence_documents AS document
-                              WHERE document.workspace_id = supplier.workspace_id
-                                AND document.supplier_id = supplier.supplier_id
-                          )
-                        """,
-                        (workspace_id, supplier_id),
-                    )
             connection.commit()
         return len(supplier_ids)
 

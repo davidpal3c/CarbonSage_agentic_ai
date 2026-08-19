@@ -26,6 +26,7 @@ from domain.agent.tools import (
     AgentPlan,
     AgentToolName,
     BuildDecisionReportOutput,
+    ListWorkspaceArtifactsOutput,
     PlannedToolCall,
 )
 from domain.artifacts.models import ArtifactKind, ArtifactSourceType, create_artifact
@@ -230,6 +231,32 @@ def test_report_metrics_chart_table_and_action_share_one_typed_result():
         processing_time_ms=2,
     )
     assert not any(block.type == "action" for block in empty_response.blocks)
+
+
+def test_empty_workspace_response_offers_demo_data_action():
+    execution = ToolExecution(
+        call_id="artifacts-empty",
+        tool_name=AgentToolName.LIST_WORKSPACE_ARTIFACTS,
+        output=ListWorkspaceArtifactsOutput(artifacts=[]),
+        event=ToolEvent(
+            tool_name=AgentToolName.LIST_WORKSPACE_ARTIFACTS.value,
+            status=ToolEventStatus.SUCCEEDED,
+            duration_ms=1,
+            result_count=0,
+        ),
+    )
+
+    response, _ = compose_agent_response((execution,), processing_time_ms=2)
+
+    assert any(
+        block.type == "warning" and block.code == "no_artifacts" for block in response.blocks
+    )
+    assert any(
+        block.type == "action"
+        and block.action_id == "workspace.load_demo_data"
+        and block.requires_confirmation is False
+        for block in response.blocks
+    )
 
 
 def test_typed_runtime_persists_validated_calculation_and_concise_tool_event():
