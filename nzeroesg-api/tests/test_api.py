@@ -277,14 +277,14 @@ def test_demo_data_is_explicit_idempotent_and_downloadable():
     assert loaded.json() == {
         "loaded": True,
         "has_artifacts": True,
-        "artifact_count": 3,
+        "artifact_count": 4,
         "shipment_count": 6,
-        "supplier_count": 2,
-        "evidence_document_count": 2,
+        "supplier_count": 24,
+        "evidence_document_count": 3,
     }
     assert repeated.status_code == 200
     assert repeated.json()["loaded"] is False
-    assert repeated.json()["artifact_count"] == 3
+    assert repeated.json()["artifact_count"] == 4
 
     artifacts = demo_client.get("/artifacts").json()["artifacts"]
     for artifact in artifacts:
@@ -298,6 +298,7 @@ def test_demo_data_is_explicit_idempotent_and_downloadable():
     assert b"CS-1001" in shipments_export.content
     assert suppliers_export.status_code == 200
     assert b"Boreal Components" in suppliers_export.content
+    assert b"Coastal Biofuels" in suppliers_export.content
 
 
 def test_supplier_can_be_created_before_evidence_is_available():

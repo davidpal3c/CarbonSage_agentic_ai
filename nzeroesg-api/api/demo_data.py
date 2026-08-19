@@ -23,6 +23,7 @@ from domain.demo_data import (
     DEMO_EVIDENCE_SOURCES,
     DEMO_SHIPMENTS_CSV,
     DEMO_SHIPMENTS_FILENAME,
+    DEMO_SUPPLIERS,
 )
 from domain.evidence.ingestion import extract_evidence, normalize_supplier_metadata
 from domain.evidence.models import SupplierMetadata
@@ -109,6 +110,23 @@ async def load_demo_data(
             "source_retention": generated_source_retention,
         },
     )
+
+    for demo_supplier in DEMO_SUPPLIERS:
+        normalized = normalize_supplier_metadata(
+            name=demo_supplier.name,
+            region=demo_supplier.region,
+            certifications=demo_supplier.certifications,
+            transport_modes=demo_supplier.transport_modes,
+        )
+        evidence_repository.upsert_supplier(
+            principal.workspace_id,
+            SupplierMetadata(
+                name=normalized[0],
+                region=normalized[1],
+                certifications=normalized[2],
+                transport_modes=normalized[3],
+            ),
+        )
 
     for source in DEMO_EVIDENCE_SOURCES:
         normalized = normalize_supplier_metadata(

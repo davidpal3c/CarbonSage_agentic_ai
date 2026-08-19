@@ -39,8 +39,9 @@ The trusted deterministic baseline is live at:
 The intended path is short:
 
 1. Enter an isolated, expiring demo workspace.
-2. Start with the small fictional demo dataset, or upload your own CSV/XLSX
-   shipment data and PDF/TXT supplier evidence.
+2. Start with the guided fictional demo dataset—24 suppliers, six shipments,
+   and three cited disclosures—or upload your own CSV/XLSX shipment data and
+   PDF/TXT supplier evidence.
 3. Ask CarbonSage to review emissions, data quality, supplier claims, or an
    alternative freight decision.
 4. Inspect returned metrics, charts, exact table values, citations, and tool
@@ -68,8 +69,10 @@ available independently.
 - Text and text-based PDF evidence ingestion with structured supplier records,
   recoverable page/chunk citations, and PostgreSQL full-text retrieval.
 - An explicit first-run choice between a checked-in fictional demo dataset and
-  user uploads. Demo sources, retained uploads, normalized shipments, and the
-  supplier catalog are downloadable from the workspace.
+  user uploads. The seed includes 24 supplier profiles, six mixed-mode
+  shipments, and three cited disclosures. Demo sources, retained uploads,
+  normalized shipments, and the supplier catalog are downloadable from the
+  workspace.
 - Explicit lexical, pgvector semantic, and deterministic hybrid retrieval
   modes with workspace filtering, versioned embedding metadata, and a safe
   lexical fallback when no embedding provider is configured.

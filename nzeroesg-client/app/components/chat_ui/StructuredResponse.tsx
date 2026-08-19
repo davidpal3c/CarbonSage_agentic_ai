@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, BarChart3, FileText, Quote } from "lucide-react";
 
+import { Spinner } from "@/app/components/Spinner";
 import type {
   ActionBlock,
   AgentResponseEnvelope,
@@ -197,13 +198,10 @@ function Action({
         type="button"
         onClick={run}
         disabled={!onAction || status === "running" || status === "done"}
-        className="rounded-full bg-secondary px-4 py-2 text-xs font-semibold text-white transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {status === "running"
-          ? "Running…"
-          : status === "done"
-            ? "Completed"
-            : block.label}
+        {status === "running" ? <Spinner /> : null}
+        {status === "done" ? "Completed" : block.label}
       </button>
       {!onAction ? (
         <p className="mt-2 text-xs text-muted-foreground">
