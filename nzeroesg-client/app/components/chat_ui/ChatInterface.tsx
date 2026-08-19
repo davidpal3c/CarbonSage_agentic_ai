@@ -20,12 +20,14 @@ import AgentDetailsPanel from "./AgentDetailsPanel";
 import ChatInput from "./ChatInput";
 import { LoadingIndicator } from "./LoadingIndicator";
 import StructuredResponse from "./StructuredResponse";
+import { useWorkspaceDataStore } from "@/app/dashboard/workspace-data-store";
 
 interface ChatInterfaceProps {
   initialOpen?: boolean;
   onOpenChange?: (isOpen: boolean) => void;
   onAction?: (actionId: string, artifactId: string | null) => Promise<void>;
   presentation?: "launcher" | "panel";
+  navigationKey?: string;
 }
 
 const statusLabels: Record<AgentAvailability, string> = {
@@ -40,15 +42,6 @@ const suggestedPrompts = [
   "What data-quality issues should I address?",
   "Compare the current freight baseline with rail.",
 ];
-
-type DemoDataStatus = {
-  loaded: boolean;
-  has_artifacts: boolean;
-  artifact_count: number;
-  shipment_count: number;
-  supplier_count: number;
-  evidence_document_count: number;
-};
 
 async function apiDetail(response: Response, fallback: string) {
   const payload = (await response.json().catch(() => null)) as ApiError | null;
@@ -70,6 +63,7 @@ export default function ChatInterface({
   onOpenChange,
   onAction,
   presentation = "launcher",
+  navigationKey,
 }: ChatInterfaceProps) {
   const isPanel = presentation === "panel";
   const [messages, setMessages] = useState<UiMessage[]>([]);
@@ -86,10 +80,11 @@ export default function ChatInterface({
     useState<AgentAvailability>("checking");
   const [conversationReady, setConversationReady] = useState(false);
   const [controlError, setControlError] = useState<string | null>(null);
-  const [demoData, setDemoData] = useState<DemoDataStatus | null>(null);
+  const demoData = useWorkspaceDataStore((state) => state.demoData);
   const [isLoadingDemoData, setIsLoadingDemoData] = useState(false);
   const conversationId = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const previousNavigationKey = useRef(navigationKey);
 
   const applyConversationDetail = useCallback(
     (detail: ConversationDetailResponse) => {
@@ -391,30 +386,16 @@ export default function ChatInterface({
   }, [loadConversation]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    fetch(`${getBackendUrl()}/demo/data`, {
-      credentials: "include",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) return null;
-        return (await response.json()) as DemoDataStatus;
-      })
-      .then((payload) => {
-        if (payload) setDemoData(payload);
-      })
-      .catch(() => undefined);
-
-    function dataLoaded(event: Event) {
-      const customEvent = event as CustomEvent<DemoDataStatus>;
-      if (customEvent.detail) setDemoData(customEvent.detail);
+    if (
+      !isPanel &&
+      previousNavigationKey.current !== undefined &&
+      previousNavigationKey.current !== navigationKey
+    ) {
+      setIsOpen(false);
+      onOpenChange?.(false);
     }
-    window.addEventListener("carbonsage:data-loaded", dataLoaded);
-    return () => {
-      controller.abort();
-      window.removeEventListener("carbonsage:data-loaded", dataLoaded);
-    };
-  }, []);
+    previousNavigationKey.current = navigationKey;
+  }, [isPanel, navigationKey, onOpenChange]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -441,10 +422,12 @@ export default function ChatInterface({
         : assistantStatus === "available"
           ? "Ask about this workspace…"
           : "CarbonSage is not available in this environment";
+  const showInterface =
+    isPanel || (previousNavigationKey.current === navigationKey && isOpen);
 
   return (
     <div>
-      {isOpen ? (
+      {showInterface ? (
         <section
           role={isPanel ? "region" : "dialog"}
           aria-modal={isPanel ? undefined : "false"}

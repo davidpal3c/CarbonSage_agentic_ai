@@ -32,6 +32,7 @@ import { getBackendUrl } from "@/app/api/urls";
 import { LoadingState } from "@/app/components/Spinner";
 import ChatInterface from "@/app/components/chat_ui/ChatInterface";
 import { runWorkspaceAgentAction } from "@/app/dashboard/agent-actions";
+import { useWorkspaceDataStore } from "@/app/dashboard/workspace-data-store";
 import { useTheme } from "@/app/utils/contexts/ThemeContext";
 
 export type Quota = { used: number; limit: number };
@@ -131,7 +132,9 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
     if (!response.ok) {
       throw new Error("The workspace could not be loaded.");
     }
-    setSession((await response.json()) as WorkspaceSession);
+    const workspace = (await response.json()) as WorkspaceSession;
+    useWorkspaceDataStore.getState().setWorkspace(workspace.workspace_id);
+    setSession(workspace);
   }, [router]);
 
   useEffect(() => {
@@ -162,7 +165,15 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
         return (await response.json()) as WorkspaceSession;
       })
       .then((workspace) => {
-        if (workspace && isCurrent) setSession(workspace);
+        if (workspace && isCurrent) {
+          const workspaceData = useWorkspaceDataStore.getState();
+          workspaceData.setWorkspace(workspace.workspace_id);
+          setSession(workspace);
+          void useWorkspaceDataStore
+            .getState()
+            .ensureDemoData()
+            .catch(() => undefined);
+        }
       })
       .catch((requestError) => {
         if (isCurrent) {
@@ -185,6 +196,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
         credentials: "include",
       });
     } finally {
+      useWorkspaceDataStore.getState().resetWorkspace();
       router.replace("/");
       router.refresh();
     }
@@ -349,10 +361,22 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
 
         <main className="min-w-0 flex-1 bg-background text-primary">
           {children}
+          <div
+            className={
+              pathname === "/dashboard/agent"
+                ? "px-4 pb-7 sm:px-6 lg:px-10 lg:pb-9"
+                : ""
+            }
+          >
+            <ChatInterface
+              navigationKey={pathname}
+              onAction={runWorkspaceAgentAction}
+              presentation={
+                pathname === "/dashboard/agent" ? "panel" : "launcher"
+              }
+            />
+          </div>
         </main>
-        {pathname === "/dashboard/agent" ? null : (
-          <ChatInterface key={pathname} onAction={runWorkspaceAgentAction} />
-        )}
       </div>
     </WorkspaceContext.Provider>
   );

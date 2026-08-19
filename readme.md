@@ -72,7 +72,8 @@ available independently.
   user uploads. The seed includes 24 supplier profiles, six mixed-mode
   shipments, and three cited disclosures. Demo sources, retained uploads,
   normalized shipments, and the supplier catalog are downloadable from the
-  workspace.
+  workspace, and the seeded records can be unloaded without deleting user
+  uploads.
 - Explicit lexical, pgvector semantic, and deterministic hybrid retrieval
   modes with workspace filtering, versioned embedding metadata, and a safe
   lexical fallback when no embedding provider is configured.
@@ -101,7 +102,9 @@ available independently.
   soft-deletion, and cross-workspace isolation.
 - An agent-first routed control plane with persistent navigation and standalone
   agent, integration, overview, artifact, shipment, supplier, scenario, and
-  report pages. Every section can be linked to or refreshed directly.
+  report pages. Workspace data is request-deduplicated and cached across route
+  changes, while mutations invalidate only affected views. Every section can be
+  linked to or refreshed directly.
 - A dedicated decision-agent testing page using the same workspace-scoped
   conversation API and structured renderer as the workspace launcher. Users
   can create, switch, and close conversations; inspect source coverage,
