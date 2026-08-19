@@ -29,7 +29,11 @@ class LlmAgentPlanner:
     """Uses a model only for tool selection; application code composes results."""
 
     def __init__(self) -> None:
-        self._planner = load_llm().with_structured_output(AgentPlan)
+        self._planner = load_llm().with_structured_output(
+            AgentPlan,
+            method="json_schema",
+            strict=True,
+        )
         self._policy = load_agent_policy()
 
     async def plan(

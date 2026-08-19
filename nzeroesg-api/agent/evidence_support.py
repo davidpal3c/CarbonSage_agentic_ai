@@ -30,6 +30,8 @@ class LlmEvidenceSupportAssessor:
         self._assessor = load_llm().with_structured_output(
             EvidenceSupportAssessment,
             include_raw=True,
+            method="json_schema",
+            strict=True,
         )
         self._policy = load_agent_policy()
         self.last_usage: dict[str, int] = {}

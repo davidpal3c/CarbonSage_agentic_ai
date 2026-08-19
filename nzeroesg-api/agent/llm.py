@@ -26,6 +26,18 @@ def load_llm():
             api_key=settings.openrouter_api_key,
             base_url="https://openrouter.ai/api/v1",
             max_tokens=1_000,
+            timeout=30,
+            max_retries=2,
+            default_headers={
+                "HTTP-Referer": "https://www.carbonsage.ca",
+                "X-Title": "CarbonSage",
+            },
+            extra_body={
+                "provider": {
+                    "require_parameters": True,
+                    "data_collection": "deny",
+                }
+            },
         )
 
     raise RuntimeError("LLM_PROVIDER must be 'openai' or 'openrouter'.")
