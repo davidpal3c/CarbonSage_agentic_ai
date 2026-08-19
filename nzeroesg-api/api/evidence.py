@@ -7,7 +7,13 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
-from api.artifacts import ArtifactResponse, artifact_repository, artifact_response
+from api.artifacts import (
+    ArtifactResponse,
+    artifact_repository,
+    artifact_response,
+    retain_artifact_source,
+    schedule_artifact_source_delete,
+)
 from api.workspaces import require_workspace_principal, workspace_repository
 from config import database_url_for_runtime, settings
 from domain.artifacts.models import ArtifactKind, ArtifactSourceType, create_artifact
@@ -287,6 +293,11 @@ async def upload_evidence(
     )
     artifact_repository.create(artifact)
     try:
+        source_retention = await retain_artifact_source(
+            artifact,
+            content,
+            workspace_expires_at=principal.expires_at,
+        )
         stored_supplier = evidence_repository.store(
             principal.workspace_id,
             artifact.artifact_id,
@@ -303,9 +314,14 @@ async def upload_evidence(
                 "page_count": extraction.document.page_count,
                 "chunk_count": len(extraction.document.chunks),
                 "embedding_status": embedding_status,
+                "source_retention": source_retention.to_dict(),
             },
         )
     except Exception:
+        await schedule_artifact_source_delete(
+            principal.workspace_id,
+            artifact.artifact_id,
+        )
         artifact_repository.mark_failed(principal.workspace_id, artifact.artifact_id)
         raise
     return EvidenceUploadResponse(

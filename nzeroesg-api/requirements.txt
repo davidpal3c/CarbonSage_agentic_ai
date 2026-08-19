@@ -1,10 +1,9 @@
 fastapi==0.115.12
-geopy==2.4.1
+boto3==1.43.54
 langchain==0.3.26
 langchain-openai==0.3.21
 psycopg[binary]==3.2.9
 pypdf==5.6.1
 python-dotenv==1.1.0
 python-multipart==0.0.20
-requests==2.32.3
 uvicorn[standard]==0.34.3

@@ -36,11 +36,10 @@ export default function HeroSection({ onTry }: HeroSectionProps) {
           onClick={onTry}
           className="mt-10 rounded-lg bg-accent px-6 py-3 font-semibold text-white shadow transition hover:bg-secondary"
         >
-          Open the agent preview
+          Enter the demo workspace
         </button>
         <p className="mt-3 text-xs text-muted-foreground">
-          The current estimator is optional while the grounded agent runtime is
-          built.
+          Manage artifacts and test the workspace-scoped decision agent.
         </p>
       </motion.div>
     </section>

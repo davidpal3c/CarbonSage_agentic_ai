@@ -53,6 +53,7 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: pytest
+      - run: docker build --tag carbonsage-api:ci .
 
   frontend:
     runs-on: ubuntu-latest

@@ -6,7 +6,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
-from api.artifacts import ArtifactResponse, artifact_repository, artifact_response
+from api.artifacts import (
+    ArtifactResponse,
+    artifact_repository,
+    artifact_response,
+    retain_artifact_source,
+    schedule_artifact_source_delete,
+)
 from api.workspaces import require_workspace_principal, workspace_repository
 from config import database_url_for_runtime
 from domain.artifacts.models import Artifact, ArtifactKind, ArtifactSourceType, create_artifact
@@ -149,6 +155,11 @@ async def upload_shipments(
     artifact = None
     if parsed.rows:
         _consume_analysis_run(principal.workspace_id)
+        prior_shipments = tuple(
+            item
+            for item in artifact_repository.list_for_workspace(principal.workspace_id)
+            if item.kind is ArtifactKind.SHIPMENT_DATASET
+        )
         artifact = create_artifact(
             workspace_id=principal.workspace_id,
             kind=ArtifactKind.SHIPMENT_DATASET,
@@ -161,6 +172,11 @@ async def upload_shipments(
         )
         artifact_repository.create(artifact)
         try:
+            source_retention = await retain_artifact_source(
+                artifact,
+                content,
+                workspace_expires_at=principal.expires_at,
+            )
             shipment_repository.replace_for_workspace(
                 principal.workspace_id,
                 artifact.artifact_id,
@@ -173,13 +189,23 @@ async def upload_shipments(
                     "accepted_rows": len(parsed.rows),
                     "validation_error_count": len(parsed.errors),
                     "warning_count": len(parsed.warnings),
+                    "source_retention": source_retention.to_dict(),
                 },
             )
+            for prior in prior_shipments:
+                await schedule_artifact_source_delete(
+                    principal.workspace_id,
+                    prior.artifact_id,
+                )
             artifact_repository.soft_delete_other_ready_shipments(
                 principal.workspace_id,
                 artifact.artifact_id,
             )
         except Exception:
+            await schedule_artifact_source_delete(
+                principal.workspace_id,
+                artifact.artifact_id,
+            )
             artifact_repository.mark_failed(principal.workspace_id, artifact.artifact_id)
             raise
     return _response(

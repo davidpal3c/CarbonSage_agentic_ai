@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 interface ChatInputProps {
-  sendMessage: (message: string) => void;
+  sendMessage: (message: string) => void | Promise<void>;
   disabled?: boolean;
   placeholder?: string;
 }
@@ -47,7 +47,7 @@ export default function ChatInput({
   }, [input]);
 
   return (
-    <div className="p-3 border-t bg-white flex items-center gap-2">
+    <div className="flex items-end gap-2 border-t border-border bg-background p-3">
       <textarea
         ref={textAreaRef}
         value={input}
@@ -55,13 +55,16 @@ export default function ChatInput({
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         disabled={disabled}
+        aria-label="Message CarbonSage"
+        maxLength={4000}
         rows={1}
-        className="flex-1 px-3 py-2 text-sm text-slate-800 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none overflow-hidden max-h-32"
+        className="max-h-32 min-w-0 flex-1 resize-none overflow-hidden rounded-lg border border-border bg-muted px-3 py-2 text-sm text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
       />
       <button
+        type="button"
         onClick={handleSend}
         disabled={!input.trim() || disabled}
-        className="px-4 py-2 text-sm bg-gradient-to-tr from-green-500 to-emerald-500 text-white rounded-lg hover:bg-green-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
       >
         Send
       </button>

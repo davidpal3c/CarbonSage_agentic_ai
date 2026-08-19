@@ -26,7 +26,7 @@ Vercel / Next.js
 ├── control plane
 │   ├── artifact catalog
 │   ├── connector management
-│   ├── agent playground
+│   ├── agent workspace
 │   └── embed-client configuration
 └── isolated `/embed` experience
         │
@@ -49,6 +49,9 @@ Neon PostgreSQL
 ├── documents, chunks, and citations
 ├── lexical and evaluated vector indexes
 └── conversations and validated response envelopes
+                 │
+                 └── AWS S3 Standard / Canada Central
+                     └── private validated source bytes, maximum 24 hours
 ```
 
 No Redis, MongoDB, GraphQL gateway, message broker, dedicated vector database,
@@ -62,8 +65,23 @@ capability exists.
 
 ### Control plane
 
-The dashboard is where a demo workspace manages source material and tests the
-agent. Its bounded responsibilities are:
+The control plane is a routed workspace application with one persistent
+navigation shell. Overview, artifacts, shipments, supplier evidence,
+scenarios, reports, and the decision agent each have a standalone URL that can
+be opened or refreshed directly:
+
+```text
+/dashboard
+├── /artifacts
+├── /shipments
+├── /evidence
+├── /scenarios
+├── /report
+└── /agent
+```
+
+The control plane is where a demo workspace manages source material and tests
+the agent. Its bounded responsibilities are:
 
 - create, inspect, rename, and delete workspace artifacts;
 - upload shipment datasets and supplier evidence;
@@ -71,6 +89,13 @@ agent. Its bounded responsibilities are:
 - test the agent against the same workspace context used by an embed;
 - create and revoke embed clients with exact allowed origins;
 - inspect quotas, evidence completeness, and concise tool activity.
+
+The persistent shell owns session resolution, workspace navigation, and the
+agent launcher. Each route owns only its section's data requests and actions,
+so direct navigation does not depend on client-side state from a previous
+screen. The dedicated agent route keeps the shared structured-response
+renderer open as a full testing surface; the compact launcher makes the same
+agent available while working elsewhere in the control plane.
 
 It is not an organization-admin, billing, SSO, or enterprise-RBAC console.
 
@@ -81,9 +106,16 @@ that workspace's evidence, invokes typed application tools, and returns a
 versioned response envelope. It may explain deterministic results but cannot
 become the authority for a calculation, citation, supplier fact, or report.
 
-The current `/chat` endpoint is a transitional estimator. The target runtime
-will use conversation resources and one common principal abstraction for the
-dashboard cookie and embed bearer credential.
+The transitional `/chat` endpoint and its legacy LangChain tools have been
+removed. `/agent/conversations` now exposes bounded workspace-scoped resources
+through the dashboard principal. The same internal principal abstraction is
+reserved for the future embed bearer credential.
+
+The model is constrained to typed planning and evidence-support classification.
+Application services validate tool arguments and own all calculations and
+response composition. Retrieved passages remain candidates until a second
+typed check approves only existing citation identifiers as direct support; an
+unavailable or invalid check fails closed to an evidence limitation.
 
 ### Embedded experience
 
@@ -121,9 +153,16 @@ scenario results remain normalized domain records linked to their source
 artifact. Suppliers remain first-class domain entities rather than untyped
 artifact metadata.
 
-Raw uploaded files remain temporary unless a measured requirement changes the
-retention policy. The artifact catalog retains provenance and normalized
-results, not an unbounded file store.
+Validated shipment and evidence source uploads are retained in private AWS S3
+for the earlier of workspace expiry or 24 hours. The artifact catalog retains
+provenance and normalized results after source access expires; generated report
+snapshots remain PostgreSQL records. This is a bounded recovery and provenance
+window, not an unbounded file store.
+
+S3 access stays behind the FastAPI artifact service. PostgreSQL atomically
+reserves global bytes and monthly write/read/egress allowance before each
+billable operation, keeping the priced envelope below USD $0.50/month. The
+browser receives neither AWS credentials nor a reusable object URL.
 
 The implemented lifecycle keeps creation behind the validated shipment,
 evidence, and report services rather than exposing an arbitrary file endpoint.

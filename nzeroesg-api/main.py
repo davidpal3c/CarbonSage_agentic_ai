@@ -1,11 +1,11 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.agent import agent_router
 from api.artifacts import artifacts_router
 from api.emissions import emissions_router
 from api.evidence import evidence_router
 from api.reports import reports_router
-from api.routes import chat_router
 from api.scenarios import scenarios_router
 from api.shipments import shipments_router
 from api.workspaces import workspace_router
@@ -14,7 +14,7 @@ from config import settings
 app = FastAPI(
     title="CarbonSage API",
     description="Evidence-grounded Scope 3 intelligence and deterministic decision tools.",
-    version="0.3.0-dev",
+    version="0.4.0-dev",
 )
 
 app.add_middleware(
@@ -40,7 +40,7 @@ async def add_security_headers(request: Request, call_next):
     return response
 
 
-app.include_router(chat_router, prefix="/chat", tags=["chat"])
+app.include_router(agent_router)
 app.include_router(workspace_router)
 app.include_router(artifacts_router)
 app.include_router(emissions_router)
@@ -57,4 +57,5 @@ async def health():
         "environment": settings.environment,
         "assistant_enabled": settings.assistant_enabled,
         "semantic_search_enabled": bool(settings.embedding_provider),
+        "artifact_storage_enabled": settings.artifact_storage_enabled,
     }

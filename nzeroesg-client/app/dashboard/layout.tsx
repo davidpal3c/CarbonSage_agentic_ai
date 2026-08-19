@@ -1,16 +1,16 @@
 export const metadata = {
-  title: "CarbonSage Control Plane",
-  description: "Manage workspace evidence and test CarbonSage decisions.",
+  title: "CarbonSage Workspace",
+  description: "Manage freight data, evidence, scenarios, and decisions.",
 };
 
 import { ReactNode } from "react";
+
+import WorkspaceShell from "@/app/dashboard/WorkspaceShell";
 
 export default function UserPortalLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  return (
-    <main className="min-h-screen bg-background text-primary">{children}</main>
-  );
+  return <WorkspaceShell>{children}</WorkspaceShell>;
 }

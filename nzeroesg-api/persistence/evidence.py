@@ -65,6 +65,13 @@ class EvidenceRepository(Protocol):
         spec: EmbeddingSpec,
     ) -> tuple[EvidenceMatch, ...]: ...
 
+    def get_citation_context(
+        self,
+        workspace_id: str,
+        artifact_id: str,
+        chunk_index: int,
+    ) -> EvidenceMatch | None: ...
+
     def delete_for_artifact(self, workspace_id: str, artifact_id: str) -> int: ...
 
 
@@ -325,6 +332,34 @@ class InMemoryEvidenceRepository:
         """Compatibility alias for the lexical baseline."""
 
         return self.search_lexical(workspace_id, query)
+
+    def get_citation_context(
+        self,
+        workspace_id: str,
+        artifact_id: str,
+        chunk_index: int,
+    ) -> EvidenceMatch | None:
+        for (record_workspace, _), (
+            record_artifact_id,
+            _supplier_id,
+            supplier,
+            document,
+        ) in self._documents.items():
+            if record_workspace != workspace_id or record_artifact_id != artifact_id:
+                continue
+            for chunk in document.chunks:
+                if chunk.chunk_index == chunk_index:
+                    return EvidenceMatch(
+                        artifact_id=record_artifact_id,
+                        supplier_name=supplier.name,
+                        filename=document.filename,
+                        excerpt=chunk.content,
+                        page_number=chunk.page_number,
+                        chunk_index=chunk.chunk_index,
+                        document_sha256=document.sha256,
+                        retrieval_mode="citation_context",
+                    )
+        return None
 
     def delete_for_artifact(self, workspace_id: str, artifact_id: str) -> int:
         matching_keys = [
@@ -745,6 +780,49 @@ class PostgresEvidenceRepository:
         """Compatibility alias for the lexical baseline."""
 
         return self.search_lexical(workspace_id, query)
+
+    def get_citation_context(
+        self,
+        workspace_id: str,
+        artifact_id: str,
+        chunk_index: int,
+    ) -> EvidenceMatch | None:
+        with closing(self._connect()) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT d.artifact_id, s.name, d.filename, c.content, c.page_number,
+                           c.chunk_index, d.sha256
+                    FROM evidence_chunks AS c
+                    JOIN evidence_documents AS d
+                        ON d.document_id = c.document_id
+                       AND d.workspace_id = c.workspace_id
+                    JOIN suppliers AS s
+                        ON s.supplier_id = c.supplier_id
+                       AND s.workspace_id = c.workspace_id
+                    JOIN artifacts AS a
+                        ON a.artifact_id = d.artifact_id
+                       AND a.workspace_id = d.workspace_id
+                       AND a.deleted_at IS NULL
+                    WHERE c.workspace_id = %s
+                      AND d.artifact_id = %s
+                      AND c.chunk_index = %s
+                    """,
+                    (workspace_id, artifact_id, chunk_index),
+                )
+                row = cursor.fetchone()
+        if row is None:
+            return None
+        return EvidenceMatch(
+            artifact_id=str(row[0]),
+            supplier_name=row[1],
+            filename=row[2],
+            excerpt=row[3],
+            page_number=row[4],
+            chunk_index=row[5],
+            document_sha256=row[6],
+            retrieval_mode="citation_context",
+        )
 
     def delete_for_artifact(self, workspace_id: str, artifact_id: str) -> int:
         with closing(self._connect()) as connection:

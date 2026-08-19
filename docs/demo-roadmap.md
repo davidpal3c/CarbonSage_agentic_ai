@@ -10,6 +10,17 @@ migration is justified.
 The project remains a lean modular monolith, not a GraphQL or microservice
 migration.
 
+Validated shipment and evidence source files now have an approved private AWS
+S3 boundary. They are retained for at most 24 hours under a PostgreSQL-backed
+application breaker priced below USD $0.50/month. The rationale, exact limits,
+security controls, and activation runbook are recorded in
+[`decisions/001-aws-s3-artifact-source-storage.md`](decisions/001-aws-s3-artifact-source-storage.md).
+
+The post-initial-release opportunity across `carbonsage.org`,
+`app.carbonsage.ca`, supplier accounts, and a possible marketplace is preserved
+in [`carbonsage-ecosystem-vision.md`](carbonsage-ecosystem-vision.md). That
+document does not expand or reorder the delivery phases below.
+
 The product will demonstrate one defensible workflow:
 
 > A procurement or logistics user uploads shipment data and supplier evidence,
@@ -53,7 +64,9 @@ the CarbonSage infrastructure cleanup is recorded through commit `015abf0`:
 - Vercel's production build uses `next build --webpack` to produce the tracing
   artifact expected by the Vercel build hook.
 - `/login` returns HTTP 200 on the public client.
-- Render `/health` and `/chat/health` return healthy production responses.
+- Render `/health` and the then-current `/chat/health` returned healthy
+  production responses; Phase 9 removes that transitional route in favour of
+  `/agent/health` and authenticated conversation resources.
 - The exact Vercel-origin CORS preflight passes, while assistant POST requests
   return `503` when the feature is disabled.
 - The public Playwright suite passes the five-minute workflow, report export,
@@ -67,7 +80,8 @@ the CarbonSage infrastructure cleanup is recorded through commit `015abf0`:
 The next work should be hardening and measured product improvements, not a
 return to the abandoned GraphQL or embedder branches. ChromaDB, the standalone
 vector database used by the former retrieval prototype, is replaced by
-pgvector in the existing PostgreSQL deployment.
+pgvector in the existing PostgreSQL deployment. Source-object retention is a
+bounded S3 integration inside the same API, not a storage microservice.
 
 ## CarbonSage initial objective
 
@@ -159,6 +173,9 @@ PostgreSQL
 ├── suppliers and structured attributes
 ├── documents, chunks, and citations
 └── scenarios and report snapshots
+             │
+             └── private AWS S3
+                 └── validated source bytes, maximum 24 hours
 ```
 
 No Redis, message broker, dedicated embedder, former ChromaDB service, MongoDB, GraphQL
@@ -169,8 +186,8 @@ For initial document retrieval:
 - extract text during a bounded upload request;
 - store normalized text chunks and document metadata;
 - use PostgreSQL full-text search and structured filters;
-- retain the original file only temporarily unless a later requirement proves
-  it is necessary;
+- retain validated shipment and evidence originals privately in S3 for no more
+  than 24 hours, with exact workspace authorization and hard cost breakers;
 - keep a retrieval interface that supports the required pgvector semantic path
   and deterministic hybrid evaluation.
 
@@ -184,7 +201,8 @@ Preferred shape:
 - One Render web service for FastAPI.
 - One small managed PostgreSQL database, preferably on the same provider.
 - No always-on embedding service.
-- No paid object storage for the initial bounded demo.
+- One private S3 Standard bucket in Canada Central, bounded to an estimated
+  maximum of $0.379/month and an approved S3 ceiling below $0.50/month.
 - No mandatory paid LLM API.
 
 Public demo limits:
@@ -196,6 +214,8 @@ Public demo limits:
 - Maximum 10 analysis/scenario runs per workspace per day.
 - Maximum 3 optional assistant requests per workspace per day when enabled.
 - Workspace and extracted document retention of 24 hours by default.
+- Source-object storage limits of 4 GB active, 10,000 writes, 100,000 reads, and
+  2 GB metered egress per calendar month, enforced before provider calls.
 - Hard server-side timeouts and upload limits.
 
 If the selected Render plan and database cannot stay under the ceiling, the
@@ -562,7 +582,7 @@ Deliverables:
 - Define a common internal workspace principal for the existing dashboard
   session and future embed credentials.
 
-Implementation evidence (completed locally 2026-08-09; promotion pending):
+Implementation evidence (completed and promoted to production 2026-08-09):
 
 - Migration `005_artifact_catalog.sql` adds workspace-owned shipment dataset,
   evidence document, and report snapshot records with status, provenance,
@@ -600,6 +620,26 @@ Verification:
 - Two workspaces cannot read, mutate, or infer each other's artifacts.
 - Deleting an artifact has deterministic, tested behavior for derived records.
 - Raw file retention remains bounded and documented.
+
+Follow-on source-retention implementation (approved August 9, 2026; production
+activation remains gated):
+
+- Migration `006_artifact_object_storage.sql` adds durable source-object state,
+  global byte reservations, and monthly write/read/egress counters without
+  coupling cleanup records to expiring workspace rows.
+- The provider-neutral artifact storage service uses a narrow boto3 S3 adapter,
+  content-addressed workspace keys, SSE-S3, integrity validation, API-proxied
+  downloads, and retryable physical deletion.
+- Shipment and evidence uploads expose `source_retention` metadata. The artifact
+  catalog offers source download only while a retained object is active;
+  generated report snapshots remain PostgreSQL-only.
+- The application rejects an operation with `507` before it can cross the
+  configured storage/request/egress envelope. At Canada Central rates, the
+  priced maximum is approximately `$0.379`, leaving margin below `$0.50` even
+  without credits or free egress.
+- `infra/aws/artifact-storage.yaml` defines the private encrypted bucket,
+  one-day lifecycle backstop, public-access blocking, TLS policy, and scoped IAM
+  runtime policy. No credential or external resource is created by CI.
 
 Exit gate:
 
@@ -695,6 +735,8 @@ Deliverables:
   citation, artifact-reference, warning, and action blocks.
 - Build one accessible renderer with safe unknown-block fallbacks and table
   equivalents for charts.
+- Mount that renderer in a dedicated workspace agent route under the persistent
+  control-plane navigation.
 
 Verification:
 
@@ -707,29 +749,91 @@ Verification:
 - The primary deterministic workflow remains usable when model and embedding
   providers are disabled.
 
+Implementation evidence (completed 2026-08-11):
+
+- Migration `007_typed_agent_runtime.sql` and matching in-memory/PostgreSQL
+  repositories enforce three active conversations per workspace, twenty
+  messages per conversation, workspace expiry, normalized citations, validated
+  JSON response envelopes, and sanitized tool events.
+- `/agent/conversations` replaces the removed `/chat` route and requires
+  `agent:read` or `agent:write` scope resolved from the signed workspace
+  principal. Assistant quota is consumed only after provider readiness and
+  before a model plan.
+- Policy `v1.0` is checked into the application. The provider may return only a
+  maximum-three-call typed plan and a separate typed evidence-support decision;
+  runtime prompt downloads, model arithmetic, arbitrary citation IDs, and
+  model-authored executable output are absent.
+- Seven workspace-scoped tools reuse the artifact, evidence, emissions,
+  scenario, data-quality, and report services. Invalid model arguments fail
+  Pydantic validation before a deterministic service is invoked.
+- Evidence search results remain candidates until the support gate approves
+  existing citation IDs as directly supporting the question. Mere omission,
+  related, partial, contradictory, invalid, or unavailable support fails closed
+  to an `evidence_limit` response without a citation; explicit evidence of
+  absence may support only a matching negative proposition.
+- The shared Next.js renderer covers all eight v1 block types, explicit
+  confirmation for server-defined actions, exact table equivalents for charts,
+  and safe future-block fallback. The stale public chat launcher is removed;
+  the authenticated control plane mounts the shared renderer in both a compact
+  launcher and the dedicated `/dashboard/agent` testing page.
+- The former single-page dashboard is split into independently refreshable
+  overview, artifact, shipment, supplier-evidence, scenario, report, and agent
+  routes. A shared authenticated layout keeps workspace navigation visible and
+  avoids exposing internal workspace identifiers in the interface.
+- Credential-free API and browser fixtures verify provider-disabled behavior,
+  workspace isolation, typed calculations, chart/table reconciliation,
+  citation gating, narrow layout, keyboard operation, and future-block safety.
+- The 25-case `run_agent_answer_evaluation` runner measures answer support and
+  unsupported-answer rate separately from planner selection. The approved
+  OpenRouter hybrid baseline reached `1.0` answer support across 22 answerable
+  cases and `0.0` unsupported-answer rate across three safe-abstention cases,
+  with no assessment failures. Its `$0.09109` reported cost covers chat
+  assessment tokens only; fixed tool selection and excluded embedding cost are
+  recorded explicitly rather than presented as end-to-end agent quality.
+
 Exit gate:
 
 > A user receives a cited, interactive decision response built from validated
 > retrieval and deterministic tool outputs.
 
-### Phase 10 — Dashboard agent playground
+### Phase 10 — Control-plane agent operations
 
 Deliverables:
 
-- Add a control-plane agent-testing surface using the production conversation
-  API and shared structured renderer.
 - Let a user inspect cited artifacts, evidence completeness, processing time,
   and concise tool activity.
-- Replace stale legacy-assistant messaging and clearly report disabled or
-  unavailable providers.
+- Expand the existing dedicated agent route with operational detail while
+  clearly reporting disabled or unavailable providers.
 - Keep mutations behind server-defined action identifiers and explicit user
   confirmation.
 
 Verification:
 
 - Playground responses are scoped to the active workspace.
+- The agent route can be opened or refreshed directly without losing the
+  persistent control-plane navigation.
 - Every structured block has keyboard and narrow-viewport coverage.
 - Provider failure does not affect artifact management or deterministic tools.
+
+Implementation evidence (completed 2026-08-18):
+
+- The dedicated agent workspace can create, switch, restore, and explicitly
+  close bounded workspace conversations while retaining the compact launcher
+  on every other workspace route.
+- A response-details panel translates persisted evidence status and concise
+  tool events into source coverage, processing time, cited source links, and
+  human-readable recent work without exposing model reasoning or raw internal
+  identifiers.
+- Artifact-reference blocks and cited sources now deep-link to the artifact
+  page, where the matching workspace record is scrolled into view and
+  highlighted.
+- The workspace visual system now uses neutral surfaces, charcoal actions, and
+  restrained sage accents. Placeholder, phase, policy, schema, provider, and
+  synthetic assistant-introduction copy is absent from the primary interface.
+- Eight Playwright flows cover the full deterministic workflow, isolation,
+  deletion, provider-disabled behavior, conversation restoration and controls,
+  structured response details, keyboard operation, and a 390-pixel viewport.
+  TypeScript, ESLint, and the production Next.js build pass locally.
 
 Exit gate:
 
