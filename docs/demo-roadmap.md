@@ -815,6 +815,26 @@ Verification:
 - Every structured block has keyboard and narrow-viewport coverage.
 - Provider failure does not affect artifact management or deterministic tools.
 
+Implementation evidence (completed 2026-08-18):
+
+- The dedicated agent workspace can create, switch, restore, and explicitly
+  close bounded workspace conversations while retaining the compact launcher
+  on every other workspace route.
+- A response-details panel translates persisted evidence status and concise
+  tool events into source coverage, processing time, cited source links, and
+  human-readable recent work without exposing model reasoning or raw internal
+  identifiers.
+- Artifact-reference blocks and cited sources now deep-link to the artifact
+  page, where the matching workspace record is scrolled into view and
+  highlighted.
+- The workspace visual system now uses neutral surfaces, charcoal actions, and
+  restrained sage accents. Placeholder, phase, policy, schema, provider, and
+  synthetic assistant-introduction copy is absent from the primary interface.
+- Eight Playwright flows cover the full deterministic workflow, isolation,
+  deletion, provider-disabled behavior, conversation restoration and controls,
+  structured response details, keyboard operation, and a 390-pixel viewport.
+  TypeScript, ESLint, and the production Next.js build pass locally.
+
 Exit gate:
 
 > The dashboard is a useful agent control plane and test workspace, not the

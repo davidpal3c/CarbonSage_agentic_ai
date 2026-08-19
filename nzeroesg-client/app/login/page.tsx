@@ -37,17 +37,13 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-6 py-16">
-      <section className="w-full max-w-xl rounded-2xl border border-border bg-muted p-8 shadow-xl sm:p-10">
-        <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-accent">
-          Controlled demo access
-        </p>
+      <section className="w-full max-w-xl rounded-2xl border border-border bg-card p-8 shadow-xl sm:p-10">
         <h1 className="mb-4 text-4xl font-bold tracking-tight text-primary">
-          Enter a private workspace
+          Enter the demo workspace
         </h1>
         <p className="mb-8 max-w-lg leading-7 text-muted-foreground">
-          CarbonSage creates a short-lived workspace for this demo. Your session
-          is signed by the API, stored in an HTTP-only cookie, and isolated from
-          other visitors.
+          A private, short-lived workspace is created for your visit. Use it to
+          upload data, review evidence, and try CarbonSage.
         </p>
 
         <div className="mb-8 grid gap-3 text-sm text-primary sm:grid-cols-3">
@@ -56,12 +52,12 @@ export default function LoginPage() {
             <span className="text-muted-foreground">workspace retention</span>
           </div>
           <div className="rounded-lg border border-border bg-background p-4">
-            <strong className="block text-base">3 docs</strong>
-            <span className="text-muted-foreground">evidence allowance</span>
+            <strong className="block text-base">Private</strong>
+            <span className="text-muted-foreground">isolated workspace</span>
           </div>
           <div className="rounded-lg border border-border bg-background p-4">
-            <strong className="block text-base">No LLM</strong>
-            <span className="text-muted-foreground">required for the demo</span>
+            <strong className="block text-base">No account</strong>
+            <span className="text-muted-foreground">start immediately</span>
           </div>
         </div>
 

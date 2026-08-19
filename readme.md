@@ -97,7 +97,10 @@ management, retrieval, calculations, scenarios, and reports remain available.
   overview, artifact, shipment, supplier-evidence, scenario, report, and agent
   pages. Every section can be linked to or refreshed directly.
 - A dedicated decision-agent testing page using the same workspace-scoped
-  conversation API and structured renderer as the control-plane launcher.
+  conversation API and structured renderer as the workspace launcher. Users
+  can create, switch, and close conversations; inspect source coverage,
+  response time, cited artifacts, and concise tool activity; and follow an
+  artifact reference to the highlighted workspace record.
 - A Vercel client, Render API, Neon PostgreSQL database, and credential-free CI
   and browser checks.
 
@@ -105,12 +108,9 @@ management, retrieval, calculations, scenarios, and reports remain available.
 
 CarbonSage will build on that baseline in a controlled order:
 
-1. Extend the dedicated agent page with evidence-completeness and concise
-   tool-event inspection around its existing conversation history and shared
-   renderer.
-2. Add a framework-independent JavaScript loader and authenticated iframe.
-3. Add one explicit, read-only Google Drive selected-file import.
-4. Optionally expose a read-only MCP adapter over the same stable application
+1. Add a framework-independent JavaScript loader and authenticated iframe.
+2. Add one explicit, read-only Google Drive selected-file import.
+3. Optionally expose a read-only MCP adapter over the same stable application
    tools.
 
 Dropbox, billing, organization administration, background synchronization,

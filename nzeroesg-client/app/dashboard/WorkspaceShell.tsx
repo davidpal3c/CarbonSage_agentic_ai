@@ -10,6 +10,16 @@ import {
 } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import {
+  Building2,
+  ChartNoAxesCombined,
+  Files,
+  LayoutDashboard,
+  Leaf,
+  MessageSquareText,
+  Route,
+  Truck,
+} from "lucide-react";
 
 import { getBackendUrl } from "@/app/api/urls";
 import ChatInterface from "@/app/components/chat_ui/ChatInterface";
@@ -32,13 +42,17 @@ type WorkspaceContextValue = {
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 const navigation = [
-  { label: "Overview", href: "/dashboard" },
-  { label: "Artifacts", href: "/dashboard/artifacts" },
-  { label: "Shipments", href: "/dashboard/shipments" },
-  { label: "Suppliers & evidence", href: "/dashboard/evidence" },
-  { label: "Scenarios", href: "/dashboard/scenarios" },
-  { label: "Report", href: "/dashboard/report" },
-  { label: "Agent", href: "/dashboard/agent" },
+  { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Artifacts", href: "/dashboard/artifacts", icon: Files },
+  { label: "Shipments", href: "/dashboard/shipments", icon: Truck },
+  {
+    label: "Suppliers & evidence",
+    href: "/dashboard/evidence",
+    icon: Building2,
+  },
+  { label: "Scenarios", href: "/dashboard/scenarios", icon: Route },
+  { label: "Report", href: "/dashboard/report", icon: ChartNoAxesCombined },
+  { label: "Agent", href: "/dashboard/agent", icon: MessageSquareText },
 ];
 
 export function useWorkspace() {
@@ -131,19 +145,22 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
 
   return (
     <WorkspaceContext.Provider value={{ session, refreshSession }}>
-      <div className="mx-auto flex min-h-screen w-full max-w-[96rem] flex-col overflow-x-clip lg:flex-row">
-        <aside className="sticky top-0 z-40 border-b border-border bg-background px-4 py-4 lg:h-screen lg:w-72 lg:shrink-0 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-6 lg:py-8">
+      <div className="mx-auto flex min-h-screen w-full max-w-[100rem] flex-col overflow-x-clip lg:flex-row">
+        <aside className="sticky top-0 z-40 border-b border-border bg-card/95 px-4 py-4 backdrop-blur lg:h-screen lg:w-72 lg:shrink-0 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-6 lg:py-7">
           <div className="flex items-center justify-between gap-4 lg:block">
-            <div>
-              <Link
-                href="/"
-                className="text-xl font-bold tracking-tight text-primary"
-              >
-                🌱 CarbonSage
-              </Link>
-              <p className="mt-1 text-xs text-muted-foreground lg:mt-2 lg:text-sm">
-                ESG agent control plane
-              </p>
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-muted text-accent">
+                <Leaf aria-hidden="true" className="h-4 w-4" />
+              </span>
+              <div>
+                <Link
+                  href="/"
+                  className="text-lg font-bold tracking-tight text-primary"
+                >
+                  CarbonSage
+                </Link>
+                <p className="text-xs text-muted-foreground">Workspace</p>
+              </div>
             </div>
             <button
               type="button"
@@ -156,9 +173,10 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
 
           <nav
             aria-label="Workspace navigation"
-            className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:mt-10 lg:block lg:space-y-2 lg:overflow-visible lg:pb-0"
+            className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:mt-8 lg:block lg:space-y-1 lg:overflow-visible lg:pb-0"
           >
             {navigation.map((item) => {
+              const Icon = item.icon;
               const active =
                 item.href === "/dashboard"
                   ? pathname === item.href
@@ -168,12 +186,13 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
                   href={item.href}
                   key={item.href}
                   aria-current={active ? "page" : undefined}
-                  className={`shrink-0 rounded-lg px-3 py-2.5 text-sm transition lg:block ${
+                  className={`inline-flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition lg:flex ${
                     active
-                      ? "bg-secondary font-semibold text-white"
-                      : "text-primary hover:bg-muted"
+                      ? "bg-primary font-semibold text-background"
+                      : "text-muted-foreground hover:bg-muted hover:text-primary"
                   }`}
                 >
+                  <Icon aria-hidden="true" className="h-4 w-4" />
                   {item.label}
                 </Link>
               );

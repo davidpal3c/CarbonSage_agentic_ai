@@ -1,6 +1,7 @@
 "use client";
 
 import { type ChangeEvent, type FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 
 import { getBackendUrl } from "@/app/api/urls";
 import ArtifactCatalog, {
@@ -127,37 +128,31 @@ export type WorkspaceSection =
 
 const sectionDetails: Record<
   WorkspaceSection,
-  { eyebrow: string; title: string; description: string }
+  { title: string; description: string }
 > = {
   overview: {
-    eyebrow: "Private workspace",
     title: "Overview",
     description:
-      "Review traceable shipment calculations, supplier evidence, and decision-ready reports in one isolated workspace.",
+      "A quick view of your workspace activity and the next useful actions.",
   },
   artifacts: {
-    eyebrow: "Source management",
     title: "Artifacts",
     description:
-      "Manage the datasets, evidence documents, and generated reports owned by this workspace.",
+      "Manage uploaded datasets, evidence documents, and saved reports.",
   },
   shipments: {
-    eyebrow: "Freight analysis",
     title: "Shipments",
     description:
-      "Ingest shipment records and inspect normalized emissions calculations with visible provenance.",
+      "Upload freight data and review emissions, routes, and data quality.",
   },
   evidence: {
-    eyebrow: "Supplier intelligence",
     title: "Suppliers & evidence",
     description:
-      "Manage supplier records, source documents, retrieval modes, and recoverable citations.",
+      "Add supplier documents and find source-backed answers across them.",
   },
   scenarios: {
-    eyebrow: "Decision analysis",
     title: "Scenarios",
-    description:
-      "Compare validated freight alternatives while keeping factors and assumptions visible.",
+    description: "Compare freight alternatives using the same shipment inputs.",
   },
 };
 
@@ -170,8 +165,10 @@ function formatExpiry(timestamp: number) {
 
 export function WorkspaceSectionPage({
   section,
+  focusedArtifactId,
 }: {
   section: WorkspaceSection;
+  focusedArtifactId?: string;
 }) {
   const { session, refreshSession } = useWorkspace();
   const details = sectionDetails[section];
@@ -456,68 +453,95 @@ export function WorkspaceSectionPage({
   );
 
   return (
-    <section className="min-w-0 px-4 py-8 sm:px-6 lg:px-10 lg:py-12">
-      <header className="mb-10">
-        <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-accent">
-          {details.eyebrow}
-        </p>
-        <h1 className="text-4xl font-bold tracking-tight text-primary">
+    <section className="min-w-0 px-4 py-7 sm:px-6 lg:px-10 lg:py-9">
+      <header className="mb-7">
+        <h1 className="text-3xl font-bold tracking-tight text-primary sm:text-4xl">
           {details.title}
         </h1>
-        <p className="mt-3 max-w-3xl leading-7 text-muted-foreground">
+        <p className="mt-2 max-w-2xl leading-7 text-muted-foreground">
           {details.description}
         </p>
       </header>
 
       {section === "overview" ? (
         <>
-          <div className="grid gap-5 md:grid-cols-3">
-            <article className="rounded-xl border border-border bg-muted p-5">
-              <p className="text-sm text-muted-foreground">
-                Workspace retention
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <article className="rounded-xl border border-border bg-card p-5">
+              <p className="text-sm text-muted-foreground">Workspace</p>
+              <p className="mt-2 flex items-center gap-2 text-2xl font-bold text-primary">
+                <span className="h-2.5 w-2.5 rounded-full bg-accent" />
+                Active
               </p>
-              <p className="mt-2 text-2xl font-bold text-primary">Active</p>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="mt-2 text-xs text-muted-foreground">
                 Expires {formatExpiry(session.retention.expires_at)}
               </p>
             </article>
-            <article className="rounded-xl border border-border bg-muted p-5">
-              <p className="text-sm text-muted-foreground">
-                Evidence documents
-              </p>
+            <article className="rounded-xl border border-border bg-card p-5">
+              <p className="text-sm text-muted-foreground">Evidence files</p>
               <p className="mt-2 text-2xl font-bold text-primary">
                 {session.quotas.evidence_documents.used} /{" "}
                 {session.quotas.evidence_documents.limit}
               </p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Documents per workspace
-              </p>
+              <p className="mt-2 text-xs text-muted-foreground">Uploaded</p>
             </article>
-            <article className="rounded-xl border border-border bg-muted p-5">
-              <p className="text-sm text-muted-foreground">
-                Analysis runs today
-              </p>
+            <article className="rounded-xl border border-border bg-card p-5">
+              <p className="text-sm text-muted-foreground">Analysis runs</p>
               <p className="mt-2 text-2xl font-bold text-primary">
                 {session.quotas.analysis_runs_per_day.used} /{" "}
                 {session.quotas.analysis_runs_per_day.limit}
               </p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Deterministic calculations
+              <p className="mt-2 text-xs text-muted-foreground">Today</p>
+            </article>
+            <article className="rounded-xl border border-border bg-card p-5">
+              <p className="text-sm text-muted-foreground">Agent requests</p>
+              <p className="mt-2 text-2xl font-bold text-primary">
+                {session.quotas.assistant_requests_per_day.used} /{" "}
+                {session.quotas.assistant_requests_per_day.limit}
               </p>
+              <p className="mt-2 text-xs text-muted-foreground">Today</p>
             </article>
           </div>
 
-          <div className="mt-8 rounded-xl border border-border bg-muted p-6">
-            <h2 className="text-xl font-semibold text-primary">
-              Private by default
+          <section className="mt-8" aria-labelledby="workspace-actions-title">
+            <h2
+              id="workspace-actions-title"
+              className="text-lg font-semibold text-primary"
+            >
+              Continue your work
             </h2>
-            <p className="mt-3 leading-7 text-muted-foreground">
-              Workspace data is available only after the API accepts the signed,
-              expiring session cookie. Every artifact, retrieval, calculation,
-              report, and agent request is scoped to that authenticated
-              workspace.
-            </p>
-          </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              {[
+                {
+                  href: "/dashboard/shipments",
+                  title: "Add shipment data",
+                  description: "Upload a CSV and review freight emissions.",
+                },
+                {
+                  href: "/dashboard/evidence",
+                  title: "Add supplier evidence",
+                  description: "Upload documents and search their contents.",
+                },
+                {
+                  href: "/dashboard/agent",
+                  title: "Ask CarbonSage",
+                  description: "Explore the workspace in a conversation.",
+                },
+              ].map((action) => (
+                <Link
+                  key={action.href}
+                  href={action.href}
+                  className="rounded-xl border border-border bg-card p-5 transition hover:-translate-y-0.5 hover:border-accent hover:shadow-sm"
+                >
+                  <span className="font-semibold text-primary">
+                    {action.title}
+                  </span>
+                  <span className="mt-2 block text-sm leading-6 text-muted-foreground">
+                    {action.description}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
         </>
       ) : null}
 
@@ -525,6 +549,7 @@ export function WorkspaceSectionPage({
         <ArtifactCatalog
           refreshToken={artifactRefreshToken}
           onDeleted={handleArtifactDeleted}
+          focusedArtifactId={focusedArtifactId}
         />
       ) : null}
 
@@ -537,19 +562,16 @@ export function WorkspaceSectionPage({
       {section === "shipments" ? (
         <section
           id="shipments"
-          className="rounded-xl border border-border bg-muted p-6"
+          className="rounded-xl border border-border bg-card p-5 sm:p-6"
         >
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-accent">
-                Validated ingestion
-              </p>
               <h2 className="text-2xl font-semibold text-primary">
-                Shipment baseline
+                Upload shipments
               </h2>
               <p className="mt-2 max-w-2xl leading-7 text-muted-foreground">
-                Upload the documented CSV schema. Invalid rows stay visible as
-                quality warnings while accepted rows are normalized and counted.
+                Add a CSV to calculate the current freight baseline. Any rows
+                that need attention will stay visible below.
               </p>
             </div>
             <span className="rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold text-primary">
@@ -799,19 +821,15 @@ export function WorkspaceSectionPage({
       {section === "evidence" ? (
         <section
           id="evidence"
-          className="rounded-xl border border-border bg-muted p-6"
+          className="rounded-xl border border-border bg-card p-5 sm:p-6"
         >
           <div>
-            <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-accent">
-              Grounded retrieval
-            </p>
             <h2 className="text-2xl font-semibold text-primary">
-              Supplier evidence
+              Add supplier evidence
             </h2>
             <p className="mt-2 max-w-2xl leading-7 text-muted-foreground">
-              Upload a text-based supplier document, record the structured facts
-              you know, and search the extracted text with recoverable
-              citations.
+              Upload a text or PDF document, add the supplier details you know,
+              and search the original source.
             </p>
           </div>
 
@@ -934,8 +952,8 @@ export function WorkspaceSectionPage({
                         Missing metadata: {supplier.missing_fields.join(", ")}
                       </p>
                     ) : (
-                      <p className="mt-4 text-xs text-emerald-800">
-                        Structured metadata is complete.
+                      <p className="mt-4 text-xs text-muted-foreground">
+                        Supplier details complete.
                       </p>
                     )}
                   </article>
@@ -964,7 +982,7 @@ export function WorkspaceSectionPage({
                   }
                   className="rounded-lg border border-border bg-background px-3 py-2 font-normal capitalize"
                 >
-                  <option value="lexical">Lexical</option>
+                  <option value="lexical">Keyword</option>
                   <option value="semantic">Semantic</option>
                   <option value="hybrid">Hybrid</option>
                 </select>
@@ -981,10 +999,9 @@ export function WorkspaceSectionPage({
 
           {evidenceSearchData ? (
             <p className="mt-3 text-xs text-muted-foreground">
-              Used {evidenceSearchData.mode} retrieval · semantic provider{" "}
-              {evidenceSearchData.semantic_available
-                ? "available"
-                : "unavailable"}
+              {evidenceSearchData.mode === "lexical"
+                ? "Keyword search"
+                : `${evidenceSearchData.mode[0].toUpperCase()}${evidenceSearchData.mode.slice(1)} search`}
               {evidenceSearchData.warning
                 ? ` · ${evidenceSearchData.warning}`
                 : ""}
@@ -1030,20 +1047,16 @@ export function WorkspaceSectionPage({
       {section === "scenarios" ? (
         <section
           id="scenarios"
-          className="rounded-xl border border-border bg-muted p-6"
+          className="rounded-xl border border-border bg-card p-5 sm:p-6"
         >
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-accent">
-                Deterministic comparison
-              </p>
               <h2 className="text-2xl font-semibold text-primary">
-                Scenario comparison
+                Compare an alternative
               </h2>
               <p className="mt-2 max-w-2xl leading-7 text-muted-foreground">
-                Compare the current shipment modes with one consistent
-                alternative while keeping the factor source and assumptions
-                visible.
+                Apply one freight mode to the current shipment inputs and see
+                the difference from the baseline.
               </p>
             </div>
           </div>
@@ -1111,7 +1124,7 @@ export function WorkspaceSectionPage({
                   <p
                     className={`mt-1 text-2xl font-bold ${
                       scenarioData.delta_kg <= 0
-                        ? "text-emerald-700"
+                        ? "text-accent"
                         : "text-red-700"
                     }`}
                   >
@@ -1217,7 +1230,7 @@ export function WorkspaceSectionPage({
                         <td
                           className={`px-4 py-3 font-semibold ${
                             result.delta_kg <= 0
-                              ? "text-emerald-700"
+                              ? "text-accent"
                               : "text-red-700"
                           }`}
                         >

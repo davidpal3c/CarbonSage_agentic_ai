@@ -5,18 +5,14 @@ import { runWorkspaceAgentAction } from "@/app/dashboard/agent-actions";
 
 export default function AgentPage() {
   return (
-    <section className="px-4 py-8 sm:px-6 lg:px-10 lg:py-12">
-      <header className="mb-8">
-        <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-accent">
-          Workspace intelligence
-        </p>
-        <h1 className="text-4xl font-bold tracking-tight text-primary">
-          Decision agent
+    <section className="px-4 py-7 sm:px-6 lg:px-10 lg:py-9">
+      <header className="mb-6">
+        <h1 className="text-3xl font-bold tracking-tight text-primary sm:text-4xl">
+          Ask CarbonSage
         </h1>
-        <p className="mt-3 max-w-3xl leading-7 text-muted-foreground">
-          Test CarbonSage against the artifacts, evidence, and deterministic
-          calculations in this workspace. Source-backed answers include
-          citations, and numeric responses come from validated tools.
+        <p className="mt-2 max-w-2xl leading-7 text-muted-foreground">
+          Explore your workspace, compare freight decisions, and review the
+          sources and calculations behind each answer.
         </p>
       </header>
 

@@ -47,6 +47,7 @@ const sourceLabels: Record<Artifact["source_type"], string> = {
 type ArtifactCatalogProps = {
   refreshToken: number;
   onDeleted: (kind: ArtifactKind) => void | Promise<void>;
+  focusedArtifactId?: string;
 };
 
 type SourceRetention = {
@@ -76,8 +77,10 @@ function sourceRetentionFor(artifact: Artifact): SourceRetention | null {
 export default function ArtifactCatalog({
   refreshToken,
   onDeleted,
+  focusedArtifactId,
 }: ArtifactCatalogProps) {
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -106,11 +109,21 @@ export default function ArtifactCatalog({
               : "Workspace artifacts could not be loaded.",
           );
         }
+      })
+      .finally(() => {
+        if (isCurrent) setIsLoading(false);
       });
     return () => {
       isCurrent = false;
     };
   }, [refreshToken]);
+
+  useEffect(() => {
+    if (!focusedArtifactId || !artifacts.length) return;
+    document
+      .getElementById(`artifact-${focusedArtifactId}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [artifacts, focusedArtifactId]);
 
   async function renameArtifact(artifact: Artifact) {
     const title = draftTitle.trim();
@@ -223,19 +236,21 @@ export default function ArtifactCatalog({
   return (
     <section
       id="artifacts"
-      className="mt-8 rounded-xl border border-border bg-muted p-6"
+      className="rounded-xl border border-border bg-card p-5 sm:p-6"
     >
-      <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-accent">
-        Artifact registry
-      </p>
-      <h2 className="text-2xl font-semibold text-primary">
-        Workspace artifacts
-      </h2>
-      <p className="mt-2 max-w-3xl leading-7 text-muted-foreground">
-        Track the source, status, and provenance of uploaded datasets, supplier
-        evidence, and saved decision reports. Supported upload sources are kept
-        private for at most 24 hours, then removed automatically.
-      </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-semibold text-primary">
+            Files & reports
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Uploaded sources and saved outputs in this workspace.
+          </p>
+        </div>
+        <span className="text-sm text-muted-foreground">
+          {isLoading ? "Loading…" : `${artifacts.length} active`}
+        </span>
+      </div>
 
       {error ? (
         <p className="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -246,7 +261,9 @@ export default function ArtifactCatalog({
         {statusMessage}
       </p>
 
-      {artifacts.length === 0 ? (
+      {isLoading ? (
+        <p className="mt-5 text-sm text-muted-foreground">Loading files…</p>
+      ) : artifacts.length === 0 ? (
         <p className="mt-5 rounded-lg border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
           No active artifacts yet. Upload shipment data or supplier evidence to
           create the first workspace artifact.
@@ -258,7 +275,12 @@ export default function ArtifactCatalog({
             return (
               <article
                 key={artifact.artifact_id}
-                className="min-w-0 rounded-lg border border-border bg-background p-4"
+                id={`artifact-${artifact.artifact_id}`}
+                className={`min-w-0 rounded-lg border bg-background p-4 transition ${
+                  focusedArtifactId === artifact.artifact_id
+                    ? "border-accent ring-2 ring-accent/20"
+                    : "border-border"
+                }`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -294,25 +316,13 @@ export default function ArtifactCatalog({
 
                 <details className="mt-4 text-sm text-muted-foreground">
                   <summary className="cursor-pointer font-semibold text-primary">
-                    Inspect provenance
+                    Source details
                   </summary>
                   <dl className="mt-3 space-y-2">
-                    <div>
-                      <dt className="text-xs">Artifact ID</dt>
-                      <dd className="break-all font-mono text-xs">
-                        {artifact.artifact_id}
-                      </dd>
-                    </div>
                     <div>
                       <dt className="text-xs">Source reference</dt>
                       <dd className="break-words">
                         {artifact.source_reference ?? "Generated in workspace"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs">Content identity</dt>
-                      <dd className="break-all font-mono text-xs">
-                        {artifact.content_sha256 ?? "No source hash"}
                       </dd>
                     </div>
                     <div>
