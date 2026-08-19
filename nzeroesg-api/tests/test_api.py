@@ -264,6 +264,61 @@ def test_demo_logout_removes_the_session_cookie():
     assert demo_client.get("/demo/session").status_code == 401
 
 
+def test_demo_data_is_explicit_idempotent_and_downloadable():
+    demo_client = authenticated_client()
+
+    empty = demo_client.get("/demo/data")
+    loaded = demo_client.post("/demo/data")
+    repeated = demo_client.post("/demo/data")
+
+    assert empty.status_code == 200
+    assert empty.json()["has_artifacts"] is False
+    assert loaded.status_code == 200
+    assert loaded.json() == {
+        "loaded": True,
+        "has_artifacts": True,
+        "artifact_count": 3,
+        "shipment_count": 6,
+        "supplier_count": 2,
+        "evidence_document_count": 2,
+    }
+    assert repeated.status_code == 200
+    assert repeated.json()["loaded"] is False
+    assert repeated.json()["artifact_count"] == 3
+
+    artifacts = demo_client.get("/artifacts").json()["artifacts"]
+    for artifact in artifacts:
+        download = demo_client.get(f"/artifacts/{artifact['artifact_id']}/content")
+        assert download.status_code == 200
+        assert download.content
+
+    shipments_export = demo_client.get("/shipments/export")
+    suppliers_export = demo_client.get("/suppliers/export")
+    assert shipments_export.status_code == 200
+    assert b"CS-1001" in shipments_export.content
+    assert suppliers_export.status_code == 200
+    assert b"Boreal Components" in suppliers_export.content
+
+
+def test_supplier_can_be_created_before_evidence_is_available():
+    demo_client = authenticated_client()
+
+    response = demo_client.post(
+        "/suppliers",
+        json={
+            "name": "Prairie Packaging",
+            "region": "Canada",
+            "certifications": ["ISO 14001"],
+            "transport_modes": ["rail"],
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["document_count"] == 0
+    suppliers = demo_client.get("/suppliers").json()["suppliers"]
+    assert [supplier["name"] for supplier in suppliers] == ["Prairie Packaging"]
+
+
 def test_analysis_run_is_persisted_in_workspace_quota():
     demo_client = authenticated_client()
 

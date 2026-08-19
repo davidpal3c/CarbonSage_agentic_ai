@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Leaf, Plus, Trash2, X } from "lucide-react";
+import Link from "next/link";
+import { Database, Leaf, Plus, Trash2, Upload, X } from "lucide-react";
 
 import { getBackendUrl } from "@/app/api/urls";
 import type {
@@ -39,6 +40,15 @@ const suggestedPrompts = [
   "Compare the current freight baseline with rail.",
 ];
 
+type DemoDataStatus = {
+  loaded: boolean;
+  has_artifacts: boolean;
+  artifact_count: number;
+  shipment_count: number;
+  supplier_count: number;
+  evidence_document_count: number;
+};
+
 async function apiDetail(response: Response, fallback: string) {
   const payload = (await response.json().catch(() => null)) as ApiError | null;
   return payload?.detail ?? fallback;
@@ -75,6 +85,8 @@ export default function ChatInterface({
     useState<AgentAvailability>("checking");
   const [conversationReady, setConversationReady] = useState(false);
   const [controlError, setControlError] = useState<string | null>(null);
+  const [demoData, setDemoData] = useState<DemoDataStatus | null>(null);
+  const [isLoadingDemoData, setIsLoadingDemoData] = useState(false);
   const conversationId = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -303,6 +315,23 @@ export default function ChatInterface({
     }
   }
 
+  async function handleLoadDemoData() {
+    if (!onAction) return;
+    setIsLoadingDemoData(true);
+    setControlError(null);
+    try {
+      await onAction("workspace.load_demo_data", null);
+    } catch (error) {
+      setControlError(
+        error instanceof Error
+          ? error.message
+          : "Demo data could not be loaded.",
+      );
+    } finally {
+      setIsLoadingDemoData(false);
+    }
+  }
+
   function handleToggleChat(newState: boolean) {
     setIsOpen(newState);
     onOpenChange?.(newState);
@@ -359,6 +388,32 @@ export default function ChatInterface({
     void initialize();
     return () => controller.abort();
   }, [loadConversation]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`${getBackendUrl()}/demo/data`, {
+      credentials: "include",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return (await response.json()) as DemoDataStatus;
+      })
+      .then((payload) => {
+        if (payload) setDemoData(payload);
+      })
+      .catch(() => undefined);
+
+    function dataLoaded(event: Event) {
+      const customEvent = event as CustomEvent<DemoDataStatus>;
+      if (customEvent.detail) setDemoData(customEvent.detail);
+    }
+    window.addEventListener("carbonsage:data-loaded", dataLoaded);
+    return () => {
+      controller.abort();
+      window.removeEventListener("carbonsage:data-loaded", dataLoaded);
+    };
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -530,13 +585,35 @@ export default function ChatInterface({
                       <Leaf aria-hidden="true" className="h-5 w-5" />
                     </div>
                     <h3 className="mt-4 text-lg font-semibold text-primary">
-                      What would you like to review?
+                      {demoData && !demoData.has_artifacts
+                        ? "Start with demo data or bring your own"
+                        : "What would you like to review?"}
                     </h3>
                     <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-                      Ask about workspace files, supplier evidence, emissions,
-                      scenarios, or report data.
+                      {demoData && !demoData.has_artifacts
+                        ? "This workspace is empty. Load a small fictional supplier and shipment dataset, or upload CSV, XLSX, PDF, or TXT files."
+                        : "Ask about workspace files, supplier evidence, emissions, scenarios, or report data."}
                     </p>
-                    {assistantStatus === "available" && conversationReady ? (
+                    {demoData && !demoData.has_artifacts ? (
+                      <div className="mt-5 flex flex-wrap justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void handleLoadDemoData()}
+                          disabled={!onAction || isLoadingDemoData}
+                          className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-xs font-semibold text-white transition hover:bg-accent disabled:opacity-50"
+                        >
+                          <Database aria-hidden="true" className="h-4 w-4" />
+                          {isLoadingDemoData ? "Loading…" : "Load demo data"}
+                        </button>
+                        <Link
+                          href="/dashboard/shipments"
+                          className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs font-semibold text-primary transition hover:border-accent"
+                        >
+                          <Upload aria-hidden="true" className="h-4 w-4" />
+                          Upload your own
+                        </Link>
+                      </div>
+                    ) : assistantStatus === "available" && conversationReady ? (
                       <div className="mt-5 flex flex-wrap justify-center gap-2">
                         {suggestedPrompts.map((prompt) => (
                           <button

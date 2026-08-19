@@ -1,10 +1,23 @@
 """Typed HTTP boundary for supplier evidence ingestion and retrieval."""
 
+import csv
+import io
 import logging
 from typing import Annotated
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
-from pydantic import BaseModel
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
+from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from api.artifacts import (
@@ -98,6 +111,13 @@ class EvidenceUploadResponse(BaseModel):
 
 class SupplierListResponse(BaseModel):
     suppliers: list[SupplierResponse]
+
+
+class SupplierCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    region: str | None = Field(default=None, max_length=120)
+    certifications: list[str] = Field(default_factory=list, max_length=12)
+    transport_modes: list[str] = Field(default_factory=list, max_length=8)
 
 
 class EvidenceSearchResponse(BaseModel):
@@ -346,6 +366,71 @@ async def list_suppliers(
             _supplier_response(supplier)
             for supplier in evidence_repository.list_suppliers(principal.workspace_id)
         ]
+    )
+
+
+@evidence_router.post(
+    "/suppliers",
+    response_model=SupplierResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_supplier(
+    payload: SupplierCreateRequest,
+    principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
+) -> SupplierResponse:
+    try:
+        normalized = normalize_supplier_metadata(
+            name=payload.name,
+            region=payload.region,
+            certifications=",".join(payload.certifications),
+            transport_modes=",".join(payload.transport_modes),
+        )
+    except EvidenceIngestionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+    supplier = evidence_repository.upsert_supplier(
+        principal.workspace_id,
+        SupplierMetadata(
+            name=normalized[0],
+            region=normalized[1],
+            certifications=normalized[2],
+            transport_modes=normalized[3],
+        ),
+    )
+    return _supplier_response(supplier)
+
+
+@evidence_router.get("/suppliers/export")
+async def export_suppliers(
+    principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
+) -> Response:
+    suppliers = evidence_repository.list_suppliers(principal.workspace_id)
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(
+        ("supplier_id", "name", "region", "certifications", "transport_modes", "documents")
+    )
+    for supplier in suppliers:
+        writer.writerow(
+            (
+                supplier.supplier_id,
+                supplier.name,
+                supplier.region or "",
+                "; ".join(supplier.certifications),
+                "; ".join(supplier.transport_modes),
+                supplier.document_count,
+            )
+        )
+    filename = quote("carbonsage-suppliers.csv", safe="")
+    return Response(
+        content=output.getvalue().encode("utf-8"),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{filename}",
+            "Cache-Control": "private, no-store",
+        },
     )
 
 

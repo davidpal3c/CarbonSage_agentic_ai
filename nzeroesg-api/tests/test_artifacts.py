@@ -142,7 +142,9 @@ def test_evidence_artifact_identity_flows_to_citations_and_delete_hides_evidence
     assert duplicate.status_code == 409
 
     assert client.delete(f"/artifacts/{artifact_id}").status_code == 204
-    assert client.get("/suppliers").json()["suppliers"] == []
+    suppliers = client.get("/suppliers").json()["suppliers"]
+    assert len(suppliers) == 1
+    assert suppliers[0]["document_count"] == 0
     assert client.get("/evidence/search", params={"query": "ISO 14001"}).json()["matches"] == []
 
 

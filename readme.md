@@ -39,23 +39,22 @@ The trusted deterministic baseline is live at:
 The intended path is short:
 
 1. Enter an isolated, expiring demo workspace.
-2. Upload shipment data, or use
-   [`docs/examples/shipments.csv`](docs/examples/shipments.csv).
-3. Add supplier or compliance evidence.
-4. Review totals, freight modes, hotspots, warnings, and cited supplier facts.
-5. Compare a lower-emission scenario and export the report.
+2. Start with the small fictional demo dataset, or upload your own CSV/XLSX
+   shipment data and PDF/TXT supplier evidence.
+3. Ask CarbonSage to review emissions, data quality, supplier claims, or an
+   alternative freight decision.
+4. Inspect returned metrics, charts, exact table values, citations, and tool
+   activity.
+5. Download source artifacts or normalized shipment and supplier exports.
 
 The API health endpoint is:
 
 - <https://nzeroesg-api.onrender.com/health>
 
-Production currently follows `main` and presents the deterministic workflow.
-The typed agent and control-plane work described below is complete on `dev` and
-will move to production only after its usability and release gates pass.
-
-The public workflow does not require an LLM. The typed agent reports itself as
-disabled unless a compatible model provider is explicitly configured; artifact
-management, retrieval, calculations, scenarios, and reports remain available.
+Production follows `main`. The agent is the primary workspace entry point, but
+it still fails closed unless a compatible model provider is configured;
+artifact management, retrieval, calculations, scenarios, and exports remain
+available independently.
 
 ## What works today
 
@@ -63,10 +62,14 @@ management, retrieval, calculations, scenarios, and reports remain available.
   provenance, assumptions, and distance warnings.
 - Signed, expiring demo workspaces with HTTP-only sessions, quotas, retention,
   revocation, and workspace-isolated persistence.
-- Shipment CSV ingestion with bounded validation, row-level errors, normalized
-  records, mode breakdowns, hotspots, and quality warnings.
+- CSV and XLSX shipment ingestion with common-header matching, bounded
+  validation, row-level errors, normalized records, mode breakdowns, hotspots,
+  and a downloadable workbook template.
 - Text and text-based PDF evidence ingestion with structured supplier records,
   recoverable page/chunk citations, and PostgreSQL full-text retrieval.
+- An explicit first-run choice between a checked-in fictional demo dataset and
+  user uploads. Demo sources, retained uploads, normalized shipments, and the
+  supplier catalog are downloadable from the workspace.
 - Explicit lexical, pgvector semantic, and deterministic hybrid retrieval
   modes with workspace filtering, versioned embedding metadata, and a safe
   lexical fallback when no embedding provider is configured.
@@ -93,9 +96,9 @@ management, retrieval, calculations, scenarios, and reports remain available.
 - A workspace artifact catalog for shipment datasets, evidence documents, and
   report snapshots, with provenance, citation identity, rename, bounded
   soft-deletion, and cross-workspace isolation.
-- A routed control plane with persistent workspace navigation and standalone
-  overview, artifact, shipment, supplier-evidence, scenario, report, and agent
-  pages. Every section can be linked to or refreshed directly.
+- An agent-first routed control plane with persistent navigation and standalone
+  agent, integration, overview, artifact, shipment, supplier, scenario, and
+  report pages. Every section can be linked to or refreshed directly.
 - A dedicated decision-agent testing page using the same workspace-scoped
   conversation API and structured renderer as the workspace launcher. Users
   can create, switch, and close conversations; inspect source coverage,
@@ -206,20 +209,20 @@ cp nzeroesg-client/.env.example nzeroesg-client/.env.local
 The historical directory, service, environment-variable, and public URL names
 remain unchanged so the working deployment is not broken by the public rebrand.
 
-## Optional model provider
+## Agent and embedding providers
 
 The typed agent is intentionally fail-closed when no compatible provider is
 configured. It can be enabled in `nzeroesg-api/.env`:
 
 ```dotenv
 ASSISTANT_ENABLED=true
-LLM_PROVIDER=openai
-OPENAI_API_KEY=...
-OPENAI_MODEL=...
+LLM_PROVIDER=openrouter
+OPENROUTER_API_KEY=...
+OPENROUTER_MODEL=openai/gpt-3.5-turbo-16k
 ```
 
-OpenRouter is also supported. No provider credential is required for the
-deterministic workflow, CI, or the primary public demo.
+OpenAI is also supported directly. No provider credential is required for
+deterministic tools or CI.
 
 Semantic and hybrid retrieval can be enabled independently of the assistant:
 

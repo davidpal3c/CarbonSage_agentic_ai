@@ -65,6 +65,7 @@ def compose_agent_response(
     citations_by_identity: dict[tuple[str, int], CitationRecord] = {}
     approved_citation_ids = set(evidence_support.citation_ids if evidence_support else ())
     evidence_attempted = False
+    workspace_empty = False
 
     for execution in executions:
         if execution.error_message:
@@ -87,10 +88,13 @@ def compose_agent_response(
                 )
             )
             if not output.artifacts:
+                workspace_empty = True
                 blocks.append(
                     WarningBlock(
                         code="no_artifacts",
-                        message="Upload shipment data or supplier evidence to create an artifact.",
+                        message=(
+                            "No supplier or shipment data is available in this workspace yet."
+                        ),
                     )
                 )
             for artifact in output.artifacts[:6]:
@@ -235,6 +239,11 @@ def compose_agent_response(
                 )
             )
         elif isinstance(output, SummarizeDataQualityOutput):
+            workspace_empty = (
+                output.shipment_count == 0
+                and output.supplier_count == 0
+                and output.evidence_document_count == 0
+            )
             blocks.extend(
                 (
                     TextBlock(
@@ -255,6 +264,7 @@ def compose_agent_response(
             for issue in output.issues:
                 blocks.append(WarningBlock(code="data_quality_gap", message=issue.message))
         elif isinstance(output, BuildDecisionReportOutput):
+            workspace_empty = output.shipment_count == 0 and output.supplier_count == 0
             blocks.extend(
                 (
                     TextBlock(
@@ -306,6 +316,15 @@ def compose_agent_response(
                 )
             for warning in output.warnings:
                 blocks.append(WarningBlock(code="report_warning", message=warning))
+
+    if workspace_empty:
+        blocks.append(
+            ActionBlock(
+                action_id="workspace.load_demo_data",
+                label="Load demo data",
+                requires_confirmation=False,
+            )
+        )
 
     if not blocks:
         blocks.append(
