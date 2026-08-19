@@ -49,6 +49,10 @@ The API health endpoint is:
 
 - <https://nzeroesg-api.onrender.com/health>
 
+Production currently follows `main` and presents the deterministic workflow.
+The typed agent and control-plane work described below is complete on `dev` and
+will move to production only after its usability and release gates pass.
+
 The public workflow does not require an LLM. The typed agent reports itself as
 disabled unless a compatible model provider is explicitly configured; artifact
 management, retrieval, calculations, scenarios, and reports remain available.

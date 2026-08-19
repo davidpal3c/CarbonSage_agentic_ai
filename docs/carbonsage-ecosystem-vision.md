@@ -633,27 +633,6 @@ evidence.
 - Does the project need one organization, an advisory model, or separate open
   and commercial entities?
 
-## Resume-ready project experience
-
-This wording describes the implemented project as of August 2026 and avoids
-claiming the deferred marketplace or unfinished agent/embed phases.
-
-**CarbonSage (formerly NZeroESG) – ESG Decision Intelligence & Hybrid-RAG
-Platform | Python, FastAPI, Next.js, TypeScript, PostgreSQL/pgvector,
-LangChain, Docker**
-
-- Built and deployed a modular FastAPI/Next.js platform for Scope 3 freight and
-  supplier-evidence workflows, combining bounded CSV/PDF ingestion,
-  deterministic emissions calculations, scenario comparison,
-  workspace-isolated REST APIs, interactive visualizations, and report export.
-- Implemented cited lexical, semantic, and hybrid RAG over PostgreSQL full-text
-  search and pgvector—replacing an earlier ChromaDB prototype—with
-  provider-aware fallback, versioned embeddings, and a 25-query evaluation in
-  which hybrid retrieval achieved `1.0` recall@5.
-- Designed provenance-bearing artifact and citation contracts linking source
-  datasets, normalized records, evidence chunks, and report snapshots;
-  enforced signed expiring workspaces, cross-tenant isolation, soft deletion,
-  and CI/E2E deployment gates across Neon, Render, and Vercel.
 
 ## Closing perspective
 

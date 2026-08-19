@@ -749,7 +749,7 @@ Verification:
 - The primary deterministic workflow remains usable when model and embedding
   providers are disabled.
 
-Implementation evidence (in progress 2026-08-10):
+Implementation evidence (completed 2026-08-11):
 
 - Migration `007_typed_agent_runtime.sql` and matching in-memory/PostgreSQL
   repositories enforce three active conversations per workspace, twenty
