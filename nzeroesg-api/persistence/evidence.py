@@ -80,6 +80,12 @@ class EvidenceRepository(Protocol):
 
     def delete_for_artifact(self, workspace_id: str, artifact_id: str) -> int: ...
 
+    def delete_suppliers_without_documents(
+        self,
+        workspace_id: str,
+        supplier_ids: tuple[str, ...],
+    ) -> int: ...
+
 
 def _vector_literal(values: tuple[float, ...]) -> str:
     return "[" + ",".join(format(value, ".12g") for value in values) + "]"
@@ -404,6 +410,21 @@ class InMemoryEvidenceRepository:
             )
             current = self._suppliers[supplier_key]
             self._suppliers[supplier_key] = (current[0], current[1], remaining)
+        return len(matching_keys)
+
+    def delete_suppliers_without_documents(
+        self,
+        workspace_id: str,
+        supplier_ids: tuple[str, ...],
+    ) -> int:
+        requested_ids = set(supplier_ids)
+        matching_keys = [
+            key
+            for key, (supplier_id, _supplier, document_count) in self._suppliers.items()
+            if key[0] == workspace_id and supplier_id in requested_ids and document_count == 0
+        ]
+        for key in matching_keys:
+            del self._suppliers[key]
         return len(matching_keys)
 
 
@@ -906,6 +927,33 @@ class PostgresEvidenceRepository:
                 supplier_ids = [row[0] for row in cursor.fetchall()]
             connection.commit()
         return len(supplier_ids)
+
+    def delete_suppliers_without_documents(
+        self,
+        workspace_id: str,
+        supplier_ids: tuple[str, ...],
+    ) -> int:
+        if not supplier_ids:
+            return 0
+        with closing(self._connect()) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    DELETE FROM suppliers AS s
+                    WHERE s.workspace_id = %s
+                      AND s.supplier_id = ANY(%s::uuid[])
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM evidence_documents AS d
+                          WHERE d.workspace_id = s.workspace_id
+                            AND d.supplier_id = s.supplier_id
+                      )
+                    """,
+                    (workspace_id, list(supplier_ids)),
+                )
+                deleted = cursor.rowcount
+            connection.commit()
+        return deleted
 
 
 def build_evidence_repository(database_url: str | None) -> EvidenceRepository:

@@ -1,11 +1,6 @@
-"use client";
-
-import ChatInterface from "@/app/components/chat_ui/ChatInterface";
-import { runWorkspaceAgentAction } from "@/app/dashboard/agent-actions";
-
 export default function AgentPage() {
   return (
-    <section className="px-4 py-7 sm:px-6 lg:px-10 lg:py-9">
+    <section className="px-4 pt-7 sm:px-6 lg:px-10 lg:pt-9">
       <header className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight text-primary sm:text-4xl">
           Ask CarbonSage
@@ -15,8 +10,6 @@ export default function AgentPage() {
           sources and calculations behind each answer.
         </p>
       </header>
-
-      <ChatInterface presentation="panel" onAction={runWorkspaceAgentAction} />
     </section>
   );
 }

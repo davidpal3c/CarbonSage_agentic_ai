@@ -283,7 +283,7 @@ def test_demo_data_is_explicit_idempotent_and_downloadable():
         "evidence_document_count": 3,
     }
     assert repeated.status_code == 200
-    assert repeated.json()["loaded"] is False
+    assert repeated.json()["loaded"] is True
     assert repeated.json()["artifact_count"] == 4
 
     artifacts = demo_client.get("/artifacts").json()["artifacts"]
@@ -299,6 +299,61 @@ def test_demo_data_is_explicit_idempotent_and_downloadable():
     assert suppliers_export.status_code == 200
     assert b"Boreal Components" in suppliers_export.content
     assert b"Coastal Biofuels" in suppliers_export.content
+
+
+def test_demo_data_can_be_unloaded_without_removing_user_uploads():
+    demo_client = authenticated_client()
+    assert demo_client.post("/demo/data").status_code == 200
+
+    user_shipments = demo_client.post(
+        "/shipments/upload",
+        files={
+            "file": (
+                "user-shipments.csv",
+                (
+                    b"shipment_id,origin,destination,weight_value,weight_unit,"
+                    b"distance_value,distance_unit,transport_method\n"
+                    b"USER-001,Edmonton,Calgary,1000,kg,300,km,truck\n"
+                ),
+                "text/csv",
+            )
+        },
+    )
+    assert user_shipments.status_code == 200
+
+    user_evidence = demo_client.post(
+        "/evidence/upload",
+        data={"supplier_name": "User Supplier", "supplier_region": "Canada"},
+        files={
+            "file": (
+                "user-supplier.txt",
+                b"User Supplier maintains ISO 14001 certification.",
+                "text/plain",
+            )
+        },
+    )
+    assert user_evidence.status_code == 200
+
+    unloaded = demo_client.delete("/demo/data")
+
+    assert unloaded.status_code == 200
+    assert unloaded.json() == {
+        "loaded": False,
+        "has_artifacts": True,
+        "artifact_count": 2,
+        "shipment_count": 1,
+        "supplier_count": 1,
+        "evidence_document_count": 1,
+    }
+    assert {
+        artifact["title"] for artifact in demo_client.get("/artifacts").json()["artifacts"]
+    } == {"user-shipments.csv", "user-supplier.txt"}
+    assert [supplier["name"] for supplier in demo_client.get("/suppliers").json()["suppliers"]] == [
+        "User Supplier"
+    ]
+    shipments = demo_client.get("/shipments").json()
+    assert shipments["accepted_rows"] == 1
+    assert shipments["rows"][0]["shipment_id"] == "USER-001"
 
 
 def test_supplier_can_be_created_before_evidence_is_available():

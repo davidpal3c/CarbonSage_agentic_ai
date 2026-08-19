@@ -96,12 +96,16 @@ the agent. Its bounded responsibilities are:
 - create and revoke embed clients with exact allowed origins;
 - inspect quotas, evidence completeness, and concise tool activity.
 
-The persistent shell owns session resolution, workspace navigation, and the
-agent launcher. Each route owns only its section's data requests and actions,
-so direct navigation does not depend on client-side state from a previous
-screen. The dedicated agent route keeps the shared structured-response
-renderer open as a full testing surface; the compact launcher makes the same
-agent available while working elsewhere in the control plane.
+The persistent shell owns session resolution, workspace navigation, one agent
+instance that switches between panel and launcher presentation, and the
+lifecycle of a workspace-scoped Zustand cache. Routes read
+shipments, suppliers, artifacts, demo status, and report previews from that
+cache; request deduplication and mutation-driven invalidation prevent route
+changes from repeating API work. The cache is reset when the workspace changes
+or the user signs out, while direct navigation can always rebuild it from the
+server. The dedicated agent route presents the shared structured-response
+renderer as a full testing surface; the same mounted instance becomes a compact
+launcher while working elsewhere in the control plane.
 
 It is not an organization-admin, billing, SSO, or enterprise-RBAC console.
 

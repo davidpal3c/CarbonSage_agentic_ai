@@ -11,38 +11,13 @@ import {
 
 import { getBackendUrl } from "@/app/api/urls";
 import { LoadingState, Spinner } from "@/app/components/Spinner";
+import {
+  type Artifact,
+  type ArtifactKind,
+  useWorkspaceDataStore,
+} from "@/app/dashboard/workspace-data-store";
 
-export type ArtifactKind =
-  | "shipment_dataset"
-  | "evidence_document"
-  | "report_snapshot";
-
-type Artifact = {
-  artifact_id: string;
-  workspace_id: string;
-  kind: ArtifactKind;
-  title: string;
-  status: "processing" | "ready" | "failed";
-  source_type:
-    | "local_upload"
-    | "generated"
-    | "google_drive"
-    | "legacy_migration";
-  source_reference: string | null;
-  media_type: string | null;
-  content_sha256: string | null;
-  version: number;
-  metadata: Record<string, unknown>;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-};
-
-type WorkspaceDataStatus = {
-  shipment_count: number;
-  supplier_count: number;
-};
+export type { ArtifactKind } from "@/app/dashboard/workspace-data-store";
 
 const kindLabels: Record<ArtifactKind, string> = {
   shipment_dataset: "Shipment dataset",
@@ -58,8 +33,6 @@ const sourceLabels: Record<Artifact["source_type"], string> = {
 };
 
 type ArtifactCatalogProps = {
-  refreshToken: number;
-  onDeleted: (kind: ArtifactKind) => void | Promise<void>;
   focusedArtifactId?: string;
 };
 
@@ -86,16 +59,25 @@ function sourceRetentionFor(artifact: Artifact): SourceRetention | null {
 }
 
 export default function ArtifactCatalog({
-  refreshToken,
-  onDeleted,
   focusedArtifactId,
 }: ArtifactCatalogProps) {
-  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
-  const [dataStatus, setDataStatus] = useState<WorkspaceDataStatus | null>(
-    null,
+  const artifacts = useWorkspaceDataStore((state) => state.artifacts);
+  const artifactsStatus = useWorkspaceDataStore(
+    (state) => state.artifactsStatus,
   );
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const artifactsError = useWorkspaceDataStore((state) => state.artifactsError);
+  const demoData = useWorkspaceDataStore((state) => state.demoData);
+  const ensureArtifacts = useWorkspaceDataStore(
+    (state) => state.ensureArtifacts,
+  );
+  const ensureDemoData = useWorkspaceDataStore((state) => state.ensureDemoData);
+  const renameCachedArtifact = useWorkspaceDataStore(
+    (state) => state.renameArtifact,
+  );
+  const deleteCachedArtifact = useWorkspaceDataStore(
+    (state) => state.deleteArtifact,
+  );
+  const [actionError, setActionError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(
     focusedArtifactId ?? null,
@@ -105,50 +87,12 @@ export default function ArtifactCatalog({
   const [draftTitle, setDraftTitle] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [busyExport, setBusyExport] = useState<string | null>(null);
+  const isLoading = artifactsStatus === "loading" && artifacts.length === 0;
+  const error = actionError ?? artifactsError;
 
   useEffect(() => {
-    let isCurrent = true;
-    const controller = new AbortController();
-    Promise.all([
-      fetch(`${getBackendUrl()}/artifacts`, {
-        credentials: "include",
-        signal: controller.signal,
-      }),
-      fetch(`${getBackendUrl()}/demo/data`, {
-        credentials: "include",
-        signal: controller.signal,
-      }),
-    ])
-      .then(async ([artifactResponse, statusResponse]) => {
-        if (!artifactResponse.ok || !statusResponse.ok) {
-          throw new Error("Workspace artifacts could not be loaded.");
-        }
-        return Promise.all([
-          artifactResponse.json() as Promise<{ artifacts: Artifact[] }>,
-          statusResponse.json() as Promise<WorkspaceDataStatus>,
-        ]);
-      })
-      .then(([artifactPayload, statusPayload]) => {
-        if (!isCurrent) return;
-        setArtifacts(artifactPayload.artifacts);
-        setDataStatus(statusPayload);
-      })
-      .catch((requestError) => {
-        if (!isCurrent || controller.signal.aborted) return;
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Workspace artifacts could not be loaded.",
-        );
-      })
-      .finally(() => {
-        if (isCurrent) setIsLoading(false);
-      });
-    return () => {
-      isCurrent = false;
-      controller.abort();
-    };
-  }, [refreshToken]);
+    void Promise.allSettled([ensureArtifacts(), ensureDemoData()]);
+  }, [ensureArtifacts, ensureDemoData]);
 
   useEffect(() => {
     if (!focusedArtifactId || !artifacts.length) return;
@@ -160,32 +104,17 @@ export default function ArtifactCatalog({
   async function renameArtifact(artifact: Artifact) {
     const title = draftTitle.trim();
     if (!title) {
-      setError("Artifact title cannot be empty.");
+      setActionError("Artifact title cannot be empty.");
       return;
     }
     setBusyId(artifact.artifact_id);
-    setError(null);
+    setActionError(null);
     try {
-      const response = await fetch(
-        `${getBackendUrl()}/artifacts/${artifact.artifact_id}`,
-        {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title }),
-        },
-      );
-      if (!response.ok) throw new Error("Artifact could not be renamed.");
-      const updated = (await response.json()) as Artifact;
-      setArtifacts((current) =>
-        current.map((item) =>
-          item.artifact_id === updated.artifact_id ? updated : item,
-        ),
-      );
+      const updated = await renameCachedArtifact(artifact.artifact_id, title);
       setEditingId(null);
       setStatusMessage(`Renamed artifact to ${updated.title}.`);
     } catch (requestError) {
-      setError(
+      setActionError(
         requestError instanceof Error
           ? requestError.message
           : "Artifact could not be renamed.",
@@ -205,25 +134,12 @@ export default function ArtifactCatalog({
       return;
     }
     setBusyId(artifact.artifact_id);
-    setError(null);
+    setActionError(null);
     try {
-      const response = await fetch(
-        `${getBackendUrl()}/artifacts/${artifact.artifact_id}`,
-        { method: "DELETE", credentials: "include" },
-      );
-      if (!response.ok) throw new Error("Artifact could not be deleted.");
-      setArtifacts((current) =>
-        current.filter((item) => item.artifact_id !== artifact.artifact_id),
-      );
-      if (artifact.kind === "shipment_dataset") {
-        setDataStatus((current) =>
-          current ? { ...current, shipment_count: 0 } : current,
-        );
-      }
+      await deleteCachedArtifact(artifact);
       setStatusMessage(`Deleted ${artifact.title}.`);
-      await onDeleted(artifact.kind);
     } catch (requestError) {
-      setError(
+      setActionError(
         requestError instanceof Error
           ? requestError.message
           : "Artifact could not be deleted.",
@@ -236,7 +152,7 @@ export default function ArtifactCatalog({
   async function downloadArtifact(artifact: Artifact) {
     setMenuId(null);
     setBusyId(artifact.artifact_id);
-    setError(null);
+    setActionError(null);
     try {
       const response = await fetch(
         `${getBackendUrl()}/artifacts/${artifact.artifact_id}/content`,
@@ -259,7 +175,7 @@ export default function ArtifactCatalog({
       URL.revokeObjectURL(objectUrl);
       setStatusMessage(`Downloaded source for ${artifact.title}.`);
     } catch (requestError) {
-      setError(
+      setActionError(
         requestError instanceof Error
           ? requestError.message
           : "The retained source could not be downloaded.",
@@ -275,7 +191,7 @@ export default function ArtifactCatalog({
     label: string,
   ) {
     setBusyExport(path);
-    setError(null);
+    setActionError(null);
     try {
       const response = await fetch(`${getBackendUrl()}${path}`, {
         credentials: "include",
@@ -291,7 +207,7 @@ export default function ArtifactCatalog({
       URL.revokeObjectURL(objectUrl);
       setStatusMessage(`Downloaded ${label.toLowerCase()}.`);
     } catch (requestError) {
-      setError(
+      setActionError(
         requestError instanceof Error
           ? requestError.message
           : `${label} could not be downloaded.`,
@@ -314,7 +230,7 @@ export default function ArtifactCatalog({
         </div>
         {!isLoading ? (
           <div className="flex flex-wrap items-center gap-2">
-            {dataStatus?.shipment_count ? (
+            {demoData?.shipment_count ? (
               <button
                 type="button"
                 onClick={() =>
@@ -331,7 +247,7 @@ export default function ArtifactCatalog({
                 Download shipments
               </button>
             ) : null}
-            {dataStatus?.supplier_count ? (
+            {demoData?.supplier_count ? (
               <button
                 type="button"
                 onClick={() =>
@@ -475,7 +391,7 @@ export default function ArtifactCatalog({
                             setEditingId(artifact.artifact_id);
                             setDraftTitle(artifact.title);
                             setMenuId(null);
-                            setError(null);
+                            setActionError(null);
                           }}
                           className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-primary hover:bg-muted"
                         >

@@ -926,6 +926,43 @@ Exit gate:
 > inspect or manage artifacts, and reach the core agent without encountering
 > placeholder product language, empty exports, or ambiguous loading states.
 
+### Phase 10.3 — Workspace state lifecycle and simulation controls
+
+Implementation evidence (completed 2026-08-19):
+
+- A workspace-scoped Zustand store owns shipment analysis, suppliers,
+  artifacts, demo status, and report previews for the active browser session.
+  Requests are deduplicated, cached records survive route changes, and changing
+  or leaving the workspace clears the complete client cache.
+- Mutations update or invalidate only their dependent slices. Shipment and
+  evidence imports, artifact deletion, report snapshots, and demo-data changes
+  refresh the affected canonical records while leaving unrelated cached data
+  available. Report previews are cached by comparison mode and an explicit
+  refresh remains available.
+- Integrations renders the demo-data action immediately while status resolution
+  runs in the background. The initial route no longer replaces the action with
+  a long-running status spinner.
+- `DELETE /demo/data` removes only generated artifacts carrying the checked-in
+  demo provenance and demo-created supplier profiles that have no remaining
+  documents. User-uploaded artifacts, normalized records, and supplier evidence
+  remain active. The same Integrations card exposes the confirmed unload action.
+- Shipment import is a compact action beside `Calculate freight`. It opens an
+  accessible modal with drag-and-drop, file browsing, the XLSX template, bounded
+  validation feedback, and a disabled submit state until a file is selected.
+- One persistent agent instance switches between the dedicated panel and
+  compact launcher across every workspace route. Navigation closes an open
+  launcher without discarding conversation state or repeating initialization.
+- The local browser harness uses an isolated Next.js build directory, so the
+  ten Playwright flows can run without reusing or interrupting another local
+  development server. The suite verifies demo load/unload, cached report reuse,
+  shipment import, mutation refreshes, keyboard operation, and responsive layout.
+
+Exit gate:
+
+> Returning to a workspace page reuses current data, simulation records can be
+> removed without touching user uploads, and file import is an intentional
+> modal workflow rather than a permanent page-level form.
+
 ### Phase 11 — Authenticated JavaScript embed
 
 Deliverables:
