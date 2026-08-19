@@ -1,41 +1,39 @@
-/* globals.css - Updated for Tailwind v4 with proper dark mode */
 @import "tailwindcss";
 
-/* Configure dark mode to use class-based switching */
 @theme {
-  --default-transition-duration: 900ms;
+  --default-transition-duration: 180ms;
 }
 
 :root {
-  --background: #f5fcf9;
-  --foreground: #1a1c1d;
-  --secondary-bg: #ecfdf5;
-  --secondary-fg: #334155;
-  --card: #c7e6d4;
-  --card-foreground: #1f2937;
-  --muted: #f0f9f7;
-  --muted-foreground: #64748b;
-  --border: #d1e7dd;
-  --primary: #184235;
-  --secondary: #01682c;
-  --tertiary: #b99100;
-  --accent: #19a777;
+  --background: #f7f7f5;
+  --foreground: #191b19;
+  --secondary-bg: #f0f1ee;
+  --secondary-fg: #414641;
+  --card: #ffffff;
+  --card-foreground: #202320;
+  --muted: #f0f1ee;
+  --muted-foreground: #656b66;
+  --border: #d9ddd8;
+  --primary: #1c201d;
+  --secondary: #28352e;
+  --tertiary: #8a711f;
+  --accent: #607c6b;
 }
 
 .dark {
-  --background: #0f251e;
-  --foreground: #04a949;
-  --secondary-bg: #1a2d25;
-  --secondary-fg: #e2e8f0;
-  --card: #20342d;
-  --card-foreground: #f8fafc;
-  --muted: #1f3b34;
-  --muted-foreground: #bfcad8;
-  --border: #2f4f45;
-  --primary: #cdf7e1;
-  --secondary: #04a949;
-  --tertiary: #f6d45b;
-  --accent: #05ad75;
+  --background: #111311;
+  --foreground: #eff1ed;
+  --secondary-bg: #171a18;
+  --secondary-fg: #d5d9d4;
+  --card: #1a1d1b;
+  --card-foreground: #f3f5f1;
+  --muted: #202421;
+  --muted-foreground: #a9b0aa;
+  --border: #343a35;
+  --primary: #f1f3ef;
+  --secondary: #587061;
+  --tertiary: #c7ad58;
+  --accent: #8ca696;
 }
 
 @theme {
@@ -70,6 +68,15 @@ body {
     color var(--default-transition-duration);
 }
 
+::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 @media print {
   html {
     color-scheme: light;
@@ -99,7 +106,6 @@ body {
   }
 }
 
-/* Additional utility classes for better dark mode support */
 @layer utilities {
   .theme-transition {
     transition:

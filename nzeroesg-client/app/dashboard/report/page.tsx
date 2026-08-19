@@ -178,21 +178,17 @@ export default function ReportPage() {
     : [];
 
   return (
-    <section className="px-4 py-8 sm:px-6 lg:px-10 lg:py-12">
-      <header className="mb-8">
-        <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-accent">
-          Decision output
-        </p>
-        <h1 className="text-4xl font-bold tracking-tight text-primary">
+    <section className="px-4 py-7 sm:px-6 lg:px-10 lg:py-9">
+      <header className="mb-7">
+        <h1 className="text-3xl font-bold tracking-tight text-primary sm:text-4xl">
           Report
         </h1>
-        <p className="mt-3 max-w-3xl leading-7 text-muted-foreground">
-          Review a current workspace report, compare one freight alternative,
-          save a traceable snapshot, or export the normalized result.
+        <p className="mt-2 max-w-2xl leading-7 text-muted-foreground">
+          Review the current results, save a snapshot, or export the data.
         </p>
       </header>
 
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-muted p-5">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-5">
         <label className="flex min-w-56 flex-1 flex-col gap-2 text-sm font-semibold text-primary">
           Report alternative
           <select
@@ -241,7 +237,7 @@ export default function ReportPage() {
       </div>
 
       {statusMessage ? (
-        <p className="mt-4 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <p className="mt-4 rounded-lg border border-accent/35 bg-accent/10 px-4 py-3 text-sm text-primary">
           {statusMessage}
         </p>
       ) : null}
@@ -254,19 +250,19 @@ export default function ReportPage() {
       {report ? (
         <div className="mt-6 space-y-6">
           <div className="grid gap-4 md:grid-cols-3">
-            <article className="rounded-xl border border-border bg-muted p-5">
+            <article className="rounded-xl border border-border bg-card p-5">
               <p className="text-sm text-muted-foreground">Shipments</p>
               <p className="mt-2 text-2xl font-bold text-primary">
                 {report.shipment_analysis.shipment_count}
               </p>
             </article>
-            <article className="rounded-xl border border-border bg-muted p-5">
+            <article className="rounded-xl border border-border bg-card p-5">
               <p className="text-sm text-muted-foreground">Total emissions</p>
               <p className="mt-2 text-2xl font-bold text-primary">
                 {report.shipment_analysis.total_emissions_kg.toFixed(2)} kg CO2e
               </p>
             </article>
-            <article className="rounded-xl border border-border bg-muted p-5">
+            <article className="rounded-xl border border-border bg-card p-5">
               <p className="text-sm text-muted-foreground">Suppliers</p>
               <p className="mt-2 text-2xl font-bold text-primary">
                 {report.suppliers.length}
@@ -275,7 +271,7 @@ export default function ReportPage() {
           </div>
 
           {report.scenario ? (
-            <article className="rounded-xl border border-border bg-muted p-5">
+            <article className="rounded-xl border border-border bg-card p-5">
               <h2 className="text-xl font-semibold text-primary">
                 Scenario comparison
               </h2>
@@ -307,7 +303,7 @@ export default function ReportPage() {
             </article>
           ) : null}
 
-          <article className="overflow-x-auto rounded-xl border border-border bg-muted p-5">
+          <article className="overflow-x-auto rounded-xl border border-border bg-card p-5">
             <h2 className="text-xl font-semibold text-primary">
               Emissions by mode
             </h2>
@@ -348,7 +344,7 @@ export default function ReportPage() {
             )}
           </article>
 
-          <article className="rounded-xl border border-border bg-muted p-5">
+          <article className="rounded-xl border border-border bg-card p-5">
             <h2 className="text-xl font-semibold text-primary">Methodology</h2>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
               {report.methodology.factor_source} · version{" "}

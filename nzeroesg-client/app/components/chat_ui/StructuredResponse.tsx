@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { AlertTriangle, BarChart3, FileText, Quote } from "lucide-react";
 
 import type {
@@ -232,7 +233,7 @@ function Block({
   if (!isRecord(value) || typeof value.type !== "string") {
     return (
       <p role="status" className="rounded-lg border border-border p-3 text-xs">
-        CarbonSage received an unreadable response block.
+        Some response details could not be displayed.
       </p>
     );
   }
@@ -276,8 +277,8 @@ function Block({
     case "artifact_reference": {
       const block = value as ArtifactReferenceBlock;
       return (
-        <a
-          href="#artifacts"
+        <Link
+          href={`/dashboard/artifacts?artifact=${encodeURIComponent(block.artifact_id)}`}
           className="flex items-start gap-3 rounded-xl border border-border bg-background p-4 transition hover:border-accent"
         >
           <FileText
@@ -293,7 +294,7 @@ function Block({
               {block.artifact_id.slice(0, 8)}
             </span>
           </span>
-        </a>
+        </Link>
       );
     }
     case "warning": {
@@ -319,8 +320,7 @@ function Block({
           role="status"
           className="rounded-lg border border-border p-3 text-xs"
         >
-          This response includes a newer “{value.type}” block. Update the host
-          renderer to display it.
+          This response includes an item that cannot be displayed here yet.
         </p>
       );
   }

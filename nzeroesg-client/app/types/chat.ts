@@ -149,6 +149,12 @@ export type AgentHealth = {
   response_schema_version: string;
 };
 
+export type AgentAvailability =
+  | "checking"
+  | "available"
+  | "disabled"
+  | "unreachable";
+
 export type UiMessage = {
   id: string;
   content: string;

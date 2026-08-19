@@ -275,8 +275,9 @@ Built 1 comparison chart
 
 This is tool and retrieval observability, not private chain-of-thought. Stored
 events contain tool names, timings, artifact identifiers, result counts, and
-sanitized errors without raw uploaded content or model reasoning. The full
-dashboard event-inspection treatment remains in Phase 10.
+sanitized errors without raw uploaded content or model reasoning. The workspace
+agent presents these events as concise, human-readable recent work beside
+source coverage, response time, and linked artifacts.
 
 ## Conversation and memory boundary
 

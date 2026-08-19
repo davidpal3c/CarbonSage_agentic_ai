@@ -17,13 +17,16 @@ const backendActionTimeout = 30_000;
 async function enterWorkspace(page: Page) {
   await page.goto("/login");
   await expect(
-    page.getByRole("heading", { name: "Enter a private workspace" }),
+    page.getByRole("heading", { name: "Enter the demo workspace" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Enter demo workspace" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByText("Private workspace")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
   await expect(page.getByText(/^Ready$/)).toHaveCount(0);
   await expect(page.getByText(/Phase\s+\d+/)).toHaveCount(0);
+  await expect(
+    page.getByText(/policy v|typed tools|control plane/i),
+  ).toHaveCount(0);
   await expect(page.locator("code")).toHaveCount(0);
 }
 
@@ -95,19 +98,15 @@ test("completes the five-minute demo workflow and exports a report", async ({
 
   await page.getByLabel("Retrieval mode").selectOption("hybrid");
   await page.getByRole("button", { name: "Search citations" }).click();
-  const retrievalStatus = page.getByText(
-    /Used (hybrid|lexical) retrieval · semantic provider (available|unavailable)/,
-  );
+  const retrievalStatus = page.getByText(/(Hybrid|Keyword) search/);
   await expect(retrievalStatus).toBeVisible({ timeout: backendActionTimeout });
   const retrievalStatusText = await retrievalStatus.textContent();
-  if (retrievalStatusText?.includes("provider unavailable")) {
+  if (retrievalStatusText?.includes("Keyword search")) {
     expect(retrievalStatusText).toContain(
       "hybrid search used the lexical baseline",
     );
   } else {
-    expect(retrievalStatusText).toContain(
-      "Used hybrid retrieval · semantic provider available",
-    );
+    expect(retrievalStatusText).toContain("Hybrid search");
   }
 
   await openWorkspacePage(page, "Scenarios", "scenarios");
@@ -115,7 +114,9 @@ test("completes the five-minute demo workflow and exports a report", async ({
   await expect(page.getByText("Current baseline")).toBeVisible({
     timeout: backendActionTimeout,
   });
-  await expect(page.getByText("Scenario comparison")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Compare an alternative" }),
+  ).toBeVisible();
   await expect(page.getByText("Methodology", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("table", { name: "Scenario result by shipment" }),
@@ -218,10 +219,8 @@ test("keeps the deterministic workspace usable when the agent is disabled", asyn
 }) => {
   await enterWorkspace(page);
   await openWorkspacePage(page, "Agent", "agent");
-  await expect(
-    page.getByRole("region", { name: "CarbonSage decision agent" }),
-  ).toBeVisible();
-  await expect(page.getByText("Disabled", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "CarbonSage" })).toBeVisible();
+  await expect(page.getByText("Not configured", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Message CarbonSage")).toBeDisabled();
 
   await openWorkspacePage(page, "Shipments", "shipments");
@@ -310,7 +309,7 @@ test("restores the latest workspace conversation before enabling input", async (
   await enterWorkspace(page);
   await openWorkspacePage(page, "Agent", "agent");
   const dialog = page.getByRole("region", {
-    name: "CarbonSage decision agent",
+    name: "CarbonSage",
   });
   await expect(dialog.getByText("What did we validate?")).toBeVisible();
   await expect(
@@ -318,6 +317,80 @@ test("restores the latest workspace conversation before enabling input", async (
   ).toBeVisible();
   await expect(dialog.getByLabel("Message CarbonSage")).toBeEnabled();
   expect(createRequested).toBe(false);
+});
+
+test("creates, switches, and closes workspace conversations", async ({
+  page,
+}) => {
+  const now = new Date().toISOString();
+  const firstConversation = {
+    conversation_id: "00000000-0000-4000-8000-000000000021",
+    workspace_id: "demo-conversations",
+    title: "Decision 1",
+    status: "active",
+    policy_version: "1.0",
+    created_by: "demo-session",
+    created_at: now,
+    updated_at: now,
+    expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+  };
+  const secondConversation = {
+    ...firstConversation,
+    conversation_id: "00000000-0000-4000-8000-000000000022",
+    title: "Decision 2",
+  };
+  let closeRequested = false;
+
+  await page.route("**/agent/health", (route) =>
+    route.fulfill({
+      json: {
+        status: "ok",
+        available: true,
+        policy_version: "1.0",
+        response_schema_version: "1.0",
+      },
+    }),
+  );
+  await page.route("**/agent/conversations", (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({
+        json: { conversations: [firstConversation] },
+      });
+    }
+    return route.fulfill({ status: 201, json: secondConversation });
+  });
+  await page.route("**/agent/conversations/*", (route) => {
+    if (route.request().method() === "DELETE") {
+      closeRequested = true;
+      return route.fulfill({ status: 204 });
+    }
+    const conversation = route.request().url().includes("000000000022")
+      ? secondConversation
+      : firstConversation;
+    return route.fulfill({
+      json: { conversation, messages: [], tool_events: [] },
+    });
+  });
+
+  await enterWorkspace(page);
+  await openWorkspacePage(page, "Agent", "agent");
+  const agent = page.getByRole("region", { name: "CarbonSage" });
+  const conversationSelect = agent.getByLabel("Conversation");
+  await expect(conversationSelect).toHaveValue(
+    firstConversation.conversation_id,
+  );
+
+  await agent.getByRole("button", { name: "New" }).click();
+  await expect(conversationSelect).toHaveValue(
+    secondConversation.conversation_id,
+  );
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await agent.getByRole("button", { name: "Close" }).click();
+  await expect(conversationSelect).toHaveValue(
+    firstConversation.conversation_id,
+  );
+  expect(closeRequested).toBe(true);
 });
 
 test("renders a typed interactive response with keyboard-accessible chart data", async ({
@@ -331,6 +404,17 @@ test("renders a typed interactive response with keyboard-accessible chart data",
     "content-type": "application/json",
   });
   const now = new Date().toISOString();
+  const conversation = {
+    conversation_id: "00000000-0000-4000-8000-000000000001",
+    workspace_id: "demo-renderer",
+    title: "Decision 1",
+    status: "active",
+    policy_version: "1.0",
+    created_by: "demo-session",
+    created_at: now,
+    updated_at: now,
+    expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+  };
 
   await page.route("**/agent/health", (route) =>
     route.fulfill({
@@ -353,19 +437,29 @@ test("renders a typed interactive response with keyboard-accessible chart data",
     return route.fulfill({
       status: 201,
       headers: corsHeaders(route),
-      json: {
-        conversation_id: "00000000-0000-4000-8000-000000000001",
-        workspace_id: "demo-renderer",
-        title: "CarbonSage workspace decision",
-        status: "active",
-        policy_version: "1.0",
-        created_by: "demo-session",
-        created_at: now,
-        updated_at: now,
-        expires_at: new Date(Date.now() + 3_600_000).toISOString(),
-      },
+      json: conversation,
     });
   });
+  await page.route("**/agent/conversations/*", (route) =>
+    route.fulfill({
+      headers: corsHeaders(route),
+      json: {
+        conversation,
+        messages: [],
+        tool_events: [
+          {
+            event_id: "00000000-0000-4000-8000-000000000009",
+            tool_name: "calculate_freight_emissions",
+            status: "succeeded",
+            duration_ms: 11,
+            result_count: 2,
+            artifact_ids: [],
+            error_code: null,
+          },
+        ],
+      },
+    }),
+  );
   await page.route("**/agent/conversations/*/messages", (route) =>
     route.fulfill({
       headers: corsHeaders(route),
@@ -501,7 +595,7 @@ test("renders a typed interactive response with keyboard-accessible chart data",
   await expect(page).toHaveURL(/\/dashboard\/agent$/);
 
   const agentDialog = page.getByRole("region", {
-    name: "CarbonSage decision agent",
+    name: "CarbonSage",
   });
   const input = agentDialog.getByLabel("Message CarbonSage");
   await expect(input).toBeEnabled();
@@ -538,8 +632,24 @@ test("renders a typed interactive response with keyboard-accessible chart data",
     agentDialog.getByText("Semantic retrieval fell back to lexical evidence."),
   ).toBeVisible();
   await expect(
-    agentDialog.getByText(/newer “future_decision_block” block/),
+    agentDialog.getByText(
+      "This response includes an item that cannot be displayed here yet.",
+    ),
   ).toBeVisible();
+  await agentDialog.getByText("Response details · 18 ms").click();
+  await expect(agentDialog.getByText("Sources verified").first()).toBeVisible();
+  await expect(
+    agentDialog.getByText("18 ms", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(
+    agentDialog.getByText("Calculated freight emissions").first(),
+  ).toBeVisible();
+  await expect(
+    agentDialog.getByRole("link", { name: "Supplier evidence" }).first(),
+  ).toHaveAttribute(
+    "href",
+    "/dashboard/artifacts?artifact=00000000-0000-4000-8000-000000000006",
+  );
 
   const action = agentDialog.getByRole("button", {
     name: "Save report snapshot",
@@ -568,7 +678,7 @@ test("supports keyboard entry and a narrow viewport", async ({ page }) => {
   await page.keyboard.press("Enter");
 
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByText("Private workspace")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
 
   const viewport = await page.evaluate(() => ({
     width: window.innerWidth,
