@@ -76,6 +76,7 @@ each have a standalone URL that can be opened or refreshed directly:
 ├── /integrations
 ├── /overview
 ├── /artifacts
+├── /how-to
 ├── /shipments
 ├── /evidence
 ├── /scenarios

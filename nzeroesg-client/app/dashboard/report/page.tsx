@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { getBackendUrl } from "@/app/api/urls";
+import { LoadingState, Spinner } from "@/app/components/Spinner";
 
 type ModeBreakdown = {
   shipment_count: number;
@@ -207,30 +208,35 @@ export default function ReportPage() {
           type="button"
           onClick={refreshReport}
           disabled={isLoading}
-          className="rounded-full bg-secondary px-5 py-2.5 font-semibold text-white disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white disabled:opacity-60"
         >
-          {isLoading ? "Refreshing…" : "Refresh report"}
+          {isLoading ? <Spinner /> : null}
+          Refresh report
         </button>
         <button
           type="button"
           onClick={saveSnapshot}
           disabled={isSaving || !report?.shipment_analysis.shipment_count}
-          className="rounded-full border border-secondary px-5 py-2.5 font-semibold text-secondary disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-lg border border-secondary px-3.5 py-2 text-sm font-semibold text-secondary disabled:opacity-60"
         >
-          {isSaving ? "Saving…" : "Save report snapshot"}
+          {isSaving ? <Spinner /> : null}
+          Save report snapshot
         </button>
-        <button
-          type="button"
-          onClick={exportReport}
-          disabled={isExporting}
-          className="rounded-full border border-secondary px-5 py-2.5 font-semibold text-secondary disabled:opacity-60"
-        >
-          {isExporting ? "Exporting…" : "Export CSV report"}
-        </button>
+        {report?.shipment_analysis.shipment_count ? (
+          <button
+            type="button"
+            onClick={exportReport}
+            disabled={isExporting}
+            className="inline-flex items-center gap-2 rounded-lg border border-secondary px-3.5 py-2 text-sm font-semibold text-secondary disabled:opacity-60"
+          >
+            {isExporting ? <Spinner /> : null}
+            Export CSV report
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => window.print()}
-          className="rounded-full border border-border px-5 py-2.5 font-semibold text-primary"
+          className="rounded-lg border border-border px-3.5 py-2 text-sm font-semibold text-primary"
         >
           Print report
         </button>
@@ -354,7 +360,7 @@ export default function ReportPage() {
           </article>
         </div>
       ) : isLoading ? (
-        <p className="mt-6 text-sm text-muted-foreground">Loading report…</p>
+        <LoadingState label="Loading report" />
       ) : null}
     </section>
   );

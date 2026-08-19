@@ -855,10 +855,10 @@ Implementation evidence (completed 2026-08-18):
 - `/dashboard` now opens `/dashboard/agent`, and `Ask CarbonSage` leads the
   persistent navigation. Navigating to another route removes the full agent
   panel; the compact launcher starts closed on each destination.
-- An empty workspace presents an explicit choice between loading a small,
+- An empty workspace presents an explicit choice between loading a guided,
   fictional CarbonSage dataset and uploading user sources. The seed operation
-  is authenticated, idempotent, workspace-scoped, and creates one shipment
-  dataset plus two supplier evidence artifacts.
+  is authenticated, idempotent, workspace-scoped, and creates six shipments,
+  24 supplier profiles, and three cited supplier evidence artifacts.
 - Empty artifact-aware agent responses expose the same
   `workspace.load_demo_data` action through the versioned action-block
   contract. No client-authored mutation name is passed to the model.
@@ -879,7 +879,7 @@ Implementation evidence (completed 2026-08-18):
   remain dominant while the green action and data accents have greater
   contrast.
 - The stale global release banner was removed. Backend unit/integration tests,
-  frontend type checks, lint, production build, and all nine Playwright flows
+  frontend type checks, lint, production build, and all ten Playwright flows
   pass with the new route and form contracts.
 
 Exit gate:
@@ -887,6 +887,44 @@ Exit gate:
 > A new reviewer reaches the agent first, can populate a useful workspace in
 > one click or bring supported files, and can inspect or download every demo
 > data category without reading setup instructions.
+
+### Phase 10.2 — Review-ready workspace information design
+
+Implementation evidence (completed 2026-08-19):
+
+- The desktop shell follows a quieter dashboard hierarchy: a muted-gray
+  sidebar, white content canvas, compact active states, and restrained green
+  accents. `Ask CarbonSage` remains first and `Overview` second.
+- Navigation is grouped into `Workspace` and a collapsible `Simulations`
+  section. The latter contains Shipments, Suppliers, and a deliberately
+  deferred Scenarios page; Report remains a single workspace destination.
+- The profile control is a standalone circular `DW` avatar. Its menu exposes
+  the workspace guide, persisted light/dark mode, and sign-out without the
+  previous account-summary container or chevron.
+- A shared animated spinner covers session resolution, data loading, uploads,
+  searches, agent actions, conversation switches, demo seeding, and report
+  actions. Text-only duplicate loading indicators are removed.
+- Integrations offers the same one-click demo seed as the agent and presents a
+  full-width Google Drive placeholder centered on selected-file authorization,
+  normalization, provenance, and document citation.
+- Artifacts are responsive full-width expandable rows. Each row exposes a
+  three-dot action menu for source download when available, rename, and delete;
+  normalized shipment and supplier downloads are absent until data exists.
+- Shipment imports recognize a supplier export and explain the corrective next
+  step. A zero-row import no longer exposes empty charts, tables, or factor
+  notes as if analysis had succeeded.
+- Scenarios is a concise coming-soon page while scenario comparison remains an
+  agent and report capability. The workspace guide describes the current
+  agent-first path without exposing implementation notes in the primary UI.
+- The expanded fictional seed now provides 24 suppliers, six mixed-mode
+  shipments, and three cited disclosures. API tests, production build, and ten
+  Playwright flows cover the updated data and interaction contracts.
+
+Exit gate:
+
+> A reviewer can understand the workspace hierarchy, load representative data,
+> inspect or manage artifacts, and reach the core agent without encountering
+> placeholder product language, empty exports, or ambiguous loading states.
 
 ### Phase 11 — Authenticated JavaScript embed
 

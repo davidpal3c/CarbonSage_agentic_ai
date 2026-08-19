@@ -5,6 +5,7 @@ import Link from "next/link";
 import { X } from "lucide-react";
 
 import { getBackendUrl } from "@/app/api/urls";
+import { LoadingState, Spinner } from "@/app/components/Spinner";
 import ArtifactCatalog, {
   type ArtifactKind,
 } from "@/app/dashboard/ArtifactCatalog";
@@ -177,7 +178,13 @@ export function WorkspaceSectionPage({
   const [shipmentError, setShipmentError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoadingShipments, setIsLoadingShipments] = useState(
+    section === "shipments" || section === "scenarios",
+  );
   const [suppliers, setSuppliers] = useState<SupplierCard[]>([]);
+  const [isLoadingSuppliers, setIsLoadingSuppliers] = useState(
+    section === "evidence",
+  );
   const [evidenceMatches, setEvidenceMatches] = useState<EvidenceMatch[]>([]);
   const [supplierName, setSupplierName] = useState("");
   const [supplierRegion, setSupplierRegion] = useState("");
@@ -219,6 +226,9 @@ export function WorkspaceSectionPage({
         if (isCurrent) {
           setShipmentError("Shipment data could not be loaded from the API.");
         }
+      })
+      .finally(() => {
+        if (isCurrent) setIsLoadingShipments(false);
       });
 
     return () => {
@@ -228,6 +238,7 @@ export function WorkspaceSectionPage({
 
   useEffect(() => {
     if (section !== "evidence") return;
+    let isCurrent = true;
     fetch(`${getBackendUrl()}/suppliers`, { credentials: "include" })
       .then(async (response) => {
         if (!response.ok) {
@@ -235,10 +246,22 @@ export function WorkspaceSectionPage({
         }
         return (await response.json()) as { suppliers: SupplierCard[] };
       })
-      .then((payload) => setSuppliers(payload.suppliers))
-      .catch(() =>
-        setEvidenceError("Supplier evidence could not be loaded from the API."),
-      );
+      .then((payload) => {
+        if (isCurrent) setSuppliers(payload.suppliers);
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setEvidenceError(
+            "Supplier evidence could not be loaded from the API.",
+          );
+        }
+      })
+      .finally(() => {
+        if (isCurrent) setIsLoadingSuppliers(false);
+      });
+    return () => {
+      isCurrent = false;
+    };
   }, [section, session.workspace_id]);
 
   function selectShipmentFile(event: ChangeEvent<HTMLInputElement>) {
@@ -497,7 +520,7 @@ export function WorkspaceSectionPage({
               setEvidenceError(null);
               setIsSupplierModalOpen(true);
             }}
-            className="rounded-full bg-secondary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-accent"
+            className="rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-accent"
           >
             Add supplier
           </button>
@@ -505,7 +528,7 @@ export function WorkspaceSectionPage({
         {section === "shipments" ? (
           <Link
             href="/dashboard/agent"
-            className="rounded-full bg-secondary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-accent"
+            className="rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-accent"
           >
             Calculate freight
           </Link>
@@ -666,9 +689,10 @@ export function WorkspaceSectionPage({
               <button
                 type="submit"
                 disabled={isUploading}
-                className="rounded-full bg-secondary px-5 py-3 font-semibold text-white transition hover:bg-accent disabled:cursor-wait disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-accent disabled:cursor-wait disabled:opacity-60"
               >
-                {isUploading ? "Analyzing…" : "Upload and analyze"}
+                {isUploading ? <Spinner /> : null}
+                Upload and analyze
               </button>
             </form>
             <p className="mt-3 text-xs text-muted-foreground">
@@ -682,11 +706,17 @@ export function WorkspaceSectionPage({
             </p>
           ) : null}
 
-          {shipmentData ? (
+          {isLoadingShipments ? (
+            <LoadingState label="Loading shipment data" />
+          ) : shipmentData ? (
             <>
               {shipmentData.errors.length > 0 ? (
                 <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-                  <p className="font-semibold">Data-quality issues</p>
+                  <p className="font-semibold">
+                    {shipmentData.accepted_rows === 0
+                      ? "We couldn’t import this file"
+                      : "Some rows need attention"}
+                  </p>
                   <ul className="mt-2 list-disc space-y-1 pl-5">
                     {shipmentData.errors.slice(0, 8).map((issue, index) => (
                       <li key={`${issue.row_number}-${issue.field}-${index}`}>
@@ -699,167 +729,173 @@ export function WorkspaceSectionPage({
                 </div>
               ) : null}
 
-              <div className="mt-6 grid gap-6 lg:grid-cols-2">
-                <div>
-                  <h3 className="font-semibold text-primary">
-                    Emissions by mode
-                  </h3>
-                  <div
-                    className="mt-3 space-y-3"
-                    aria-label="Emissions by freight mode"
-                  >
-                    {modeBreakdown.map(([mode, breakdown]) => (
-                      <div key={mode}>
-                        <div className="mb-1 flex justify-between text-sm text-muted-foreground">
-                          <span className="font-semibold capitalize text-primary">
-                            {mode}
-                          </span>
-                          <span>
-                            {breakdown.emissions_kg.toFixed(2)} kg ·{" "}
-                            {breakdown.shipment_count} shipments
-                          </span>
-                        </div>
-                        <div className="h-3 rounded-full bg-border">
-                          <div
-                            className="h-3 rounded-full bg-secondary"
-                            style={{
-                              width: `${Math.min(
-                                100,
-                                (breakdown.emissions_kg / maxModeEmissions) *
-                                  100,
-                              )}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <table className="sr-only">
-                    <caption>Emissions by freight mode</caption>
-                    <thead>
-                      <tr>
-                        <th>Mode</th>
-                        <th>Emissions kg</th>
-                        <th>Shipments</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {modeBreakdown.map(([mode, breakdown]) => (
-                        <tr key={mode}>
-                          <td>{mode}</td>
-                          <td>{breakdown.emissions_kg}</td>
-                          <td>{breakdown.shipment_count}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-primary">
-                    Top shipment hotspots
-                  </h3>
-                  <div
-                    className="mt-3 space-y-3"
-                    aria-label="Top shipment emissions hotspots"
-                  >
-                    {hotspotRows.map((hotspot) => (
-                      <div key={hotspot.shipment_id}>
-                        <div className="mb-1 flex justify-between gap-3 text-sm">
-                          <span className="text-primary">
-                            <strong>{hotspot.shipment_id}</strong>
-                            <span className="ml-2 text-muted-foreground">
-                              {hotspot.origin} → {hotspot.destination}
-                            </span>
-                          </span>
-                          <span className="font-semibold text-primary">
-                            {hotspot.emissions_kg.toFixed(2)} kg
-                          </span>
-                        </div>
-                        <div className="h-3 rounded-full bg-border">
-                          <div
-                            className="h-3 rounded-full bg-accent"
-                            style={{
-                              width: `${Math.min(
-                                100,
-                                (hotspot.emissions_kg / maxHotspotEmissions) *
-                                  100,
-                              )}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <table className="sr-only">
-                    <caption>Top shipment emissions hotspots</caption>
-                    <thead>
-                      <tr>
-                        <th>Shipment</th>
-                        <th>Route</th>
-                        <th>Emissions kg</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {hotspotRows.map((hotspot) => (
-                        <tr key={hotspot.shipment_id}>
-                          <td>{hotspot.shipment_id}</td>
-                          <td>
-                            {hotspot.origin} → {hotspot.destination}
-                          </td>
-                          <td>{hotspot.emissions_kg}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="mt-6 overflow-x-auto rounded-lg border border-border bg-background">
-                <table className="min-w-full text-left text-sm">
-                  <caption className="sr-only">
-                    Normalized shipment rows
-                  </caption>
-                  <thead className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-3">Shipment</th>
-                      <th className="px-4 py-3">Route</th>
-                      <th className="px-4 py-3">Weight</th>
-                      <th className="px-4 py-3">Distance</th>
-                      <th className="px-4 py-3">Mode</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shipmentData.rows.slice(0, 10).map((row) => (
-                      <tr
-                        key={`${row.shipment_id}-${row.source_row}`}
-                        className="border-b border-border last:border-0"
+              {shipmentData.accepted_rows > 0 ? (
+                <>
+                  <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                    <div>
+                      <h3 className="font-semibold text-primary">
+                        Emissions by mode
+                      </h3>
+                      <div
+                        className="mt-3 space-y-3"
+                        aria-label="Emissions by freight mode"
                       >
-                        <td className="px-4 py-3 font-semibold text-primary">
-                          {row.shipment_id}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {row.origin} → {row.destination}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {row.weight_kg} kg
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {row.distance_km} km
-                        </td>
-                        <td className="px-4 py-3 capitalize text-primary">
-                          {row.transport_method}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        {modeBreakdown.map(([mode, breakdown]) => (
+                          <div key={mode}>
+                            <div className="mb-1 flex justify-between text-sm text-muted-foreground">
+                              <span className="font-semibold capitalize text-primary">
+                                {mode}
+                              </span>
+                              <span>
+                                {breakdown.emissions_kg.toFixed(2)} kg ·{" "}
+                                {breakdown.shipment_count} shipments
+                              </span>
+                            </div>
+                            <div className="h-3 rounded-full bg-border">
+                              <div
+                                className="h-3 rounded-full bg-secondary"
+                                style={{
+                                  width: `${Math.min(
+                                    100,
+                                    (breakdown.emissions_kg /
+                                      maxModeEmissions) *
+                                      100,
+                                  )}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <table className="sr-only">
+                        <caption>Emissions by freight mode</caption>
+                        <thead>
+                          <tr>
+                            <th>Mode</th>
+                            <th>Emissions kg</th>
+                            <th>Shipments</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {modeBreakdown.map(([mode, breakdown]) => (
+                            <tr key={mode}>
+                              <td>{mode}</td>
+                              <td>{breakdown.emissions_kg}</td>
+                              <td>{breakdown.shipment_count}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-primary">
+                        Top shipment hotspots
+                      </h3>
+                      <div
+                        className="mt-3 space-y-3"
+                        aria-label="Top shipment emissions hotspots"
+                      >
+                        {hotspotRows.map((hotspot) => (
+                          <div key={hotspot.shipment_id}>
+                            <div className="mb-1 flex justify-between gap-3 text-sm">
+                              <span className="text-primary">
+                                <strong>{hotspot.shipment_id}</strong>
+                                <span className="ml-2 text-muted-foreground">
+                                  {hotspot.origin} → {hotspot.destination}
+                                </span>
+                              </span>
+                              <span className="font-semibold text-primary">
+                                {hotspot.emissions_kg.toFixed(2)} kg
+                              </span>
+                            </div>
+                            <div className="h-3 rounded-full bg-border">
+                              <div
+                                className="h-3 rounded-full bg-accent"
+                                style={{
+                                  width: `${Math.min(
+                                    100,
+                                    (hotspot.emissions_kg /
+                                      maxHotspotEmissions) *
+                                      100,
+                                  )}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <table className="sr-only">
+                        <caption>Top shipment emissions hotspots</caption>
+                        <thead>
+                          <tr>
+                            <th>Shipment</th>
+                            <th>Route</th>
+                            <th>Emissions kg</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {hotspotRows.map((hotspot) => (
+                            <tr key={hotspot.shipment_id}>
+                              <td>{hotspot.shipment_id}</td>
+                              <td>
+                                {hotspot.origin} → {hotspot.destination}
+                              </td>
+                              <td>{hotspot.emissions_kg}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
 
-              <p className="mt-4 text-xs leading-5 text-muted-foreground">
-                Factor source: {shipmentData.analysis.factor_source} · version{" "}
-                {shipmentData.analysis.factor_version}.{" "}
-                {shipmentData.analysis.factor_applicability}
-              </p>
+                  <div className="mt-6 overflow-x-auto rounded-lg border border-border bg-background">
+                    <table className="min-w-full text-left text-sm">
+                      <caption className="sr-only">
+                        Normalized shipment rows
+                      </caption>
+                      <thead className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+                        <tr>
+                          <th className="px-4 py-3">Shipment</th>
+                          <th className="px-4 py-3">Route</th>
+                          <th className="px-4 py-3">Weight</th>
+                          <th className="px-4 py-3">Distance</th>
+                          <th className="px-4 py-3">Mode</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {shipmentData.rows.slice(0, 10).map((row) => (
+                          <tr
+                            key={`${row.shipment_id}-${row.source_row}`}
+                            className="border-b border-border last:border-0"
+                          >
+                            <td className="px-4 py-3 font-semibold text-primary">
+                              {row.shipment_id}
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground">
+                              {row.origin} → {row.destination}
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground">
+                              {row.weight_kg} kg
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground">
+                              {row.distance_km} km
+                            </td>
+                            <td className="px-4 py-3 capitalize text-primary">
+                              {row.transport_method}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <p className="mt-4 text-xs leading-5 text-muted-foreground">
+                    Factor source: {shipmentData.analysis.factor_source} ·
+                    version {shipmentData.analysis.factor_version}.{" "}
+                    {shipmentData.analysis.factor_applicability}
+                  </p>
+                </>
+              ) : null}
             </>
           ) : null}
         </section>
@@ -956,9 +992,10 @@ export function WorkspaceSectionPage({
                   <button
                     type="submit"
                     disabled={isEvidenceUploading}
-                    className="rounded-full bg-secondary px-5 py-3 font-semibold text-white transition hover:bg-accent disabled:cursor-wait disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-accent disabled:cursor-wait disabled:opacity-60"
                   >
-                    {isEvidenceUploading ? "Saving…" : "Add supplier"}
+                    {isEvidenceUploading ? <Spinner /> : null}
+                    Add supplier
                   </button>
                   <span className="ml-3 text-xs text-muted-foreground">
                     Attached documents: max 10 MB
@@ -976,7 +1013,9 @@ export function WorkspaceSectionPage({
 
           <div className="order-4 mt-7">
             <h3 className="font-semibold text-primary">Supplier cards</h3>
-            {suppliers.length === 0 ? (
+            {isLoadingSuppliers ? (
+              <LoadingState label="Loading suppliers" />
+            ) : suppliers.length === 0 ? (
               <p className="mt-3 text-sm text-muted-foreground">
                 No suppliers have been added to this workspace.
               </p>
@@ -1062,9 +1101,10 @@ export function WorkspaceSectionPage({
               <button
                 type="submit"
                 disabled={isSearchingEvidence}
-                className="rounded-full border border-secondary px-5 py-2 font-semibold text-secondary transition hover:bg-secondary hover:text-white disabled:cursor-wait disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-lg border border-secondary px-3.5 py-2 text-sm font-semibold text-secondary transition hover:bg-secondary hover:text-white disabled:cursor-wait disabled:opacity-60"
               >
-                {isSearchingEvidence ? "Searching…" : "Search citations"}
+                {isSearchingEvidence ? <Spinner /> : null}
+                Search citations
               </button>
             </div>
           </form>
@@ -1155,9 +1195,10 @@ export function WorkspaceSectionPage({
               disabled={
                 isRunningScenario || !shipmentData?.analysis.shipment_count
               }
-              className="rounded-full bg-secondary px-5 py-3 font-semibold text-white transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isRunningScenario ? "Comparing…" : "Run scenario"}
+              {isRunningScenario ? <Spinner /> : null}
+              Run scenario
             </button>
           </form>
 

@@ -24,7 +24,7 @@ export default defineConfig({
   webServer: useLocalServers
     ? [
         {
-          command: `cd ../nzeroesg-api && APP_ENV=development DATABASE_URL=${databaseUrl} CORS_ORIGINS=${localBaseURL} ${python} -m uvicorn main:app --host 127.0.0.1 --port ${apiPort}`,
+          command: `cd ../nzeroesg-api && APP_ENV=development DATABASE_URL=${databaseUrl} EMBEDDING_PROVIDER= ASSISTANT_ENABLED=false CORS_ORIGINS=${localBaseURL} ${python} -m uvicorn main:app --host 127.0.0.1 --port ${apiPort}`,
           url: `${localApiURL}/health`,
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,
