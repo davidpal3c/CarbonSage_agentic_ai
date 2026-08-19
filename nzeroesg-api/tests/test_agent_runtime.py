@@ -59,6 +59,16 @@ class FixturePlanner:
         return self.result
 
 
+def _contains_open_object_schema(value: object) -> bool:
+    if isinstance(value, dict):
+        if value.get("additionalProperties") is True:
+            return True
+        return any(_contains_open_object_schema(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_open_object_schema(item) for item in value)
+    return False
+
+
 class FixtureEvidenceAssessor:
     def __init__(self, supported: bool) -> None:
         self.supported = supported
@@ -95,6 +105,14 @@ async def related_evidence_search(workspace_id, query, requested_mode):
         None,
         False,
     )
+
+
+def test_agent_plan_schema_closes_every_tool_argument_object():
+    schema = AgentPlan.model_json_schema()
+
+    assert not _contains_open_object_schema(schema)
+    argument_schema = schema["$defs"]["PlannedToolCall"]["properties"]["arguments"]
+    assert len(argument_schema["anyOf"]) == 7
 
 
 def principal_for(workspace_id: str = "demo-agent") -> WorkspacePrincipal:

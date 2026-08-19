@@ -18,6 +18,15 @@ def _as_csv(value: str | None, *, default: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(item.strip() for item in value.split(",") if item.strip())
 
 
+def _optional_value(value: str | None) -> str | None:
+    """Normalize externally managed values without accepting whitespace-only input."""
+
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
 def _demo_session_secret() -> str:
     configured = os.getenv("DEMO_SESSION_SECRET")
     if configured:
@@ -33,19 +42,19 @@ class Settings:
     assistant_enabled: bool = _as_bool(os.getenv("ASSISTANT_ENABLED"))
     demo_session_secret: str = _demo_session_secret()
     demo_workspace_ttl_hours: int = int(os.getenv("DEMO_WORKSPACE_TTL_HOURS", "24"))
-    database_url: str | None = os.getenv("DATABASE_URL") or None
+    database_url: str | None = _optional_value(os.getenv("DATABASE_URL"))
     session_cookie_secure: bool = os.getenv("APP_ENV", "development") == "production"
     session_cookie_samesite: str = "none" if session_cookie_secure else "lax"
     llm_provider: str = os.getenv("LLM_PROVIDER", "").strip().lower()
-    openai_api_key: str | None = os.getenv("OPENAI_API_KEY")
-    openai_model: str | None = os.getenv("OPENAI_MODEL")
-    openrouter_api_key: str | None = os.getenv("OPENROUTER_API_KEY")
-    openrouter_model: str | None = os.getenv("OPENROUTER_MODEL")
+    openai_api_key: str | None = _optional_value(os.getenv("OPENAI_API_KEY"))
+    openai_model: str | None = _optional_value(os.getenv("OPENAI_MODEL"))
+    openrouter_api_key: str | None = _optional_value(os.getenv("OPENROUTER_API_KEY"))
+    openrouter_model: str | None = _optional_value(os.getenv("OPENROUTER_MODEL"))
     embedding_provider: str = os.getenv("EMBEDDING_PROVIDER", "").strip().lower()
-    embedding_model: str | None = os.getenv("EMBEDDING_MODEL") or None
+    embedding_model: str | None = _optional_value(os.getenv("EMBEDDING_MODEL"))
     embedding_dimensions: int = int(os.getenv("EMBEDDING_DIMENSIONS", "1536"))
     artifact_storage_enabled: bool = _as_bool(os.getenv("ARTIFACT_STORAGE_ENABLED"))
-    aws_s3_bucket: str | None = os.getenv("AWS_S3_BUCKET") or None
+    aws_s3_bucket: str | None = _optional_value(os.getenv("AWS_S3_BUCKET"))
     aws_s3_region: str = os.getenv("AWS_S3_REGION", "ca-central-1")
     artifact_storage_retention_hours: int = int(os.getenv("ARTIFACT_STORAGE_RETENTION_HOURS", "24"))
     artifact_storage_max_active_bytes: int = int(

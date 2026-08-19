@@ -1,6 +1,6 @@
 import pytest
 
-from config import _demo_session_secret
+from config import _demo_session_secret, _optional_value
 from domain.workspaces.sessions import SessionError, SessionSigner
 
 
@@ -47,3 +47,10 @@ def test_production_does_not_fall_back_to_a_development_secret(monkeypatch):
     monkeypatch.delenv("DEMO_SESSION_SECRET", raising=False)
 
     assert _demo_session_secret() == ""
+
+
+def test_external_values_are_trimmed_and_empty_values_are_rejected():
+    assert _optional_value("  openai/gpt-4.1-mini  ") == "openai/gpt-4.1-mini"
+    assert _optional_value("  secret-value\t") == "secret-value"
+    assert _optional_value("   ") is None
+    assert _optional_value(None) is None

@@ -141,7 +141,14 @@ def _runtime_exception(exc: Exception) -> HTTPException:
 
 
 @agent_router.get("/health")
-async def agent_health() -> dict[str, str | bool]:
+async def agent_health() -> dict[str, str | bool | None]:
+    configured_model = (
+        settings.openai_model
+        if settings.llm_provider == "openai"
+        else settings.openrouter_model
+        if settings.llm_provider == "openrouter"
+        else None
+    )
     return {
         "status": "ok",
         "available": (
@@ -150,6 +157,8 @@ async def agent_health() -> dict[str, str | bool]:
         ),
         "policy_version": AGENT_POLICY_VERSION,
         "response_schema_version": AGENT_RESPONSE_SCHEMA_VERSION,
+        "provider": settings.llm_provider or None,
+        "model": configured_model,
     }
 
 
