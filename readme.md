@@ -32,9 +32,9 @@ choosing typed tools, and explaining validated results.
 
 ## Try the current demo
 
-The trusted deterministic baseline is live at:
+The current CarbonSage demo is live at:
 
-<https://n-zero-esg-scope3.vercel.app/>
+<https://www.carbonsage.ca/>
 
 The intended path is short:
 
@@ -228,7 +228,7 @@ configured. It can be enabled in `nzeroesg-api/.env`:
 ASSISTANT_ENABLED=true
 LLM_PROVIDER=openrouter
 OPENROUTER_API_KEY=...
-OPENROUTER_MODEL=openai/gpt-3.5-turbo-16k
+OPENROUTER_MODEL=openai/gpt-4.1-mini
 ```
 
 OpenAI is also supported directly. No provider credential is required for
@@ -243,8 +243,9 @@ EMBEDDING_DIMENSIONS=1536
 ```
 
 For OpenRouter, use `openrouter` as the provider and its provider-qualified
-embedding model identifier. Lexical retrieval remains available without these
-settings.
+embedding model identifier. Semantic retrieval is enabled by a valid embedding
+provider configuration; no separate `SEMANTIC_SEARCH_ENABLED` flag is required.
+Lexical retrieval remains available without these settings.
 
 ## Quality checks
 

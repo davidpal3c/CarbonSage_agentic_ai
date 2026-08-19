@@ -133,6 +133,8 @@ def test_typed_agent_health_exposes_versioned_local_contracts():
         "available": False,
         "policy_version": "1.0",
         "response_schema_version": "1.0",
+        "provider": None,
+        "model": None,
     }
 
 

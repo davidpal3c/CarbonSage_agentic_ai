@@ -65,6 +65,17 @@ class BuildDecisionReportInput(StrictModel):
     alternative_transport_method: TransportMode | None = None
 
 
+ToolArguments = (
+    ListWorkspaceArtifactsInput
+    | SearchSupplierEvidenceInput
+    | GetCitationContextInput
+    | CalculateFreightEmissionsInput
+    | CompareTransportScenariosInput
+    | SummarizeDataQualityInput
+    | BuildDecisionReportInput
+)
+
+
 class ArtifactToolItem(StrictModel):
     artifact_id: str
     title: str
@@ -172,7 +183,7 @@ class BuildDecisionReportOutput(StrictModel):
 class PlannedToolCall(StrictModel):
     call_id: str = Field(pattern=r"^[a-zA-Z0-9_-]{1,80}$")
     tool_name: AgentToolName
-    arguments: dict[str, object]
+    arguments: ToolArguments
 
 
 class AgentPlan(StrictModel):

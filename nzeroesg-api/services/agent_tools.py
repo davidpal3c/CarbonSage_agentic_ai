@@ -101,7 +101,7 @@ class AgentToolRegistry:
         started_at = perf_counter()
         input_model = TOOL_INPUT_MODELS[call.tool_name]
         try:
-            validated = input_model.model_validate(call.arguments)
+            validated = input_model.model_validate(call.arguments.model_dump())
         except ValidationError:
             return ToolExecution(
                 call_id=call.call_id,

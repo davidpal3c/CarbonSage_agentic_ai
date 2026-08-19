@@ -21,9 +21,9 @@ services:
       - key: LLM_PROVIDER
         value: openrouter
       - key: OPENROUTER_MODEL
-        value: openai/gpt-3.5-turbo-16k
+        value: openai/gpt-4.1-mini
       - key: CORS_ORIGINS
-        value: https://n-zero-esg-scope3.vercel.app,http://localhost:3000,http://127.0.0.1:3000
+        value: https://www.carbonsage.ca,https://carbonsage.ca,https://www.carbonsage.org,https://carbonsage.org,https://n-zero-esg-scope3.vercel.app,http://localhost:3000,http://127.0.0.1:3000
       - key: DEMO_SESSION_SECRET
         generateValue: true
       - key: DATABASE_URL
