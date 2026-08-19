@@ -233,6 +233,35 @@ export default function ArtifactCatalog({
     }
   }
 
+  async function downloadWorkspaceExport(
+    path: string,
+    filename: string,
+    label: string,
+  ) {
+    setError(null);
+    try {
+      const response = await fetch(`${getBackendUrl()}${path}`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error(`${label} could not be downloaded.`);
+      const objectUrl = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+      setStatusMessage(`Downloaded ${label.toLowerCase()}.`);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : `${label} could not be downloaded.`,
+      );
+    }
+  }
+
   return (
     <section
       id="artifacts"
@@ -247,9 +276,37 @@ export default function ArtifactCatalog({
             Uploaded sources and saved outputs in this workspace.
           </p>
         </div>
-        <span className="text-sm text-muted-foreground">
-          {isLoading ? "Loading…" : `${artifacts.length} active`}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              void downloadWorkspaceExport(
+                "/shipments/export",
+                "carbonsage-shipments.csv",
+                "Shipment data",
+              )
+            }
+            className="rounded-full border border-border px-3 py-2 text-xs font-semibold text-primary transition hover:border-accent"
+          >
+            Download shipments
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              void downloadWorkspaceExport(
+                "/suppliers/export",
+                "carbonsage-suppliers.csv",
+                "Supplier data",
+              )
+            }
+            className="rounded-full border border-border px-3 py-2 text-xs font-semibold text-primary transition hover:border-accent"
+          >
+            Download suppliers
+          </button>
+          <span className="text-sm text-muted-foreground">
+            {isLoading ? "Loading…" : `${artifacts.length} active`}
+          </span>
+        </div>
       </div>
 
       {error ? (
@@ -376,7 +433,8 @@ export default function ArtifactCatalog({
                   </div>
                 ) : (
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {sourceRetention?.status === "retained" ? (
+                    {sourceRetention?.status === "retained" ||
+                    artifact.source_type === "generated" ? (
                       <button
                         type="button"
                         onClick={() => downloadArtifact(artifact)}

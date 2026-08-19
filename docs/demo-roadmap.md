@@ -41,7 +41,7 @@ access.
 The objective is complete when a new demo user can:
 
 1. Enter an isolated, expiring demo workspace.
-2. Upload a supported shipment CSV.
+2. Upload a supported shipment CSV or XLSX workbook.
 3. Upload at least one real text-based supplier or compliance document.
 4. See deterministic emissions calculations with factor sources and
    assumptions.
@@ -52,7 +52,7 @@ The objective is complete when a new demo user can:
 8. Complete the workflow on the public deployment while automated smoke and
    end-to-end checks pass.
 
-## Current checkpoint — August 9, 2026
+## Trusted baseline checkpoint — August 9, 2026
 
 The public demo finish line is now operational. Render serves the rebuilt
 FastAPI application with Neon PostgreSQL, the optional assistant is disabled,
@@ -116,16 +116,22 @@ The new objective is complete when a reviewer can:
 The workspace demo should take roughly five minutes:
 
 1. Open the site and choose **Enter demo workspace**.
-2. Upload a sample or local shipment CSV.
-3. Review validation errors and the normalized shipment table.
-4. See baseline totals, mode breakdown, hotspots, and data-quality warnings.
-5. Upload a supplier sustainability or certification PDF.
-6. Open supplier cards showing structured facts and document citations.
-7. Compare a baseline shipment with one or more lower-emission scenarios.
-8. Export or print a report containing inputs, methodology, evidence, results,
-   and caveats.
+2. Land in **Ask CarbonSage** and choose the fictional demo dataset or upload
+   CSV/XLSX shipment data plus PDF/TXT supplier evidence.
+3. Ask a workspace question about emissions, data quality, supplier claims, or
+   a freight alternative.
+4. Review the agent's structured metrics, chart/table values, citations,
+   warnings, and typed-tool activity.
+5. Inspect supplier, shipment, and artifact pages when deeper source or
+   validation detail is useful.
+6. Download generated or retained source artifacts and normalized shipment or
+   supplier exports.
+7. Save, export, or print a decision report whose values reconcile with the
+   same deterministic tools used by the agent.
 
-The demo must still work when the optional LLM feature is disabled.
+Deterministic workspace services must still work when the model provider is
+disabled or unavailable, but the deployed demo configures the agent as its
+primary experience.
 
 ## Trusted baseline scope decisions
 
@@ -203,16 +209,17 @@ Preferred shape:
 - No always-on embedding service.
 - One private S3 Standard bucket in Canada Central, bounded to an estimated
   maximum of $0.379/month and an approved S3 ceiling below $0.50/month.
-- No mandatory paid LLM API.
+- One bounded model-provider adapter for the deployed agent; local development
+  and CI remain credential-free.
 
 Public demo limits:
 
-- Maximum 500 shipment rows per CSV.
+- Maximum 500 shipment rows per CSV or XLSX workbook.
 - Maximum 3 uploaded evidence documents per workspace.
 - Maximum 10 MB per file.
 - Text-based documents only.
 - Maximum 10 analysis/scenario runs per workspace per day.
-- Maximum 3 optional assistant requests per workspace per day when enabled.
+- Maximum 3 agent requests per workspace per day.
 - Workspace and extracted document retention of 24 hours by default.
 - Source-object storage limits of 4 GB active, 10,000 writes, 100,000 reads, and
   2 GB metered egress per calendar month, enforced before provider calls.
@@ -830,7 +837,8 @@ Implementation evidence (completed 2026-08-18):
 - The workspace visual system now uses neutral surfaces, charcoal actions, and
   restrained sage accents. Placeholder, phase, policy, schema, provider, and
   synthetic assistant-introduction copy is absent from the primary interface.
-- Eight Playwright flows cover the full deterministic workflow, isolation,
+- Nine Playwright flows cover the full deterministic workflow, demo-data
+  onboarding, isolation,
   deletion, provider-disabled behavior, conversation restoration and controls,
   structured response details, keyboard operation, and a 390-pixel viewport.
   TypeScript, ESLint, and the production Next.js build pass locally.
@@ -839,6 +847,46 @@ Exit gate:
 
 > The dashboard is a useful agent control plane and test workspace, not the
 > only place where CarbonSage intelligence can be consumed.
+
+### Phase 10.1 — Agent-first demo workspace
+
+Implementation evidence (completed 2026-08-18):
+
+- `/dashboard` now opens `/dashboard/agent`, and `Ask CarbonSage` leads the
+  persistent navigation. Navigating to another route removes the full agent
+  panel; the compact launcher starts closed on each destination.
+- An empty workspace presents an explicit choice between loading a small,
+  fictional CarbonSage dataset and uploading user sources. The seed operation
+  is authenticated, idempotent, workspace-scoped, and creates one shipment
+  dataset plus two supplier evidence artifacts.
+- Empty artifact-aware agent responses expose the same
+  `workspace.load_demo_data` action through the versioned action-block
+  contract. No client-authored mutation name is passed to the model.
+- Shipment imports accept bounded CSV and XLSX documents, match a conservative
+  set of common header aliases, and provide a downloadable XLSX template. PDF
+  and TXT files remain evidence sources rather than being silently coerced into
+  shipment rows.
+- Generated demo sources are reproducibly downloadable without S3. Uploaded
+  source-byte downloads continue through the private, budget-bounded S3 path;
+  normalized shipment and supplier CSV exports remain available independently.
+- Suppliers can be created before evidence arrives. The supplier page places
+  document search before the card grid and moves supplier creation plus the
+  optional document attachment into a focused modal.
+- Shipment metrics lead the shipment page, and `Calculate freight` routes the
+  user to the agent instead of duplicating a second conversational workflow.
+- The sidebar adds a provisional Google Drive integrations page and a `DW`
+  profile menu with persisted light/dark mode and sign-out. Neutral surfaces
+  remain dominant while the green action and data accents have greater
+  contrast.
+- The stale global release banner was removed. Backend unit/integration tests,
+  frontend type checks, lint, production build, and all nine Playwright flows
+  pass with the new route and form contracts.
+
+Exit gate:
+
+> A new reviewer reaches the agent first, can populate a useful workspace in
+> one click or bring supported files, and can inspect or download every demo
+> data category without reading setup instructions.
 
 ### Phase 11 — Authenticated JavaScript embed
 
@@ -952,7 +1000,7 @@ stop with:
 - [x] Public frontend is reachable.
 - [x] API and database health checks pass.
 - [x] Demo access and workspace isolation pass.
-- [x] Sample CSV ingestion passes.
+- [x] Sample CSV and XLSX ingestion passes.
 - [x] Real evidence document ingestion passes.
 - [x] Calculations expose versioned sources and assumptions.
 - [x] Supplier cards expose evidence and missing data.

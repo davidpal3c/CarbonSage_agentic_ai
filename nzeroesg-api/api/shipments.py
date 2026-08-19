@@ -1,9 +1,12 @@
-"""Typed HTTP boundary for bounded shipment CSV ingestion."""
+"""Typed HTTP boundary for bounded shipment spreadsheet ingestion."""
 
+import csv
+import io
 from hashlib import sha256
 from typing import Annotated
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel
 
 from api.artifacts import (
@@ -19,8 +22,10 @@ from domain.artifacts.models import Artifact, ArtifactKind, ArtifactSourceType, 
 from domain.shipments.analysis import ShipmentAnalysis, analyze_shipments
 from domain.shipments.ingestion import (
     ALLOWED_CONTENT_TYPES,
+    ALLOWED_EXTENSIONS,
     MAX_FILE_BYTES,
-    parse_shipments_csv,
+    REQUIRED_HEADERS,
+    parse_shipments_document,
 )
 from domain.shipments.models import NormalizedShipment
 from domain.workspaces.principals import WorkspacePrincipal
@@ -127,19 +132,24 @@ def _consume_analysis_run(workspace_id: str) -> None:
 
 @shipments_router.post("/upload", response_model=ShipmentUploadResponse)
 async def upload_shipments(
-    file: Annotated[UploadFile, File(description="A UTF-8 shipment CSV")],
+    file: Annotated[UploadFile, File(description="A shipment CSV or XLSX workbook")],
     principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
 ) -> ShipmentUploadResponse:
     media_type = (file.content_type or "").split(";", 1)[0].strip().lower()
     if media_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail="File must use a CSV-compatible content type.",
+            detail="File must use a CSV- or XLSX-compatible content type.",
         )
-    if not file.filename or not file.filename.lower().endswith(".csv"):
+    suffix = (
+        "." + file.filename.rsplit(".", 1)[-1].casefold()
+        if file.filename and "." in file.filename
+        else ""
+    )
+    if not file.filename or suffix not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail="File name must end with .csv.",
+            detail="File name must end with .csv or .xlsx.",
         )
     if len(file.filename) > 255:
         raise HTTPException(
@@ -147,7 +157,7 @@ async def upload_shipments(
             detail="File name must contain at most 255 characters.",
         )
     content = await file.read(MAX_FILE_BYTES + 1)
-    parsed = parse_shipments_csv(
+    parsed = parse_shipments_document(
         content,
         content_type=media_type,
         filename=file.filename,
@@ -230,3 +240,64 @@ async def list_shipments(
         None,
     )
     return _response(rows, artifact=artifact)
+
+
+@shipments_router.get("/export")
+async def export_shipments(
+    principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
+) -> Response:
+    """Export normalized rows in a format that can be imported again."""
+
+    rows = shipment_repository.list_for_workspace(principal.workspace_id)
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(REQUIRED_HEADERS)
+    for row in rows:
+        writer.writerow(
+            (
+                row.shipment_id,
+                row.origin,
+                row.destination,
+                row.weight_kg,
+                "kg",
+                row.distance_km,
+                "km",
+                row.transport_method,
+            )
+        )
+    filename = quote("carbonsage-shipments.csv", safe="")
+    return Response(
+        content=output.getvalue().encode("utf-8"),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{filename}",
+            "Cache-Control": "private, no-store",
+        },
+    )
+
+
+@shipments_router.get("/template")
+async def shipment_template(
+    _principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
+) -> Response:
+    """Return a small XLSX template that makes the accepted fields explicit."""
+
+    from openpyxl import Workbook
+
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Shipments"
+    worksheet.append(REQUIRED_HEADERS)
+    worksheet.append(("EXAMPLE-001", "Edmonton", "Calgary", 1, "mt", 300, "km", "truck"))
+    output = io.BytesIO()
+    workbook.save(output)
+    workbook.close()
+    filename = quote("carbonsage-shipment-template.xlsx", safe="")
+    return Response(
+        content=output.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{filename}",
+            "Cache-Control": "private, no-store",
+        },
+    )

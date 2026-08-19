@@ -1,8 +1,13 @@
+import io
+
+from openpyxl import Workbook
+
 from domain.shipments.analysis import analyze_shipments
 from domain.shipments.ingestion import (
     MAX_FILE_BYTES,
     MAX_ROWS,
     parse_shipments_csv,
+    parse_shipments_xlsx,
 )
 
 HEADER = (
@@ -90,3 +95,34 @@ def test_parser_rejects_oversized_and_over_row_limit_files():
     assert oversized.errors[0].message == "File exceeds the 10 MB limit."
     assert len(over_rows.rows) == MAX_ROWS
     assert over_rows.errors[-1].message == f"CSV cannot contain more than {MAX_ROWS} data rows."
+
+
+def test_xlsx_parser_accepts_common_header_aliases():
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.append(
+        (
+            "Shipment",
+            "From",
+            "To",
+            "Weight",
+            "Weight UOM",
+            "Distance",
+            "Distance UOM",
+            "Transport mode",
+        )
+    )
+    worksheet.append(("S-XLSX", "Edmonton", "Calgary", 1, "mt", 300, "km", "truck"))
+    output = io.BytesIO()
+    workbook.save(output)
+    workbook.close()
+
+    result = parse_shipments_xlsx(
+        output.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename="shipments.xlsx",
+    )
+
+    assert result.errors == ()
+    assert result.rows[0].shipment_id == "S-XLSX"
+    assert result.rows[0].weight_kg == 1_000

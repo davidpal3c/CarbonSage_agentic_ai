@@ -1,5 +1,5 @@
-import { WorkspaceSectionPage } from "@/app/dashboard/WorkspaceSectionPage";
+import { redirect } from "next/navigation";
 
 export default function OverviewPage() {
-  return <WorkspaceSectionPage section="overview" />;
+  redirect("/dashboard/agent");
 }

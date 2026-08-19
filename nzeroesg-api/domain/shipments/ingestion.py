@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import math
+import re
 from dataclasses import dataclass
 
 from domain.emissions.modes import normalize_mode
@@ -23,7 +24,37 @@ REQUIRED_HEADERS = (
     "distance_unit",
     "transport_method",
 )
-ALLOWED_CONTENT_TYPES = {"text/csv", "application/csv", "text/plain"}
+CSV_CONTENT_TYPES = {"text/csv", "application/csv", "text/plain"}
+XLSX_CONTENT_TYPES = {
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/octet-stream",
+}
+ALLOWED_CONTENT_TYPES = CSV_CONTENT_TYPES | XLSX_CONTENT_TYPES
+ALLOWED_EXTENSIONS = {".csv", ".xlsx"}
+
+HEADER_ALIASES = {
+    "id": "shipment_id",
+    "shipment": "shipment_id",
+    "shipment_reference": "shipment_id",
+    "reference": "shipment_id",
+    "from": "origin",
+    "origin_location": "origin",
+    "origin_city": "origin",
+    "to": "destination",
+    "destination_location": "destination",
+    "destination_city": "destination",
+    "weight": "weight_value",
+    "shipment_weight": "weight_value",
+    "weight_uom": "weight_unit",
+    "unit_of_weight": "weight_unit",
+    "distance": "distance_value",
+    "route_distance": "distance_value",
+    "distance_uom": "distance_unit",
+    "mode": "transport_method",
+    "transport_mode": "transport_method",
+    "shipping_mode": "transport_method",
+    "freight_mode": "transport_method",
+}
 
 
 @dataclass(frozen=True)
@@ -55,6 +86,11 @@ def _cell(row: dict[str | None, str | list[str] | None], field: str) -> str:
     if not isinstance(value, str):
         return ""
     return value.strip()
+
+
+def _canonical_header(value: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "_", value.strip().casefold()).strip("_")
+    return HEADER_ALIASES.get(normalized, normalized)
 
 
 def _validate_text(
@@ -141,7 +177,7 @@ def parse_shipments_csv(
         return ShipmentParseResult(rows=(), errors=tuple(errors), warnings=())
     if content_type:
         media_type = content_type.split(";", 1)[0].strip().lower()
-        if media_type not in ALLOWED_CONTENT_TYPES:
+        if media_type not in CSV_CONTENT_TYPES:
             _issue(
                 errors,
                 row_number=None,
@@ -183,7 +219,7 @@ def parse_shipments_csv(
         if not headers:
             _issue(errors, row_number=None, field=None, message="CSV must include a header row.")
             return ShipmentParseResult(rows=(), errors=tuple(errors), warnings=())
-        normalized_headers = [header.strip().lower() for header in headers if header is not None]
+        normalized_headers = [_canonical_header(header) for header in headers if header is not None]
         duplicate_headers = {
             header for header in normalized_headers if normalized_headers.count(header) > 1
         }
@@ -230,7 +266,7 @@ def parse_shipments_csv(
                 )
                 continue
             normalized_row = {
-                key.strip().lower(): value for key, value in row.items() if key is not None
+                _canonical_header(key): value for key, value in row.items() if key is not None
             }
             row_errors: list[ValidationIssue] = []
             shipment_id = _validate_text(
@@ -334,3 +370,126 @@ def parse_shipments_csv(
     if not rows:
         warnings.append("No valid shipment rows were accepted.")
     return ShipmentParseResult(rows=tuple(rows), errors=tuple(errors), warnings=tuple(warnings))
+
+
+def parse_shipments_xlsx(
+    content: bytes,
+    *,
+    content_type: str | None = None,
+    filename: str | None = None,
+) -> ShipmentParseResult:
+    """Read the first worksheet from a bounded XLSX workbook."""
+
+    if len(content) > MAX_FILE_BYTES:
+        return ShipmentParseResult(
+            rows=(),
+            errors=(
+                ValidationIssue(
+                    row_number=None,
+                    field=None,
+                    message=f"File exceeds the {MAX_FILE_BYTES // (1024 * 1024)} MB limit.",
+                ),
+            ),
+            warnings=(),
+        )
+    if content_type:
+        media_type = content_type.split(";", 1)[0].strip().lower()
+        if media_type not in XLSX_CONTENT_TYPES:
+            return ShipmentParseResult(
+                rows=(),
+                errors=(
+                    ValidationIssue(
+                        row_number=None,
+                        field=None,
+                        message="File must use an XLSX-compatible content type.",
+                    ),
+                ),
+                warnings=(),
+            )
+    if filename and not filename.lower().endswith(".xlsx"):
+        return ShipmentParseResult(
+            rows=(),
+            errors=(
+                ValidationIssue(
+                    row_number=None,
+                    field=None,
+                    message="File name must end with .xlsx.",
+                ),
+            ),
+            warnings=(),
+        )
+
+    try:
+        from openpyxl import load_workbook
+
+        workbook = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+        worksheet = workbook[workbook.sheetnames[0]]
+        serialized = io.StringIO(newline="")
+        writer = csv.writer(serialized)
+        for row_index, row in enumerate(worksheet.iter_rows(values_only=True), start=1):
+            if row_index > MAX_ROWS + 2:
+                break
+            if len(row) > 64:
+                return ShipmentParseResult(
+                    rows=(),
+                    errors=(
+                        ValidationIssue(
+                            row_number=row_index,
+                            field=None,
+                            message="Spreadsheet rows may contain at most 64 columns.",
+                        ),
+                    ),
+                    warnings=(),
+                )
+            writer.writerow(["" if value is None else value for value in row])
+    except Exception:
+        return ShipmentParseResult(
+            rows=(),
+            errors=(
+                ValidationIssue(
+                    row_number=None,
+                    field=None,
+                    message="XLSX workbook could not be read safely.",
+                ),
+            ),
+            warnings=(),
+        )
+    finally:
+        if "workbook" in locals():
+            workbook.close()
+
+    parsed = parse_shipments_csv(
+        serialized.getvalue().encode("utf-8"),
+        content_type="text/csv",
+        filename="workbook.csv",
+    )
+    workbook_warnings = (
+        ("Only the first worksheet was imported.",) if len(workbook.sheetnames) > 1 else ()
+    )
+    return ShipmentParseResult(
+        rows=parsed.rows,
+        errors=parsed.errors,
+        warnings=workbook_warnings + parsed.warnings,
+    )
+
+
+def parse_shipments_document(
+    content: bytes,
+    *,
+    content_type: str | None = None,
+    filename: str | None = None,
+) -> ShipmentParseResult:
+    """Dispatch a supported structured shipment document to its bounded parser."""
+
+    normalized_name = (filename or "").casefold()
+    if normalized_name.endswith(".xlsx"):
+        return parse_shipments_xlsx(
+            content,
+            content_type=content_type,
+            filename=filename,
+        )
+    return parse_shipments_csv(
+        content,
+        content_type=content_type,
+        filename=filename,
+    )

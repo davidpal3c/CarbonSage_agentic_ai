@@ -2,6 +2,7 @@
 
 import { type ChangeEvent, type FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
+import { X } from "lucide-react";
 
 import { getBackendUrl } from "@/app/api/urls";
 import ArtifactCatalog, {
@@ -146,9 +147,9 @@ const sectionDetails: Record<
       "Upload freight data and review emissions, routes, and data quality.",
   },
   evidence: {
-    title: "Suppliers & evidence",
+    title: "Suppliers",
     description:
-      "Add supplier documents and find source-backed answers across them.",
+      "Review supplier profiles and search the documents behind them.",
   },
   scenarios: {
     title: "Scenarios",
@@ -196,6 +197,7 @@ export function WorkspaceSectionPage({
   const [isRunningScenario, setIsRunningScenario] = useState(false);
   const [artifactRefreshToken, setArtifactRefreshToken] = useState(0);
   const [artifactStatus, setArtifactStatus] = useState<string | null>(null);
+  const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
 
   useEffect(() => {
     if (section !== "shipments" && section !== "scenarios") return;
@@ -247,7 +249,7 @@ export function WorkspaceSectionPage({
   async function uploadShipments(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedFile) {
-      setShipmentError("Choose a CSV file before uploading.");
+      setShipmentError("Choose a CSV or XLSX file before uploading.");
       return;
     }
 
@@ -266,7 +268,7 @@ export function WorkspaceSectionPage({
           detail?: string;
         } | null;
         throw new Error(
-          detail?.detail ?? "Shipment CSV could not be uploaded.",
+          detail?.detail ?? "Shipment data could not be uploaded.",
         );
       }
       setShipmentData((await response.json()) as ShipmentData);
@@ -277,7 +279,7 @@ export function WorkspaceSectionPage({
       setShipmentError(
         requestError instanceof Error
           ? requestError.message
-          : "Shipment CSV could not be uploaded.",
+          : "Shipment data could not be uploaded.",
       );
     } finally {
       setIsUploading(false);
@@ -291,24 +293,45 @@ export function WorkspaceSectionPage({
 
   async function uploadEvidence(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!evidenceFile || !supplierName.trim()) {
-      setEvidenceError("Choose a TXT/PDF file and provide the supplier name.");
+    if (!supplierName.trim()) {
+      setEvidenceError("Provide the supplier name.");
       return;
     }
     setIsEvidenceUploading(true);
     setEvidenceError(null);
     try {
-      const formData = new FormData();
-      formData.append("file", evidenceFile);
-      formData.append("supplier_name", supplierName);
-      formData.append("supplier_region", supplierRegion);
-      formData.append("certifications", certifications);
-      formData.append("transport_modes", transportModes);
-      const response = await fetch(`${getBackendUrl()}/evidence/upload`, {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
+      let response: Response;
+      if (evidenceFile) {
+        const formData = new FormData();
+        formData.append("file", evidenceFile);
+        formData.append("supplier_name", supplierName);
+        formData.append("supplier_region", supplierRegion);
+        formData.append("certifications", certifications);
+        formData.append("transport_modes", transportModes);
+        response = await fetch(`${getBackendUrl()}/evidence/upload`, {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        });
+      } else {
+        response = await fetch(`${getBackendUrl()}/suppliers`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: supplierName,
+            region: supplierRegion || null,
+            certifications: certifications
+              .split(",")
+              .map((value) => value.trim())
+              .filter(Boolean),
+            transport_modes: transportModes
+              .split(",")
+              .map((value) => value.trim())
+              .filter(Boolean),
+          }),
+        });
+      }
       if (!response.ok) {
         const detail = (await response.json().catch(() => null)) as {
           detail?: string;
@@ -327,6 +350,10 @@ export function WorkspaceSectionPage({
       setArtifactRefreshToken((current) => current + 1);
       setEvidenceFile(null);
       setSupplierName("");
+      setSupplierRegion("");
+      setCertifications("");
+      setTransportModes("");
+      setIsSupplierModalOpen(false);
       setEvidenceError(null);
       await refreshSession();
     } catch (requestError) {
@@ -454,13 +481,35 @@ export function WorkspaceSectionPage({
 
   return (
     <section className="min-w-0 px-4 py-7 sm:px-6 lg:px-10 lg:py-9">
-      <header className="mb-7">
-        <h1 className="text-3xl font-bold tracking-tight text-primary sm:text-4xl">
-          {details.title}
-        </h1>
-        <p className="mt-2 max-w-2xl leading-7 text-muted-foreground">
-          {details.description}
-        </p>
+      <header className="mb-7 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-primary sm:text-4xl">
+            {details.title}
+          </h1>
+          <p className="mt-2 max-w-2xl leading-7 text-muted-foreground">
+            {details.description}
+          </p>
+        </div>
+        {section === "evidence" ? (
+          <button
+            type="button"
+            onClick={() => {
+              setEvidenceError(null);
+              setIsSupplierModalOpen(true);
+            }}
+            className="rounded-full bg-secondary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-accent"
+          >
+            Add supplier
+          </button>
+        ) : null}
+        {section === "shipments" ? (
+          <Link
+            href="/dashboard/agent"
+            className="rounded-full bg-secondary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-accent"
+          >
+            Calculate freight
+          </Link>
+        ) : null}
       </header>
 
       {section === "overview" ? (
@@ -560,46 +609,72 @@ export function WorkspaceSectionPage({
       ) : null}
 
       {section === "shipments" ? (
-        <section
-          id="shipments"
-          className="rounded-xl border border-border bg-card p-5 sm:p-6"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-semibold text-primary">
-                Upload shipments
-              </h2>
-              <p className="mt-2 max-w-2xl leading-7 text-muted-foreground">
-                Add a CSV to calculate the current freight baseline. Any rows
-                that need attention will stay visible below.
+        <section id="shipments" className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-3">
+            <article className="rounded-xl border border-border bg-card p-5">
+              <p className="text-sm text-muted-foreground">Shipments</p>
+              <p className="mt-1 text-2xl font-bold text-primary">
+                {shipmentData?.analysis.shipment_count ?? 0}
               </p>
-            </div>
-            <span className="rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold text-primary">
-              Max 500 rows · 10 MB
-            </span>
+            </article>
+            <article className="rounded-xl border border-border bg-card p-5">
+              <p className="text-sm text-muted-foreground">Total emissions</p>
+              <p className="mt-1 text-2xl font-bold text-primary">
+                {(shipmentData?.analysis.total_emissions_kg ?? 0).toFixed(2)} kg
+                CO₂e
+              </p>
+            </article>
+            <article className="rounded-xl border border-border bg-card p-5">
+              <p className="text-sm text-muted-foreground">Freight weight</p>
+              <p className="mt-1 text-2xl font-bold text-primary">
+                {(shipmentData?.analysis.total_weight_kg ?? 0).toFixed(2)} kg
+              </p>
+            </article>
           </div>
 
-          <form
-            onSubmit={uploadShipments}
-            className="mt-6 flex flex-wrap items-end gap-3"
-          >
-            <label className="flex w-full min-w-0 flex-1 flex-col gap-2 text-sm font-semibold text-primary sm:min-w-64">
-              Shipment CSV
-              <input
-                type="file"
-                accept=".csv,text/csv"
-                onChange={selectShipmentFile}
-                className="w-full min-w-0 max-w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-normal text-primary file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-3 file:py-2 file:text-white"
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={isUploading}
-              className="rounded-full bg-secondary px-5 py-3 font-semibold text-white transition hover:bg-accent disabled:cursor-wait disabled:opacity-60"
+          <div className="rounded-xl border border-border bg-card p-5 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-primary">
+                  Import shipments
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                  Add a CSV or XLSX workbook. Common column names are matched
+                  automatically, and rows needing attention remain visible.
+                </p>
+              </div>
+              <a
+                href={`${getBackendUrl()}/shipments/template`}
+                className="text-sm font-semibold text-secondary hover:text-accent"
+              >
+                Download XLSX template
+              </a>
+            </div>
+            <form
+              onSubmit={uploadShipments}
+              className="mt-5 flex flex-wrap items-end gap-3"
             >
-              {isUploading ? "Analyzing…" : "Upload and analyze"}
-            </button>
-          </form>
+              <label className="flex w-full min-w-0 flex-1 flex-col gap-2 text-sm font-semibold text-primary sm:min-w-64">
+                Shipment file
+                <input
+                  type="file"
+                  accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  onChange={selectShipmentFile}
+                  className="w-full min-w-0 max-w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-normal text-primary file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-3 file:py-2 file:text-white"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={isUploading}
+                className="rounded-full bg-secondary px-5 py-3 font-semibold text-white transition hover:bg-accent disabled:cursor-wait disabled:opacity-60"
+              >
+                {isUploading ? "Analyzing…" : "Upload and analyze"}
+              </button>
+            </form>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Max 500 rows · 10 MB
+            </p>
+          </div>
 
           {shipmentError ? (
             <p className="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -609,36 +684,8 @@ export function WorkspaceSectionPage({
 
           {shipmentData ? (
             <>
-              <div className="mt-6 grid gap-4 md:grid-cols-3">
-                <article className="rounded-lg border border-border bg-background p-4">
-                  <p className="text-sm text-muted-foreground">
-                    Accepted shipments
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-primary">
-                    {shipmentData.analysis.shipment_count}
-                  </p>
-                </article>
-                <article className="rounded-lg border border-border bg-background p-4">
-                  <p className="text-sm text-muted-foreground">
-                    Total emissions
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-primary">
-                    {shipmentData.analysis.total_emissions_kg.toFixed(2)} kg
-                    CO₂e
-                  </p>
-                </article>
-                <article className="rounded-lg border border-border bg-background p-4">
-                  <p className="text-sm text-muted-foreground">
-                    Total freight weight
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-primary">
-                    {shipmentData.analysis.total_weight_kg.toFixed(2)} kg
-                  </p>
-                </article>
-              </div>
-
               {shipmentData.errors.length > 0 ? (
-                <div className="mt-5 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
                   <p className="font-semibold">Data-quality issues</p>
                   <ul className="mt-2 list-disc space-y-1 pl-5">
                     {shipmentData.errors.slice(0, 8).map((issue, index) => (
@@ -821,92 +868,117 @@ export function WorkspaceSectionPage({
       {section === "evidence" ? (
         <section
           id="evidence"
-          className="rounded-xl border border-border bg-card p-5 sm:p-6"
+          className="flex flex-col rounded-xl border border-border bg-card p-5 sm:p-6"
         >
-          <div>
-            <h2 className="text-2xl font-semibold text-primary">
-              Add supplier evidence
-            </h2>
-            <p className="mt-2 max-w-2xl leading-7 text-muted-foreground">
-              Upload a text or PDF document, add the supplier details you know,
-              and search the original source.
-            </p>
-          </div>
-
-          <form
-            onSubmit={uploadEvidence}
-            className="mt-6 grid gap-4 rounded-lg border border-border bg-background p-4 md:grid-cols-2"
-          >
-            <label className="flex flex-col gap-2 text-sm font-semibold text-primary">
-              Supplier name
-              <input
-                value={supplierName}
-                onChange={(event) => setSupplierName(event.target.value)}
-                placeholder="Supplier ABC"
-                className="rounded-lg border border-border bg-muted px-3 py-2 font-normal"
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm font-semibold text-primary">
-              Region (optional)
-              <input
-                value={supplierRegion}
-                onChange={(event) => setSupplierRegion(event.target.value)}
-                placeholder="Canada"
-                className="rounded-lg border border-border bg-muted px-3 py-2 font-normal"
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm font-semibold text-primary">
-              Certifications (comma separated)
-              <input
-                value={certifications}
-                onChange={(event) => setCertifications(event.target.value)}
-                placeholder="ISO 14001"
-                className="rounded-lg border border-border bg-muted px-3 py-2 font-normal"
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm font-semibold text-primary">
-              Transport modes (comma separated)
-              <input
-                value={transportModes}
-                onChange={(event) => setTransportModes(event.target.value)}
-                placeholder="rail, truck"
-                className="rounded-lg border border-border bg-muted px-3 py-2 font-normal"
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm font-semibold text-primary md:col-span-2">
-              Evidence document (TXT or text-based PDF)
-              <input
-                type="file"
-                accept=".txt,.pdf,text/plain,application/pdf"
-                onChange={selectEvidenceFile}
-                className="w-full min-w-0 max-w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm font-normal text-primary file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-3 file:py-2 file:text-white"
-              />
-            </label>
-            <div className="md:col-span-2">
+          {isSupplierModalOpen ? (
+            <>
               <button
-                type="submit"
-                disabled={isEvidenceUploading}
-                className="rounded-full bg-secondary px-5 py-3 font-semibold text-white transition hover:bg-accent disabled:cursor-wait disabled:opacity-60"
+                type="button"
+                aria-label="Close add supplier dialog"
+                onClick={() => setIsSupplierModalOpen(false)}
+                className="fixed inset-0 z-[60] cursor-default bg-black/35 backdrop-blur-[1px]"
+              />
+              <form
+                onSubmit={uploadEvidence}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="add-supplier-title"
+                className="fixed left-1/2 top-1/2 z-[70] grid max-h-[calc(100vh-2rem)] w-[min(44rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-2xl md:grid-cols-2 md:p-6"
               >
-                {isEvidenceUploading ? "Extracting…" : "Upload evidence"}
-              </button>
-              <span className="ml-3 text-xs text-muted-foreground">
-                Max 3 documents per workspace · 10 MB each
-              </span>
-            </div>
-          </form>
+                <div className="flex items-start justify-between gap-4 md:col-span-2">
+                  <div>
+                    <h2
+                      id="add-supplier-title"
+                      className="text-xl font-semibold text-primary"
+                    >
+                      Add supplier
+                    </h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Add the profile now and attach a PDF or TXT source when
+                      available.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsSupplierModalOpen(false)}
+                    aria-label="Close dialog"
+                    className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-primary"
+                  >
+                    <X aria-hidden="true" className="h-5 w-5" />
+                  </button>
+                </div>
+                <label className="flex flex-col gap-2 text-sm font-semibold text-primary">
+                  Supplier name
+                  <input
+                    value={supplierName}
+                    onChange={(event) => setSupplierName(event.target.value)}
+                    placeholder="Supplier ABC"
+                    className="rounded-lg border border-border bg-muted px-3 py-2 font-normal"
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm font-semibold text-primary">
+                  Region (optional)
+                  <input
+                    value={supplierRegion}
+                    onChange={(event) => setSupplierRegion(event.target.value)}
+                    placeholder="Canada"
+                    className="rounded-lg border border-border bg-muted px-3 py-2 font-normal"
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm font-semibold text-primary">
+                  Certifications (comma separated)
+                  <input
+                    value={certifications}
+                    onChange={(event) => setCertifications(event.target.value)}
+                    placeholder="ISO 14001"
+                    className="rounded-lg border border-border bg-muted px-3 py-2 font-normal"
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm font-semibold text-primary">
+                  Transport modes (comma separated)
+                  <input
+                    value={transportModes}
+                    onChange={(event) => setTransportModes(event.target.value)}
+                    placeholder="rail, truck"
+                    className="rounded-lg border border-border bg-muted px-3 py-2 font-normal"
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm font-semibold text-primary md:col-span-2">
+                  Evidence document (optional PDF or TXT)
+                  <input
+                    type="file"
+                    accept=".txt,.pdf,text/plain,application/pdf"
+                    onChange={selectEvidenceFile}
+                    className="w-full min-w-0 max-w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm font-normal text-primary file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-3 file:py-2 file:text-white"
+                  />
+                </label>
+                <div className="md:col-span-2">
+                  <button
+                    type="submit"
+                    disabled={isEvidenceUploading}
+                    className="rounded-full bg-secondary px-5 py-3 font-semibold text-white transition hover:bg-accent disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {isEvidenceUploading ? "Saving…" : "Add supplier"}
+                  </button>
+                  <span className="ml-3 text-xs text-muted-foreground">
+                    Attached documents: max 10 MB
+                  </span>
+                </div>
+              </form>
+            </>
+          ) : null}
 
           {evidenceError ? (
-            <p className="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <p className="order-1 mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
               {evidenceError}
             </p>
           ) : null}
 
-          <div className="mt-6">
+          <div className="order-4 mt-7">
             <h3 className="font-semibold text-primary">Supplier cards</h3>
             {suppliers.length === 0 ? (
               <p className="mt-3 text-sm text-muted-foreground">
-                No supplier evidence has been uploaded in this workspace.
+                No suppliers have been added to this workspace.
               </p>
             ) : (
               <div className="mt-3 grid gap-4 lg:grid-cols-2">
@@ -962,7 +1034,7 @@ export function WorkspaceSectionPage({
             )}
           </div>
 
-          <form onSubmit={searchEvidence} className="mt-8">
+          <form onSubmit={searchEvidence} className="order-1">
             <div className="flex flex-wrap items-end gap-3">
               <label className="flex w-full min-w-0 flex-1 flex-col gap-2 text-sm font-semibold text-primary sm:min-w-64">
                 Search document evidence
@@ -998,7 +1070,7 @@ export function WorkspaceSectionPage({
           </form>
 
           {evidenceSearchData ? (
-            <p className="mt-3 text-xs text-muted-foreground">
+            <p className="order-2 mt-3 text-xs text-muted-foreground">
               {evidenceSearchData.mode === "lexical"
                 ? "Keyword search"
                 : `${evidenceSearchData.mode[0].toUpperCase()}${evidenceSearchData.mode.slice(1)} search`}
@@ -1009,7 +1081,7 @@ export function WorkspaceSectionPage({
           ) : null}
 
           {evidenceMatches.length > 0 ? (
-            <div className="mt-5 space-y-3">
+            <div className="order-3 mt-5 space-y-3">
               {evidenceMatches.map((match) => (
                 <article
                   key={`${match.citation.document_sha256}-${match.citation.chunk_index}`}
