@@ -17,6 +17,7 @@ export type DemoDataStatus = {
 
 export type ShipmentRow = {
   shipment_id: string;
+  shipment_date: string | null;
   origin: string;
   destination: string;
   weight_kg: number;
@@ -27,6 +28,9 @@ export type ShipmentRow = {
 
 export type ShipmentAnalysis = {
   shipment_count: number;
+  workspace_shipment_count: number;
+  filtered_out_count: number;
+  undated_shipment_count: number;
   total_weight_kg: number;
   total_emissions_kg: number;
   total_emissions_tonnes: number;
@@ -34,13 +38,33 @@ export type ShipmentAnalysis = {
     string,
     { shipment_count: number; weight_kg: number; emissions_kg: number }
   >;
+  timeline: Array<{
+    period: string;
+    period_start: string | null;
+    shipment_count: number;
+    weight_kg: number;
+    emissions_kg: number;
+    mode_emissions_kg: Record<string, number>;
+  }>;
   hotspots: Array<{
     shipment_id: string;
+    shipment_date: string | null;
     origin: string;
     destination: string;
     transport_method: string;
     emissions_kg: number;
   }>;
+  filters: {
+    granularity: "month" | "year";
+    start_date: string | null;
+    end_date: string | null;
+    modes: string[];
+  };
+  available_filters: {
+    start_date: string | null;
+    end_date: string | null;
+    modes: string[];
+  };
   warnings: string[];
   factor_source: string;
   factor_version: string;
@@ -59,6 +83,13 @@ export type ShipmentData = {
   warnings: string[];
   rows: ShipmentRow[];
   analysis: ShipmentAnalysis;
+};
+
+export type ShipmentAnalyticsQuery = {
+  granularity?: "month" | "year";
+  startDate?: string;
+  endDate?: string;
+  modes?: string[];
 };
 
 export type SupplierCard = {
@@ -145,6 +176,9 @@ type WorkspaceData = {
   shipments: ShipmentData | null;
   shipmentsStatus: LoadStatus;
   shipmentsError: string | null;
+  shipmentAnalytics: Record<string, ShipmentAnalysis>;
+  shipmentAnalyticsStatuses: Record<string, LoadStatus>;
+  shipmentAnalyticsErrors: Record<string, string | null>;
   suppliers: SupplierCard[];
   suppliersStatus: LoadStatus;
   suppliersError: string | null;
@@ -163,6 +197,10 @@ type WorkspaceDataActions = {
   loadDemoData: () => Promise<DemoDataStatus>;
   unloadDemoData: () => Promise<DemoDataStatus>;
   ensureShipments: (force?: boolean) => Promise<ShipmentData>;
+  ensureShipmentAnalytics: (
+    query?: ShipmentAnalyticsQuery,
+    force?: boolean,
+  ) => Promise<ShipmentAnalysis>;
   uploadShipments: (file: File) => Promise<ShipmentData>;
   ensureSuppliers: (force?: boolean) => Promise<SupplierCard[]>;
   ensureArtifacts: (force?: boolean) => Promise<Artifact[]>;
@@ -184,6 +222,9 @@ function emptyWorkspaceData(workspaceId: string | null = null): WorkspaceData {
     shipments: null,
     shipmentsStatus: "idle",
     shipmentsError: null,
+    shipmentAnalytics: {},
+    shipmentAnalyticsStatuses: {},
+    shipmentAnalyticsErrors: {},
     suppliers: [],
     suppliersStatus: "idle",
     suppliersError: null,
@@ -203,9 +244,19 @@ let requestEpoch = 0;
 
 function requestKey(
   workspaceId: string,
-  resource: RequestKey | `report:${string}`,
+  resource: RequestKey | `report:${string}` | `analytics:${string}`,
 ) {
   return `${workspaceId}:${resource}`;
+}
+
+export function shipmentAnalyticsKey(query: ShipmentAnalyticsQuery = {}) {
+  const modes = [...(query.modes ?? [])].sort();
+  return [
+    query.granularity ?? "month",
+    query.startDate ?? "",
+    query.endDate ?? "",
+    modes.join(","),
+  ].join("|");
 }
 
 function clearRequests() {
@@ -311,6 +362,9 @@ export const useWorkspaceDataStore = create<WorkspaceDataStore>((set, get) => ({
           demoStatus: "ready",
           demoError: null,
           shipmentsStatus: "idle",
+          shipmentAnalytics: {},
+          shipmentAnalyticsStatuses: {},
+          shipmentAnalyticsErrors: {},
           suppliersStatus: "idle",
           artifactsStatus: "idle",
           reports: {},
@@ -361,6 +415,9 @@ export const useWorkspaceDataStore = create<WorkspaceDataStore>((set, get) => ({
           demoError: null,
           shipments: null,
           shipmentsStatus: "idle",
+          shipmentAnalytics: {},
+          shipmentAnalyticsStatuses: {},
+          shipmentAnalyticsErrors: {},
           suppliersStatus: "idle",
           artifactsStatus: "idle",
           reports: {},
@@ -414,11 +471,24 @@ export const useWorkspaceDataStore = create<WorkspaceDataStore>((set, get) => ({
       })
       .then((payload) => {
         if (get().workspaceId === workspaceId && requestEpoch === epoch) {
-          set({
+          const analyticsKey = shipmentAnalyticsKey();
+          set((state) => ({
             shipments: payload,
             shipmentsStatus: "ready",
             shipmentsError: null,
-          });
+            shipmentAnalytics: {
+              ...state.shipmentAnalytics,
+              [analyticsKey]: payload.analysis,
+            },
+            shipmentAnalyticsStatuses: {
+              ...state.shipmentAnalyticsStatuses,
+              [analyticsKey]: "ready",
+            },
+            shipmentAnalyticsErrors: {
+              ...state.shipmentAnalyticsErrors,
+              [analyticsKey]: null,
+            },
+          }));
         }
         return payload;
       })
@@ -431,6 +501,98 @@ export const useWorkspaceDataStore = create<WorkspaceDataStore>((set, get) => ({
                 ? error.message
                 : "Shipment data could not be loaded.",
           });
+        }
+        throw error;
+      })
+      .finally(() => {
+        if (inFlight.get(key) === request) inFlight.delete(key);
+      });
+    inFlight.set(key, request);
+    return request;
+  },
+
+  async ensureShipmentAnalytics(query = {}, force = false) {
+    const workspaceId = requireWorkspace(get().workspaceId);
+    const analyticsKey = shipmentAnalyticsKey(query);
+    if (
+      !force &&
+      get().shipmentAnalyticsStatuses[analyticsKey] === "ready" &&
+      get().shipmentAnalytics[analyticsKey]
+    ) {
+      return get().shipmentAnalytics[analyticsKey];
+    }
+    const key = requestKey(workspaceId, `analytics:${analyticsKey}`);
+    const existing = inFlight.get(key) as Promise<ShipmentAnalysis> | undefined;
+    if (existing) return existing;
+
+    const parameters = new URLSearchParams({
+      granularity: query.granularity ?? "month",
+    });
+    if (query.startDate) parameters.set("start_date", query.startDate);
+    if (query.endDate) parameters.set("end_date", query.endDate);
+    for (const mode of [...(query.modes ?? [])].sort()) {
+      parameters.append("mode", mode);
+    }
+    const epoch = requestEpoch;
+    set((state) => ({
+      shipmentAnalyticsStatuses: {
+        ...state.shipmentAnalyticsStatuses,
+        [analyticsKey]: "loading",
+      },
+      shipmentAnalyticsErrors: {
+        ...state.shipmentAnalyticsErrors,
+        [analyticsKey]: null,
+      },
+    }));
+    const request = fetch(
+      `${getBackendUrl()}/shipments/analytics?${parameters.toString()}`,
+      { credentials: "include" },
+    )
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(
+            await responseDetail(
+              response,
+              "Shipment analytics could not be loaded.",
+            ),
+          );
+        }
+        return (await response.json()) as ShipmentAnalysis;
+      })
+      .then((payload) => {
+        if (get().workspaceId === workspaceId && requestEpoch === epoch) {
+          set((state) => ({
+            shipmentAnalytics: {
+              ...state.shipmentAnalytics,
+              [analyticsKey]: payload,
+            },
+            shipmentAnalyticsStatuses: {
+              ...state.shipmentAnalyticsStatuses,
+              [analyticsKey]: "ready",
+            },
+            shipmentAnalyticsErrors: {
+              ...state.shipmentAnalyticsErrors,
+              [analyticsKey]: null,
+            },
+          }));
+        }
+        return payload;
+      })
+      .catch((error: unknown) => {
+        if (get().workspaceId === workspaceId && requestEpoch === epoch) {
+          set((state) => ({
+            shipmentAnalyticsStatuses: {
+              ...state.shipmentAnalyticsStatuses,
+              [analyticsKey]: "error",
+            },
+            shipmentAnalyticsErrors: {
+              ...state.shipmentAnalyticsErrors,
+              [analyticsKey]:
+                error instanceof Error
+                  ? error.message
+                  : "Shipment analytics could not be loaded.",
+            },
+          }));
         }
         throw error;
       })
@@ -459,7 +621,15 @@ export const useWorkspaceDataStore = create<WorkspaceDataStore>((set, get) => ({
     if (get().workspaceId !== workspaceId) {
       throw new Error("The active workspace changed during upload.");
     }
-    set({ shipments: payload, shipmentsStatus: "ready", shipmentsError: null });
+    const analyticsKey = shipmentAnalyticsKey();
+    set({
+      shipments: payload,
+      shipmentsStatus: "ready",
+      shipmentsError: null,
+      shipmentAnalytics: { [analyticsKey]: payload.analysis },
+      shipmentAnalyticsStatuses: { [analyticsKey]: "ready" },
+      shipmentAnalyticsErrors: { [analyticsKey]: null },
+    });
     if (payload.accepted_rows > 0) {
       clearRequests();
       set({
@@ -708,6 +878,16 @@ export const useWorkspaceDataStore = create<WorkspaceDataStore>((set, get) => ({
       shipments: artifact.kind === "shipment_dataset" ? null : state.shipments,
       shipmentsStatus:
         artifact.kind === "shipment_dataset" ? "idle" : state.shipmentsStatus,
+      shipmentAnalytics:
+        artifact.kind === "shipment_dataset" ? {} : state.shipmentAnalytics,
+      shipmentAnalyticsStatuses:
+        artifact.kind === "shipment_dataset"
+          ? {}
+          : state.shipmentAnalyticsStatuses,
+      shipmentAnalyticsErrors:
+        artifact.kind === "shipment_dataset"
+          ? {}
+          : state.shipmentAnalyticsErrors,
       suppliersStatus:
         artifact.kind === "evidence_document" ? "idle" : state.suppliersStatus,
       demoStatus: "idle",

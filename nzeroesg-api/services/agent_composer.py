@@ -20,6 +20,7 @@ from domain.agent.models import (
     WarningBlock,
 )
 from domain.agent.tools import (
+    AnalyzeShipmentEmissionsOutput,
     BuildDecisionReportOutput,
     CalculateFreightEmissionsOutput,
     CompareTransportScenariosOutput,
@@ -38,6 +39,7 @@ def _chart(
     rows: list[dict[str, str | int | float]],
     series: list[ChartSeries],
     columns: list[TableColumn],
+    chart_kind: ChartKind = ChartKind.BAR,
 ) -> ChartBlock:
     table = TableBlock(
         title=title,
@@ -46,7 +48,7 @@ def _chart(
         caption="Table equivalent for the chart values.",
     )
     return ChartBlock(
-        chart_kind=ChartKind.BAR,
+        chart_kind=chart_kind,
         title=title,
         x_key=x_key,
         series=series,
@@ -119,7 +121,7 @@ def compose_agent_response(
                             "The evidence-support check found "
                             f"{len(supported_matches)} {output.mode_used} passage"
                             f"{'s' if len(supported_matches) != 1 else ''} that directly "
-                            "support this request."
+                            f"support{'s' if len(supported_matches) == 1 else ''} this request."
                         )
                     )
                 )
@@ -186,6 +188,99 @@ def compose_agent_response(
             )
             for warning in output.provenance.warnings:
                 blocks.append(WarningBlock(code="calculation_warning", message=warning))
+        elif isinstance(output, AnalyzeShipmentEmissionsOutput):
+            workspace_empty = output.workspace_shipment_count == 0
+            blocks.extend(
+                (
+                    TextBlock(
+                        text=(
+                            f"Analyzed {output.shipment_count} shipment"
+                            f"{'s' if output.shipment_count != 1 else ''} with deterministic "
+                            f"{output.granularity} aggregation."
+                        )
+                    ),
+                    MetricBlock(
+                        label="Filtered freight emissions",
+                        value=output.total_emissions_kg,
+                        unit="kg CO2e",
+                        context=(
+                            f"{output.shipment_count} of {output.workspace_shipment_count} "
+                            f"shipments · {output.factor_version}"
+                        ),
+                    ),
+                    MetricBlock(
+                        label="Freight weight",
+                        value=output.total_weight_kg,
+                        unit="kg",
+                    ),
+                )
+            )
+            mode_fields = (
+                ("plane", "plane_emissions_kg", "Plane"),
+                ("truck", "truck_emissions_kg", "Truck"),
+                ("train", "train_emissions_kg", "Train"),
+                ("ship", "ship_emissions_kg", "Ship"),
+            )
+            selected_fields = [field for field in mode_fields if field[0] in output.modes]
+            if output.periods and selected_fields:
+                rows = [
+                    {
+                        "period": period.period,
+                        "total_emissions_kg": period.total_emissions_kg,
+                        **{key: getattr(period, key) for _, key, _ in selected_fields},
+                    }
+                    for period in output.periods
+                ]
+                blocks.append(
+                    _chart(
+                        title=f"{output.granularity.title()} emissions by transport mode",
+                        x_key="period",
+                        rows=rows,
+                        series=[
+                            ChartSeries(key=key, label=label, unit="kg CO2e")
+                            for _, key, label in selected_fields
+                        ],
+                        columns=[
+                            TableColumn(key="period", label="Period"),
+                            *[
+                                TableColumn(key=key, label=label, unit="kg CO2e")
+                                for _, key, label in selected_fields
+                            ],
+                            TableColumn(
+                                key="total_emissions_kg",
+                                label="Total",
+                                unit="kg CO2e",
+                            ),
+                        ],
+                    )
+                )
+            if output.hotspots:
+                blocks.append(
+                    TableBlock(
+                        title="Top shipment hotspots",
+                        columns=[
+                            TableColumn(key="shipment_id", label="Shipment"),
+                            TableColumn(key="shipment_date", label="Date"),
+                            TableColumn(key="route", label="Route"),
+                            TableColumn(key="transport_method", label="Mode"),
+                            TableColumn(
+                                key="emissions_kg",
+                                label="Emissions",
+                                unit="kg CO2e",
+                            ),
+                        ],
+                        rows=[hotspot.model_dump() for hotspot in output.hotspots],
+                    )
+                )
+            if output.workspace_shipment_count and not output.shipment_count:
+                blocks.append(
+                    WarningBlock(
+                        code="no_matching_shipments",
+                        message="No shipment rows match the requested analytics filters.",
+                    )
+                )
+            for warning in output.warnings:
+                blocks.append(WarningBlock(code="analytics_warning", message=warning))
         elif isinstance(output, CompareTransportScenariosOutput):
             rows = [
                 {

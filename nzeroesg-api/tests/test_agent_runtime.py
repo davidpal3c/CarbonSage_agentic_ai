@@ -1,7 +1,7 @@
 import asyncio
 import os
 from contextlib import closing
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
 import psycopg
@@ -25,12 +25,14 @@ from domain.agent.models import (
 from domain.agent.tools import (
     AgentPlan,
     AgentToolName,
+    AnalyzeShipmentEmissionsOutput,
     BuildDecisionReportOutput,
     ListWorkspaceArtifactsOutput,
     PlannedToolCall,
 )
 from domain.artifacts.models import ArtifactKind, ArtifactSourceType, create_artifact
 from domain.evidence.models import EvidenceMatch
+from domain.shipments.models import NormalizedShipment
 from domain.workspaces.principals import WorkspacePrincipal
 from domain.workspaces.sessions import SessionSigner, WorkspaceSession
 from persistence.agent import (
@@ -112,7 +114,7 @@ def test_agent_plan_schema_closes_every_tool_argument_object():
 
     assert not _contains_open_object_schema(schema)
     argument_schema = schema["$defs"]["PlannedToolCall"]["properties"]["arguments"]
-    assert len(argument_schema["anyOf"]) == 7
+    assert len(argument_schema["anyOf"]) == 8
 
 
 def principal_for(workspace_id: str = "demo-agent") -> WorkspacePrincipal:
@@ -318,6 +320,66 @@ def test_typed_runtime_persists_validated_calculation_and_concise_tool_event():
     assert detail.tool_events[0].result_count == 1
     assert consumed == [principal.workspace_id]
     assert planner.questions == ["Estimate one tonne by rail for 100 km."]
+
+
+def test_typed_shipment_analytics_reconciles_metric_chart_table_and_tool_event():
+    workspace_id = "demo-agent-analytics"
+    shipment_repository = InMemoryShipmentRepository()
+    shipment_repository.replace_for_workspace(
+        workspace_id,
+        "00000000-0000-4000-8000-000000000030",
+        (
+            NormalizedShipment(
+                shipment_id="S-001",
+                shipment_date=date(2025, 12, 5),
+                origin="Edmonton",
+                destination="Calgary",
+                weight_kg=1_000,
+                distance_km=100,
+                transport_method="truck",
+                source_row=2,
+            ),
+            NormalizedShipment(
+                shipment_id="S-002",
+                shipment_date=date(2026, 1, 12),
+                origin="Calgary",
+                destination="Vancouver",
+                weight_kg=2_000,
+                distance_km=1_000,
+                transport_method="train",
+                source_row=3,
+            ),
+        ),
+    )
+    registry = AgentToolRegistry(
+        artifact_repository=InMemoryArtifactRepository(),
+        evidence_repository=InMemoryEvidenceRepository(),
+        shipment_repository=shipment_repository,
+        evidence_search=empty_search,
+    )
+    execution = asyncio.run(
+        registry.execute(
+            workspace_id,
+            PlannedToolCall(
+                call_id="analytics-1",
+                tool_name=AgentToolName.ANALYZE_SHIPMENT_EMISSIONS,
+                arguments={"granularity": "month"},
+            ),
+        )
+    )
+
+    assert execution.event.status is ToolEventStatus.SUCCEEDED
+    assert execution.event.result_count == 2
+    assert isinstance(execution.output, AnalyzeShipmentEmissionsOutput)
+    response, _ = compose_agent_response((execution,), processing_time_ms=2)
+    emissions_metric = next(
+        block for block in response.blocks if block.type == "metric" and block.unit == "kg CO2e"
+    )
+    chart = next(block for block in response.blocks if block.type == "chart")
+    chart_total = sum(float(row[series.key]) for row in chart.rows for series in chart.series)
+    assert round(chart_total, 6) == emissions_metric.value == 50.2
+    assert chart.table_fallback.rows == chart.rows
+    assert chart.table_fallback.columns[-1].key == "total_emissions_kg"
 
 
 def test_empty_plan_returns_a_valid_unsupported_request_warning():

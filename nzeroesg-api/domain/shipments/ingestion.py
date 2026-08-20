@@ -7,6 +7,7 @@ import io
 import math
 import re
 from dataclasses import dataclass
+from datetime import date, datetime
 
 from domain.emissions.modes import normalize_mode
 from domain.emissions.units import normalize_distance_km, normalize_weight_kg
@@ -16,6 +17,18 @@ MAX_FILE_BYTES = 10 * 1024 * 1024
 MAX_ROWS = 500
 REQUIRED_HEADERS = (
     "shipment_id",
+    "origin",
+    "destination",
+    "weight_value",
+    "weight_unit",
+    "distance_value",
+    "distance_unit",
+    "transport_method",
+)
+OPTIONAL_HEADERS = ("shipment_date",)
+EXPORT_HEADERS = (
+    "shipment_id",
+    "shipment_date",
     "origin",
     "destination",
     "weight_value",
@@ -45,6 +58,10 @@ HEADER_ALIASES = {
     "shipment": "shipment_id",
     "shipment_reference": "shipment_id",
     "reference": "shipment_id",
+    "date": "shipment_date",
+    "ship_date": "shipment_date",
+    "shipping_date": "shipment_date",
+    "departure_date": "shipment_date",
     "from": "origin",
     "origin_location": "origin",
     "origin_city": "origin",
@@ -164,6 +181,38 @@ def _parse_positive_number(
     return number
 
 
+def _parse_optional_date(
+    value: str,
+    *,
+    row_number: int,
+    errors: list[ValidationIssue],
+) -> date | None:
+    """Normalize a supplied shipment date while allowing legacy undated rows."""
+
+    if not value:
+        return None
+    normalized = value.strip()
+    try:
+        parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00")).date()
+    except ValueError:
+        parsed = None
+        for date_format in ("%Y/%m/%d", "%m/%d/%Y"):
+            try:
+                parsed = datetime.strptime(normalized, date_format).date()
+                break
+            except ValueError:
+                continue
+    if parsed is None or not 1900 <= parsed.year <= 2100:
+        _issue(
+            errors,
+            row_number=row_number,
+            field="shipment_date",
+            message="Date must use ISO YYYY-MM-DD format and fall between 1900 and 2100.",
+        )
+        return None
+    return parsed
+
+
 def parse_shipments_csv(
     content: bytes,
     *,
@@ -259,8 +308,9 @@ def parse_shipments_csv(
                 ),
             )
             return ShipmentParseResult(rows=(), errors=tuple(errors), warnings=())
+        accepted_headers = set(REQUIRED_HEADERS) | set(OPTIONAL_HEADERS)
         ignored_headers = [
-            header for header in normalized_headers if header not in REQUIRED_HEADERS
+            header for header in normalized_headers if header not in accepted_headers
         ]
         if ignored_headers:
             warnings.append(f"Ignored optional columns: {', '.join(ignored_headers)}.")
@@ -291,6 +341,11 @@ def parse_shipments_csv(
                 field="shipment_id",
                 row_number=row_number,
                 max_length=80,
+                errors=row_errors,
+            )
+            shipment_date = _parse_optional_date(
+                _cell(normalized_row, "shipment_date"),
+                row_number=row_number,
                 errors=row_errors,
             )
             origin = _validate_text(
@@ -366,6 +421,7 @@ def parse_shipments_csv(
             rows.append(
                 NormalizedShipment(
                     shipment_id=shipment_id,
+                    shipment_date=shipment_date,
                     origin=origin,
                     destination=destination,
                     weight_kg=weight_kg,

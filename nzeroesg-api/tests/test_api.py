@@ -280,7 +280,7 @@ def test_demo_data_is_explicit_idempotent_and_downloadable():
         "loaded": True,
         "has_artifacts": True,
         "artifact_count": 4,
-        "shipment_count": 6,
+        "shipment_count": 36,
         "supplier_count": 24,
         "evidence_document_count": 3,
     }
@@ -297,10 +297,36 @@ def test_demo_data_is_explicit_idempotent_and_downloadable():
     shipments_export = demo_client.get("/shipments/export")
     suppliers_export = demo_client.get("/suppliers/export")
     assert shipments_export.status_code == 200
+    assert shipments_export.content.startswith(b"shipment_id,shipment_date,")
     assert b"CS-1001" in shipments_export.content
     assert suppliers_export.status_code == 200
     assert b"Boreal Components" in suppliers_export.content
     assert b"Coastal Biofuels" in suppliers_export.content
+
+    monthly = demo_client.get("/shipments/analytics", params={"granularity": "month"})
+    yearly = demo_client.get("/shipments/analytics", params={"granularity": "year"})
+    filtered = demo_client.get(
+        "/shipments/analytics",
+        params={
+            "granularity": "month",
+            "start_date": "2026-01-01",
+            "end_date": "2026-03-31",
+            "mode": "train",
+        },
+    )
+    assert monthly.status_code == yearly.status_code == filtered.status_code == 200
+    monthly_payload = monthly.json()
+    assert len(monthly_payload["timeline"]) == 12
+    assert (
+        round(
+            sum(period["emissions_kg"] for period in monthly_payload["timeline"]),
+            6,
+        )
+        == monthly_payload["total_emissions_kg"]
+    )
+    assert [period["period"] for period in yearly.json()["timeline"]] == ["2025", "2026"]
+    assert filtered.json()["filters"]["modes"] == ["train"]
+    assert filtered.json()["shipment_count"] == 3
 
 
 def test_demo_data_can_be_unloaded_without_removing_user_uploads():
