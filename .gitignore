@@ -27,6 +27,7 @@ secrets.yml
 ### JavaScript
 node_modules/
 .next/
+/nzeroesg-client/.next-playwright*/
 coverage/
 *.tsbuildinfo
 next-env.d.ts

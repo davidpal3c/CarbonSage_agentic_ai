@@ -1,6 +1,7 @@
 """Framework-independent shipment records and validation issues."""
 
 from dataclasses import dataclass
+from datetime import date
 
 
 @dataclass(frozen=True)
@@ -26,10 +27,14 @@ class NormalizedShipment:
     distance_km: float
     transport_method: str
     source_row: int
+    shipment_date: date | None = None
 
-    def to_dict(self) -> dict[str, int | float | str]:
+    def to_dict(self) -> dict[str, int | float | str | None]:
         return {
             "shipment_id": self.shipment_id,
+            "shipment_date": (
+                self.shipment_date.isoformat() if self.shipment_date is not None else None
+            ),
             "origin": self.origin,
             "destination": self.destination,
             "weight_kg": self.weight_kg,

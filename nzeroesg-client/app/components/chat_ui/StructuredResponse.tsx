@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AlertTriangle, BarChart3, FileText, Quote } from "lucide-react";
 
 import { Spinner } from "@/app/components/Spinner";
+import { StructuredDataChart } from "@/app/components/charts/CarbonCharts";
 import type {
   ActionBlock,
   AgentResponseEnvelope,
@@ -80,55 +81,21 @@ function DataTable({ table }: { table: TableBlock }) {
 }
 
 function Chart({ block }: { block: ChartBlock }) {
-  const values = block.rows.flatMap((row) =>
-    block.series.map((series) => {
-      const value = row[series.key];
-      return typeof value === "number" ? Math.abs(value) : 0;
-    }),
-  );
-  const maximum = Math.max(...values, 0.000001);
-
   return (
     <article className="rounded-xl border border-border bg-background p-4">
       <div className="mb-4 flex items-center gap-2">
         <BarChart3 aria-hidden="true" className="h-5 w-5 text-accent" />
         <h4 className="font-semibold text-primary">{block.title}</h4>
       </div>
-      <div
-        role="img"
-        aria-label={`${block.title}. A ${block.chart_kind} chart; the exact values follow in a table.`}
-        className="space-y-4"
-      >
-        {block.rows.map((row, rowIndex) => (
-          <div key={rowIndex}>
-            <p className="mb-1 text-xs font-semibold text-primary">
-              {formatValue(row[block.x_key] ?? null)}
-            </p>
-            <div className="space-y-2">
-              {block.series.map((series) => {
-                const rawValue = row[series.key];
-                const value = typeof rawValue === "number" ? rawValue : 0;
-                return (
-                  <div key={series.key}>
-                    <div className="mb-1 flex justify-between gap-3 text-xs text-muted-foreground">
-                      <span>{series.label}</span>
-                      <span>{formatValue(value, series.unit)}</span>
-                    </div>
-                    <div className="h-2.5 rounded-full bg-border">
-                      <div
-                        className="h-2.5 min-w-0 rounded-full bg-accent"
-                        style={{
-                          width: `${Math.max(0, Math.min(100, (Math.abs(value) / maximum) * 100))}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
+      <StructuredDataChart
+        title={block.title}
+        description={`${block.title}. Interactive ${block.chart_kind} chart. Exact values follow in a table.`}
+        kind={block.chart_kind}
+        data={block.rows}
+        xKey={block.x_key}
+        series={block.series}
+        height={Math.max(220, Math.min(340, block.rows.length * 34))}
+      />
       <details className="mt-4 rounded-lg bg-muted px-3 py-2 text-primary">
         <summary className="cursor-pointer text-xs font-semibold">
           View exact chart data

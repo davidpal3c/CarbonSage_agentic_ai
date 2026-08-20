@@ -30,6 +30,7 @@ class ShipmentRepository(Protocol):
 def _clone(shipment: NormalizedShipment) -> NormalizedShipment:
     return NormalizedShipment(
         shipment_id=shipment.shipment_id,
+        shipment_date=shipment.shipment_date,
         origin=shipment.origin,
         destination=shipment.destination,
         weight_kg=shipment.weight_kg,
@@ -94,9 +95,9 @@ class PostgresShipmentRepository:
                 cursor.executemany(
                     """
                     INSERT INTO shipments
-                        (record_id, workspace_id, artifact_id, shipment_id, origin, destination,
-                         weight_kg, distance_km, transport_method, source_row)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        (record_id, workspace_id, artifact_id, shipment_id, shipment_date,
+                         origin, destination, weight_kg, distance_km, transport_method, source_row)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     [
                         (
@@ -104,6 +105,7 @@ class PostgresShipmentRepository:
                             workspace_id,
                             artifact_id,
                             shipment.shipment_id,
+                            shipment.shipment_date,
                             shipment.origin,
                             shipment.destination,
                             shipment.weight_kg,
@@ -121,8 +123,8 @@ class PostgresShipmentRepository:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT shipment_id, origin, destination, weight_kg, distance_km,
-                           transport_method, source_row
+                    SELECT shipment_id, shipment_date, origin, destination, weight_kg,
+                           distance_km, transport_method, source_row
                     FROM shipments AS shipment
                     JOIN artifacts AS artifact
                       ON artifact.artifact_id = shipment.artifact_id
@@ -137,12 +139,13 @@ class PostgresShipmentRepository:
         return tuple(
             NormalizedShipment(
                 shipment_id=row[0],
-                origin=row[1],
-                destination=row[2],
-                weight_kg=row[3],
-                distance_km=row[4],
-                transport_method=row[5],
-                source_row=row[6],
+                shipment_date=row[1],
+                origin=row[2],
+                destination=row[3],
+                weight_kg=row[4],
+                distance_km=row[5],
+                transport_method=row[6],
+                source_row=row[7],
             )
             for row in rows
         )

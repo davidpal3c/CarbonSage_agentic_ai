@@ -1,9 +1,9 @@
 import { expect, type Page, type Route, test } from "@playwright/test";
 
 const shipmentCsv = [
-  "shipment_id,origin,destination,weight_value,weight_unit,distance_value,distance_unit,transport_method",
-  "S-001,Edmonton,Calgary,1,mt,100,km,truck",
-  "S-002,Vancouver,Seattle,500,kg,200,km,train",
+  "shipment_id,shipment_date,origin,destination,weight_value,weight_unit,distance_value,distance_unit,transport_method",
+  "S-001,2026-01-12,Edmonton,Calgary,1,mt,100,km,truck",
+  "S-002,2026-02-18,Vancouver,Seattle,500,kg,200,km,train",
 ].join("\n");
 
 const supplierEvidence =
@@ -22,7 +22,9 @@ async function enterWorkspace(page: Page) {
     page.getByRole("heading", { name: "Enter the demo workspace" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Enter demo workspace" }).click();
-  await expect(page).toHaveURL(/\/dashboard\/agent$/);
+  await expect(page).toHaveURL(/\/dashboard\/agent$/, {
+    timeout: backendActionTimeout,
+  });
   await expect(
     page.getByRole("heading", { name: "Ask CarbonSage" }),
   ).toBeVisible();
@@ -77,7 +79,7 @@ test("completes the five-minute demo workflow and exports a report", async ({
   await expect(
     page.getByRole("table").last().getByRole("cell", { name: "S-001" }),
   ).toBeVisible();
-  await expect(page.getByText("Emissions by mode")).toBeVisible();
+  await expect(page.getByText("Emissions by mode over time")).toBeVisible();
   await expect(page.getByText("Top shipment hotspots")).toBeVisible();
   await openWorkspacePage(page, "Artifacts", "artifacts");
   await expect(page.getByText("Shipment dataset", { exact: true })).toBeVisible(
@@ -183,6 +185,13 @@ test("completes the five-minute demo workflow and exports a report", async ({
 test("loads the fictional demo dataset from the agent or integrations", async ({
   page,
 }) => {
+  let shipmentRequests = 0;
+  let analyticsRequests = 0;
+  page.on("request", (request) => {
+    const pathname = new URL(request.url()).pathname;
+    if (pathname === "/shipments") shipmentRequests += 1;
+    if (pathname === "/shipments/analytics") analyticsRequests += 1;
+  });
   await enterWorkspace(page);
   await expect(
     page.getByRole("button", { name: "Load demo data" }),
@@ -191,7 +200,7 @@ test("loads the fictional demo dataset from the agent or integrations", async ({
   await openWorkspacePage(page, "Integrations", "integrations");
   await page.getByRole("button", { name: "Load demo data" }).click();
   await expect(
-    page.getByText("24 suppliers · 6 shipments · 3 cited documents"),
+    page.getByText("24 suppliers · 36 shipments · 3 cited documents"),
   ).toBeVisible({ timeout: backendActionTimeout });
 
   await openWorkspacePage(page, "Artifacts", "artifacts");
@@ -222,7 +231,30 @@ test("loads the fictional demo dataset from the agent or integrations", async ({
   ).toBeVisible();
 
   await openWorkspacePage(page, "Shipments", "shipments");
-  await expect(page.getByText("6", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("36", { exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: /Stacked month freight emissions/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: "Top shipment emissions hotspots" }),
+  ).toBeVisible();
+  await page.getByLabel("Group by").selectOption("year");
+  await expect(
+    page.getByText("Stacked year totals; hover or focus the chart"),
+  ).toBeVisible({ timeout: backendActionTimeout });
+  await expect.poll(() => analyticsRequests).toBe(1);
+
+  await openWorkspacePage(page, "Overview", "overview");
+  await expect(
+    page.getByText("Total emissions", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("img", {
+      name: "Freight emissions trend by transport mode",
+    }),
+  ).toBeVisible();
+  await openWorkspacePage(page, "Shipments", "shipments");
+  expect(shipmentRequests).toBe(1);
   await openWorkspacePage(page, "Suppliers", "evidence");
   await expect(
     page.getByText("Boreal Components", { exact: true }),
@@ -344,7 +376,7 @@ test("explains when a supplier CSV is selected as shipment data", async ({
     timeout: backendActionTimeout,
   });
   await expect(page.getByText(/This looks like supplier data/)).toBeVisible();
-  await expect(page.getByText("Emissions by mode")).toHaveCount(0);
+  await expect(page.getByText("Emissions by mode over time")).toHaveCount(0);
 });
 
 test("keeps the deterministic workspace usable when the agent is disabled", async ({
