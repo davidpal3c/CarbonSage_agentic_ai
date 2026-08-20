@@ -186,7 +186,18 @@ def test_typed_agent_api_returns_validated_blocks_and_enforces_workspace_scope(
         "context": "1000 kg over 100 km · prototype-2026.1",
     }
     owner_session = owner.get("/demo/session").json()
-    assert owner_session["quotas"]["assistant_requests_per_day"]["used"] == 1
+    assert owner_session["quotas"]["assistant_requests_per_day"] == {
+        "used": 1,
+        "limit": 15,
+    }
+    usage = owner.get("/agent/usage")
+    assert usage.status_code == 200
+    assert usage.json()["questions_used"] == 1
+    assert usage.json()["question_limit"] == 15
+    assert usage.json()["questions_remaining"] == 14
+    assert usage.json()["model_calls"] == 0
+    assert usage.json()["spend_usd"] == 0
+    assert usage.json()["currency"] == "USD"
     assert other_workspace.get(f"/agent/conversations/{conversation_id}").status_code == 404
 
 

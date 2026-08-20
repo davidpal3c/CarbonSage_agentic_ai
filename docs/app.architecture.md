@@ -219,6 +219,8 @@ list_workspace_artifacts
 search_supplier_evidence
 get_citation_context
 calculate_freight_emissions
+analyze_shipment_emissions
+recommend_shipment_supplier
 compare_transport_scenarios
 summarize_data_quality
 build_decision_report

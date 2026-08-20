@@ -607,6 +607,21 @@ test("renders a typed interactive response with keyboard-accessible chart data",
       },
     }),
   );
+  await page.route("**/agent/usage", (route) =>
+    route.fulfill({
+      headers: corsHeaders(route),
+      json: {
+        questions_used: 1,
+        question_limit: 15,
+        questions_remaining: 14,
+        model_calls: 1,
+        spend_usd: 0.0012,
+        spend_is_estimate: true,
+        currency: "USD",
+        resets_at: new Date(Date.now() + 3_600_000).toISOString(),
+      },
+    }),
+  );
   await page.route("**/agent/conversations", (route) => {
     if (route.request().method() === "GET") {
       return route.fulfill({
@@ -791,6 +806,7 @@ test("renders a typed interactive response with keyboard-accessible chart data",
   await expect(
     agentDialog.getByRole("img", { name: /Rail and air emissions/ }),
   ).toBeVisible();
+  await expect(agentDialog.getByText("14 left · <1¢")).toBeVisible();
   const chartTableToggle = agentDialog.getByText("View exact chart data");
   await chartTableToggle.focus();
   await expect(chartTableToggle).toBeFocused();
@@ -817,6 +833,10 @@ test("renders a typed interactive response with keyboard-accessible chart data",
     ),
   ).toBeVisible();
   await agentDialog.getByText("Response details · 18 ms").click();
+  await expect(
+    agentDialog.getByText("14 questions remaining").first(),
+  ).toBeVisible();
+  await expect(agentDialog.getByText("<$0.01 USD").first()).toBeVisible();
   await expect(agentDialog.getByText("Sources verified").first()).toBeVisible();
   await expect(
     agentDialog.getByText("18 ms", { exact: true }).first(),

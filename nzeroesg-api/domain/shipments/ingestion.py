@@ -25,10 +25,11 @@ REQUIRED_HEADERS = (
     "distance_unit",
     "transport_method",
 )
-OPTIONAL_HEADERS = ("shipment_date",)
+OPTIONAL_HEADERS = ("shipment_date", "supplier_name")
 EXPORT_HEADERS = (
     "shipment_id",
     "shipment_date",
+    "supplier_name",
     "origin",
     "destination",
     "weight_value",
@@ -62,6 +63,11 @@ HEADER_ALIASES = {
     "ship_date": "shipment_date",
     "shipping_date": "shipment_date",
     "departure_date": "shipment_date",
+    "supplier": "supplier_name",
+    "vendor": "supplier_name",
+    "vendor_name": "supplier_name",
+    "carrier": "supplier_name",
+    "carrier_name": "supplier_name",
     "from": "origin",
     "origin_location": "origin",
     "origin_city": "origin",
@@ -154,6 +160,25 @@ def _validate_text(
         )
         return None
     return value
+
+
+def _validate_optional_text(
+    value: str,
+    *,
+    field: str,
+    row_number: int,
+    max_length: int,
+    errors: list[ValidationIssue],
+) -> str | None:
+    if not value:
+        return None
+    return _validate_text(
+        value,
+        field=field,
+        row_number=row_number,
+        max_length=max_length,
+        errors=errors,
+    )
 
 
 def _parse_positive_number(
@@ -348,6 +373,13 @@ def parse_shipments_csv(
                 row_number=row_number,
                 errors=row_errors,
             )
+            supplier_name = _validate_optional_text(
+                _cell(normalized_row, "supplier_name"),
+                field="supplier_name",
+                row_number=row_number,
+                max_length=200,
+                errors=row_errors,
+            )
             origin = _validate_text(
                 _cell(normalized_row, "origin"),
                 field="origin",
@@ -422,6 +454,7 @@ def parse_shipments_csv(
                 NormalizedShipment(
                     shipment_id=shipment_id,
                     shipment_date=shipment_date,
+                    supplier_name=supplier_name,
                     origin=origin,
                     destination=destination,
                     weight_kg=weight_kg,

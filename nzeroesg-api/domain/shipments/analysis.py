@@ -14,16 +14,32 @@ AnalyticsGranularity = Literal["month", "year"]
 
 
 @dataclass(frozen=True)
+class SupplierContribution:
+    supplier_name: str | None
+    shipment_count: int
+    emissions_kg: float
+
+    def to_dict(self) -> dict[str, str | int | float | None]:
+        return {
+            "supplier_name": self.supplier_name,
+            "shipment_count": self.shipment_count,
+            "emissions_kg": round(self.emissions_kg, 6),
+        }
+
+
+@dataclass(frozen=True)
 class ModeBreakdown:
     shipment_count: int
     weight_kg: float
     emissions_kg: float
+    suppliers: tuple[SupplierContribution, ...]
 
-    def to_dict(self) -> dict[str, int | float]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "shipment_count": self.shipment_count,
             "weight_kg": round(self.weight_kg, 6),
             "emissions_kg": round(self.emissions_kg, 6),
+            "suppliers": [supplier.to_dict() for supplier in self.suppliers],
         }
 
 
@@ -31,6 +47,7 @@ class ModeBreakdown:
 class ShipmentHotspot:
     shipment_id: str
     shipment_date: date | None
+    supplier_name: str | None
     origin: str
     destination: str
     transport_method: str
@@ -42,6 +59,7 @@ class ShipmentHotspot:
             "shipment_date": (
                 self.shipment_date.isoformat() if self.shipment_date is not None else None
             ),
+            "supplier_name": self.supplier_name,
             "origin": self.origin,
             "destination": self.destination,
             "transport_method": self.transport_method,
@@ -178,6 +196,7 @@ def analyze_shipments(
     )
 
     mode_totals: dict[str, list[float]] = {}
+    mode_supplier_totals: dict[str, dict[str | None, list[float]]] = {}
     period_totals: dict[tuple[date | None, str], dict[str, object]] = {}
     hotspots: list[ShipmentHotspot] = []
     total_weight = 0.0
@@ -204,6 +223,11 @@ def analyze_shipments(
         mode_values[0] += 1
         mode_values[1] += shipment.weight_kg
         mode_values[2] += result.emissions_kg
+        supplier_values = mode_supplier_totals.setdefault(shipment.transport_method, {}).setdefault(
+            shipment.supplier_name, [0.0, 0.0]
+        )
+        supplier_values[0] += 1
+        supplier_values[1] += result.emissions_kg
 
         period_key = _period_identity(shipment.shipment_date, granularity)
         period_values = period_totals.setdefault(
@@ -228,6 +252,7 @@ def analyze_shipments(
             ShipmentHotspot(
                 shipment_id=shipment.shipment_id,
                 shipment_date=shipment.shipment_date,
+                supplier_name=shipment.supplier_name,
                 origin=shipment.origin,
                 destination=shipment.destination,
                 transport_method=shipment.transport_method,
@@ -282,6 +307,21 @@ def analyze_shipments(
                 shipment_count=int(values[0]),
                 weight_kg=values[1],
                 emissions_kg=values[2],
+                suppliers=tuple(
+                    SupplierContribution(
+                        supplier_name=supplier_name,
+                        shipment_count=int(supplier_values[0]),
+                        emissions_kg=supplier_values[1],
+                    )
+                    for supplier_name, supplier_values in sorted(
+                        mode_supplier_totals[mode].items(),
+                        key=lambda item: (
+                            -item[1][1],
+                            item[0] is None,
+                            item[0] or "",
+                        ),
+                    )
+                ),
             )
             for mode, values in sorted(mode_totals.items())
         },

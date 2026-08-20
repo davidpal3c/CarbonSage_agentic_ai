@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime, time, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -10,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from agent.evidence_support import LlmEvidenceSupportAssessor
 from agent.planner import LlmAgentPlanner
+from agent.usage import ModelInvocationUsage
 from api.artifacts import artifact_repository
 from api.evidence import _search_with_mode, evidence_repository
 from api.shipments import shipment_repository
@@ -29,6 +31,7 @@ from persistence.agent import (
     AgentConversationNotFoundError,
     build_agent_repository,
 )
+from persistence.agent_usage import build_agent_usage_repository
 from persistence.workspaces import QuotaExceededError, WorkspaceNotFoundError
 from services.agent_runtime import (
     AgentRuntimeService,
@@ -40,6 +43,7 @@ from services.agent_tools import AgentToolRegistry
 logger = logging.getLogger(__name__)
 agent_router = APIRouter(prefix="/agent", tags=["agent"])
 agent_repository = build_agent_repository(database_url_for_runtime())
+agent_usage_repository = build_agent_usage_repository(database_url_for_runtime())
 
 
 async def _agent_evidence_search(
@@ -56,6 +60,13 @@ async def _agent_evidence_search(
 
 def _consume_assistant_request(workspace_id: str) -> None:
     workspace_repository.consume_quota(workspace_id, "assistant_requests_per_day")
+
+
+def _record_agent_usage(workspace_id: str, usage: ModelInvocationUsage) -> None:
+    try:
+        agent_usage_repository.record(workspace_id, usage)
+    except Exception:
+        logger.exception("CarbonSage agent usage accounting failed")
 
 
 def _configured_model_components():
@@ -80,6 +91,7 @@ agent_runtime_service = AgentRuntimeService(
     tools=agent_tools,
     planner=agent_planner,
     consume_request=_consume_assistant_request,
+    record_usage=_record_agent_usage,
     evidence_assessor=agent_evidence_assessor,
 )
 
@@ -99,6 +111,17 @@ class SubmitMessageRequest(BaseModel):
 class MessageExchangeResponse(BaseModel):
     user_message: AgentMessage
     assistant_message: AgentMessage
+
+
+class AgentUsageResponse(BaseModel):
+    questions_used: int
+    question_limit: int
+    questions_remaining: int
+    model_calls: int
+    spend_usd: float
+    spend_is_estimate: bool
+    currency: str = "USD"
+    resets_at: datetime
 
 
 def _runtime_exception(exc: Exception) -> HTTPException:
@@ -160,6 +183,27 @@ async def agent_health() -> dict[str, str | bool | None]:
         "provider": settings.llm_provider or None,
         "model": configured_model,
     }
+
+
+@agent_router.get("/usage", response_model=AgentUsageResponse)
+async def agent_usage(
+    principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
+) -> AgentUsageResponse:
+    session = workspace_repository.get(principal.workspace_id)
+    if session is None:
+        raise _runtime_exception(WorkspaceNotFoundError(principal.workspace_id))
+    quota = session.quotas["assistant_requests_per_day"]
+    usage = agent_usage_repository.get_today(principal.workspace_id)
+    tomorrow = datetime.now(UTC).date() + timedelta(days=1)
+    return AgentUsageResponse(
+        questions_used=quota.used,
+        question_limit=quota.limit,
+        questions_remaining=max(0, quota.limit - quota.used),
+        model_calls=usage.model_calls,
+        spend_usd=float(round(usage.total_cost_usd, 8)),
+        spend_is_estimate=usage.cost_is_estimate,
+        resets_at=datetime.combine(tomorrow, time.min, tzinfo=UTC),
+    )
 
 
 @agent_router.post(

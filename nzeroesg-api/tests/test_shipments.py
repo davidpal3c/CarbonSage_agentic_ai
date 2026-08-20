@@ -57,6 +57,21 @@ def test_optional_shipment_dates_accept_aliases_and_reject_invalid_values():
     assert "ISO YYYY-MM-DD" in invalid.errors[0].message
 
 
+def test_optional_supplier_alias_is_normalized_and_used_in_mode_analysis():
+    parsed = parse_shipments_csv(
+        b"shipment_id,vendor,origin,destination,weight_value,weight_unit,"
+        b"distance_value,distance_unit,transport_method\n"
+        b"S-001,Northstar Logistics,Toronto,Vancouver,1,mt,4400,km,train\n"
+        b"S-002,Aurora Packaging,Toronto,Vancouver,1,mt,4400,km,truck\n"
+    )
+
+    assert parsed.errors == ()
+    assert parsed.rows[0].supplier_name == "Northstar Logistics"
+    analysis = analyze_shipments(parsed.rows)
+    assert analysis.mode_breakdown["train"].suppliers[0].supplier_name == ("Northstar Logistics")
+    assert analysis.mode_breakdown["truck"].suppliers[0].supplier_name == ("Aurora Packaging")
+
+
 def test_partial_csv_keeps_valid_rows_and_reports_row_level_errors():
     result = parse_shipments_csv(
         (

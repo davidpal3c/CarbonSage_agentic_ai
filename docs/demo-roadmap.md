@@ -230,7 +230,8 @@ Public demo limits:
 - Maximum 10 MB per file.
 - Text-based documents only.
 - Maximum 10 analysis/scenario runs per workspace per day.
-- Maximum 3 agent requests per workspace per day.
+- Maximum 15 agent requests per workspace per UTC day, with question use and
+  USD spend visible to the reviewer.
 - Workspace and extracted document retention of 24 hours by default.
 - Source-object storage limits of 4 GB active, 10,000 writes, 100,000 reads, and
   2 GB metered egress per calendar month, enforced before provider calls.
@@ -1019,6 +1020,59 @@ Promotion gate:
 - Resume the roadmap with the authenticated JavaScript embed, followed by the
   selected-file Google Drive connector and optional MCP interoperability
   surface.
+
+### Phase 10.5 — Grounded supplier-aware agent answers
+
+Implementation evidence (completed on the feature branch 2026-08-20):
+
+- Migration `009_agent_answer_accuracy.sql` adds optional supplier linkage to
+  normalized shipments, raises existing demo assistant allowances to 15
+  questions per UTC day, and adds workspace-scoped daily model-call and USD
+  cost accounting. Older shipment files remain valid without invented supplier
+  values.
+- The fictional shipment history identifies suppliers and provides two exact
+  Toronto-to-Vancouver options: Northstar Logistics by train and Aurora
+  Packaging by truck. Mode analytics now reconcile supplier contributions with
+  the same deterministic emissions totals used by the dashboard.
+- Current-question intent is authoritative. A highest-footprint shipment
+  question selects only shipment analytics; an origin, destination, weight,
+  and supplier-efficiency question selects only the typed exact-lane supplier
+  recommendation. Conversation history is supplied to planning only when the
+  user explicitly refers to a previous result.
+- Supplier recommendations recalculate validated historical exact-lane options
+  at the requested weight, rank one option per supplier, state the historical
+  shipment and distance used, and abstain when lane or supplier linkage is
+  absent. They do not invent route distance, price, capacity, or procurement
+  approval.
+- Structured answers lead with the requested decision, then expose reconciled
+  metrics, interactive Recharts visuals, and exact table fallbacks. The
+  supplier recommendation for 1,008 kg from Toronto to Vancouver resolves to
+  Northstar Logistics by train at `97.5744 kg CO2e`, using the 4,400 km
+  historical lane.
+- The agent header and response-details panel expose questions remaining and
+  provider-reported USD spend, with a clearly labelled model-price estimate
+  only when provider cost metadata is unavailable. Token counts remain an
+  internal accounting detail.
+- Credential-free backend tests cover the reported prompts, exact tool
+  selection, supplier-linked ingestion and analytics, recommendation
+  reconciliation, abstention boundaries, daily allowance state, and exact or
+  estimated cost accounting. Ruff, TypeScript, ESLint, and the production
+  Next.js build validate the complete response path.
+
+Exit gate:
+
+> With demo data loaded, the reported highest-footprint question returns the
+> leading mode and its largest supplier contributor. The Toronto-to-Vancouver
+> supplier question returns Northstar's exact-lane train option with matching
+> answer, metric, interactive chart, exact table, distance, and deterministic
+> calculation. A reviewer can see the remaining daily question allowance and
+> USD spend without token terminology.
+
+Promotion gate:
+
+- Publish `feature/agent-answer-accuracy` to `dev` and hold `main` for review.
+- Before production promotion, verify migration 009 on PostgreSQL and repeat
+  both exact prompts against the deployed Render API and Vercel client.
 
 ### Phase 11 — Authenticated JavaScript embed
 

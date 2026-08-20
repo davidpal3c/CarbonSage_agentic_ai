@@ -1056,6 +1056,7 @@ export function WorkspaceSectionPage({
                                 <tr>
                                   <th className="px-2 py-2">Shipment</th>
                                   <th className="px-2 py-2">Date</th>
+                                  <th className="px-2 py-2">Supplier</th>
                                   <th className="px-2 py-2">Route</th>
                                   <th className="px-2 py-2">Emissions</th>
                                 </tr>
@@ -1071,6 +1072,9 @@ export function WorkspaceSectionPage({
                                     </td>
                                     <td className="px-2 py-2">
                                       {hotspot.shipment_date ?? "Undated"}
+                                    </td>
+                                    <td className="px-2 py-2">
+                                      {hotspot.supplier_name ?? "Not provided"}
                                     </td>
                                     <td className="px-2 py-2">
                                       {hotspot.origin} → {hotspot.destination}
@@ -1103,6 +1107,7 @@ export function WorkspaceSectionPage({
                         <tr>
                           <th className="px-4 py-3">Shipment</th>
                           <th className="px-4 py-3">Date</th>
+                          <th className="px-4 py-3">Supplier</th>
                           <th className="px-4 py-3">Route</th>
                           <th className="px-4 py-3">Weight</th>
                           <th className="px-4 py-3">Distance</th>
@@ -1120,6 +1125,9 @@ export function WorkspaceSectionPage({
                             </td>
                             <td className="px-4 py-3 text-muted-foreground">
                               {row.shipment_date ?? "Undated"}
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground">
+                              {row.supplier_name ?? "Not provided"}
                             </td>
                             <td className="px-4 py-3 text-muted-foreground">
                               {row.origin} → {row.destination}

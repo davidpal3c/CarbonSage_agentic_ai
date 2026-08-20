@@ -26,6 +26,7 @@ from domain.agent.tools import (
     CompareTransportScenariosOutput,
     GetCitationContextOutput,
     ListWorkspaceArtifactsOutput,
+    RecommendShipmentSupplierOutput,
     SearchSupplierEvidenceOutput,
     SummarizeDataQualityOutput,
 )
@@ -190,6 +191,24 @@ def compose_agent_response(
                 blocks.append(WarningBlock(code="calculation_warning", message=warning))
         elif isinstance(output, AnalyzeShipmentEmissionsOutput):
             workspace_empty = output.workspace_shipment_count == 0
+            top_mode = output.mode_breakdown[0] if output.mode_breakdown else None
+            top_supplier = top_mode.suppliers[0] if top_mode and top_mode.suppliers else None
+            if top_mode is not None:
+                supplier_phrase = (
+                    f" {top_supplier.supplier_name} is the largest supplier-linked "
+                    f"contributor within that mode at {top_supplier.emissions_kg:,.2f} kg CO2e."
+                    if top_supplier and top_supplier.supplier_name
+                    else " The contributing supplier is not identified in the shipment data."
+                )
+                blocks.append(
+                    TextBlock(
+                        text=(
+                            f"{top_mode.transport_method.title()} has the highest aggregate "
+                            f"shipment footprint at {top_mode.emissions_kg:,.2f} kg CO2e."
+                            + supplier_phrase
+                        )
+                    )
+                )
             blocks.extend(
                 (
                     TextBlock(
@@ -215,6 +234,50 @@ def compose_agent_response(
                     ),
                 )
             )
+            if output.mode_breakdown:
+                mode_rows = [
+                    {
+                        "transport_method": mode.transport_method,
+                        "emissions_kg": mode.emissions_kg,
+                        "top_supplier": (
+                            mode.suppliers[0].supplier_name
+                            if mode.suppliers and mode.suppliers[0].supplier_name
+                            else "Not provided"
+                        ),
+                        "top_supplier_emissions_kg": (
+                            mode.suppliers[0].emissions_kg if mode.suppliers else 0.0
+                        ),
+                    }
+                    for mode in output.mode_breakdown
+                ]
+                blocks.append(
+                    _chart(
+                        title="Emissions by transport mode",
+                        x_key="transport_method",
+                        rows=mode_rows,
+                        series=[
+                            ChartSeries(
+                                key="emissions_kg",
+                                label="Emissions",
+                                unit="kg CO2e",
+                            )
+                        ],
+                        columns=[
+                            TableColumn(key="transport_method", label="Mode"),
+                            TableColumn(
+                                key="emissions_kg",
+                                label="Emissions",
+                                unit="kg CO2e",
+                            ),
+                            TableColumn(key="top_supplier", label="Top supplier"),
+                            TableColumn(
+                                key="top_supplier_emissions_kg",
+                                label="Supplier contribution",
+                                unit="kg CO2e",
+                            ),
+                        ],
+                    )
+                )
             mode_fields = (
                 ("plane", "plane_emissions_kg", "Plane"),
                 ("truck", "truck_emissions_kg", "Truck"),
@@ -233,7 +296,11 @@ def compose_agent_response(
                 ]
                 blocks.append(
                     _chart(
-                        title=f"{output.granularity.title()} emissions by transport mode",
+                        title=(
+                            "Monthly emissions by transport mode"
+                            if output.granularity == "month"
+                            else "Annual emissions by transport mode"
+                        ),
                         x_key="period",
                         rows=rows,
                         series=[
@@ -261,6 +328,7 @@ def compose_agent_response(
                         columns=[
                             TableColumn(key="shipment_id", label="Shipment"),
                             TableColumn(key="shipment_date", label="Date"),
+                            TableColumn(key="supplier_name", label="Supplier"),
                             TableColumn(key="route", label="Route"),
                             TableColumn(key="transport_method", label="Mode"),
                             TableColumn(
@@ -281,6 +349,82 @@ def compose_agent_response(
                 )
             for warning in output.warnings:
                 blocks.append(WarningBlock(code="analytics_warning", message=warning))
+        elif isinstance(output, RecommendShipmentSupplierOutput):
+            if output.recommended_supplier_name is not None:
+                recommended = output.candidates[0]
+                blocks.extend(
+                    (
+                        TextBlock(
+                            text=(
+                                f"{output.recommended_supplier_name} is the lowest-emissions "
+                                f"supplier-linked option in this workspace for {output.origin} "
+                                f"to {output.destination}. The recommendation uses "
+                                f"{recommended.transport_method} history from shipment "
+                                f"{recommended.historical_shipment_id}, not an invented route."
+                            )
+                        ),
+                        MetricBlock(
+                            label="Recommended shipment emissions",
+                            value=output.recommended_emissions_kg or 0.0,
+                            unit="kg CO2e",
+                            context=(
+                                f"{output.weight_kg:g} kg · "
+                                f"{output.recommended_transport_method} · "
+                                f"{recommended.distance_km:g} km"
+                            ),
+                        ),
+                    )
+                )
+                candidate_rows = [
+                    {
+                        "supplier": candidate.supplier_name,
+                        "transport_method": candidate.transport_method,
+                        "distance_km": candidate.distance_km,
+                        "emissions_kg": candidate.estimated_emissions_kg,
+                        "historical_shipment": candidate.historical_shipment_id,
+                    }
+                    for candidate in output.candidates
+                ]
+                blocks.append(
+                    _chart(
+                        title="Supplier-linked lane options",
+                        x_key="supplier",
+                        rows=candidate_rows,
+                        series=[
+                            ChartSeries(
+                                key="emissions_kg",
+                                label="Estimated emissions",
+                                unit="kg CO2e",
+                            )
+                        ],
+                        columns=[
+                            TableColumn(key="supplier", label="Supplier"),
+                            TableColumn(key="transport_method", label="Mode"),
+                            TableColumn(key="distance_km", label="Distance", unit="km"),
+                            TableColumn(
+                                key="emissions_kg",
+                                label="Estimated emissions",
+                                unit="kg CO2e",
+                            ),
+                            TableColumn(
+                                key="historical_shipment",
+                                label="Historical shipment",
+                            ),
+                        ],
+                    )
+                )
+                blocks.append(TextBlock(text=output.basis))
+            else:
+                blocks.append(
+                    TextBlock(
+                        text=(
+                            f"CarbonSage cannot recommend a supplier for {output.origin} to "
+                            f"{output.destination} from the current shipment data."
+                        )
+                    )
+                )
+            for warning in output.warnings:
+                blocks.append(WarningBlock(code="supplier_recommendation_limit", message=warning))
         elif isinstance(output, CompareTransportScenariosOutput):
             rows = [
                 {

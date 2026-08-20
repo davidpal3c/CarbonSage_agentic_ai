@@ -12,6 +12,7 @@ import type {
   AgentConversation,
   AgentResponseEnvelope,
   AgentToolEvent,
+  AgentUsage,
   ArtifactReferenceBlock,
   CitationBlock,
 } from "@/app/types/chat";
@@ -21,6 +22,7 @@ type AgentDetailsPanelProps = {
   conversation: AgentConversation | null;
   response: AgentResponseEnvelope | null;
   toolEvents: AgentToolEvent[];
+  usage: AgentUsage | null;
   className?: string;
   showTitle?: boolean;
 };
@@ -38,6 +40,9 @@ const toolLabels: Record<string, string> = {
   get_citation_context: "Checked source context",
   calculate_freight_emissions: "Calculated freight emissions",
   compare_freight_scenarios: "Compared freight scenarios",
+  compare_transport_scenarios: "Compared freight scenarios",
+  analyze_shipment_emissions: "Analyzed shipment emissions",
+  recommend_shipment_supplier: "Ranked supplier lane options",
   summarize_data_quality: "Reviewed data quality",
   build_decision_report: "Prepared report data",
 };
@@ -56,6 +61,7 @@ export default function AgentDetailsPanel({
   conversation,
   response,
   toolEvents,
+  usage,
   className = "",
   showTitle = true,
 }: AgentDetailsPanelProps) {
@@ -139,6 +145,57 @@ export default function AgentDetailsPanel({
           Source coverage and processing details will appear after a response.
         </p>
       )}
+
+      {usage ? (
+        <section className="mt-6" aria-labelledby="agent-usage-title">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <h4
+                id="agent-usage-title"
+                className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+              >
+                Today&apos;s AI use
+              </h4>
+              <p className="mt-2 text-sm font-semibold text-primary">
+                {usage.questions_remaining} question
+                {usage.questions_remaining === 1 ? "" : "s"} remaining
+              </p>
+            </div>
+            <p className="text-right text-xs text-muted-foreground">
+              {usage.questions_used} of {usage.question_limit} used
+            </p>
+          </div>
+          <div
+            className="mt-3 h-1.5 overflow-hidden rounded-full bg-border"
+            role="progressbar"
+            aria-label="Daily CarbonSage questions used"
+            aria-valuemin={0}
+            aria-valuemax={usage.question_limit}
+            aria-valuenow={usage.questions_used}
+          >
+            <span
+              className="block h-full rounded-full bg-accent transition-[width]"
+              style={{
+                width: `${Math.min(100, (usage.questions_used / usage.question_limit) * 100)}%`,
+              }}
+            />
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2 text-xs">
+            <span className="text-muted-foreground">
+              {usage.spend_is_estimate ? "Estimated spend" : "Provider spend"}
+            </span>
+            <strong className="font-semibold text-primary">
+              {usage.spend_usd > 0 && usage.spend_usd < 0.01
+                ? "<$0.01 USD"
+                : `$${usage.spend_usd.toFixed(2)} USD`}
+            </strong>
+          </div>
+          <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+            Resets daily at 00:00 UTC. Deterministic answers may use no paid
+            model call.
+          </p>
+        </section>
+      ) : null}
 
       {sources.length ? (
         <section className="mt-6" aria-labelledby="agent-sources-title">

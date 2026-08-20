@@ -183,7 +183,9 @@ The backend must enforce the public limits from the roadmap:
 - 10 MB per file (enforced before parsing);
 - text-based evidence only;
 - 10 analysis or scenario runs per workspace per day (enforced server-side);
-- 3 assistant requests per workspace per day.
+- 15 assistant requests per workspace per UTC day, with current question use
+  and provider-reported or clearly marked estimated USD spend visible in the
+  agent interface.
 
 Original shipment and evidence files are private and downloadable only until
 their workspace/source expiry, never longer than 24 hours. Normalized text,

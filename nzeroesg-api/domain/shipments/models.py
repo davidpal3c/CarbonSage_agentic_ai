@@ -28,6 +28,7 @@ class NormalizedShipment:
     transport_method: str
     source_row: int
     shipment_date: date | None = None
+    supplier_name: str | None = None
 
     def to_dict(self) -> dict[str, int | float | str | None]:
         return {
@@ -35,6 +36,7 @@ class NormalizedShipment:
             "shipment_date": (
                 self.shipment_date.isoformat() if self.shipment_date is not None else None
             ),
+            "supplier_name": self.supplier_name,
             "origin": self.origin,
             "destination": self.destination,
             "weight_kg": self.weight_kg,

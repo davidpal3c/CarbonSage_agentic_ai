@@ -10,6 +10,7 @@ import type {
   AgentAvailability,
   AgentConversation,
   AgentHealth,
+  AgentUsage,
   ApiError,
   ConversationDetailResponse,
   ConversationListResponse,
@@ -28,6 +29,7 @@ interface ChatInterfaceProps {
   onAction?: (actionId: string, artifactId: string | null) => Promise<void>;
   presentation?: "launcher" | "panel";
   navigationKey?: string;
+  onUsageChange?: () => Promise<void>;
 }
 
 const statusLabels: Record<AgentAvailability, string> = {
@@ -38,9 +40,9 @@ const statusLabels: Record<AgentAvailability, string> = {
 };
 
 const suggestedPrompts = [
-  "What files are available in this workspace?",
-  "What data-quality issues should I address?",
-  "Compare the current freight baseline with rail.",
+  "Across current shipments, which transport mode has the highest carbon footprint, and which supplier contributes most?",
+  "Recommend the most carbon-efficient supplier for a 1008 kg shipment from Toronto to Vancouver.",
+  "Show the monthly emissions trend by transport mode.",
 ];
 
 async function apiDetail(response: Response, fallback: string) {
@@ -64,6 +66,7 @@ export default function ChatInterface({
   onAction,
   presentation = "launcher",
   navigationKey,
+  onUsageChange,
 }: ChatInterfaceProps) {
   const isPanel = presentation === "panel";
   const [messages, setMessages] = useState<UiMessage[]>([]);
@@ -80,6 +83,7 @@ export default function ChatInterface({
     useState<AgentAvailability>("checking");
   const [conversationReady, setConversationReady] = useState(false);
   const [controlError, setControlError] = useState<string | null>(null);
+  const [agentUsage, setAgentUsage] = useState<AgentUsage | null>(null);
   const demoData = useWorkspaceDataStore((state) => state.demoData);
   const [isLoadingDemoData, setIsLoadingDemoData] = useState(false);
   const conversationId = useRef<string | null>(null);
@@ -178,6 +182,14 @@ export default function ChatInterface({
     );
   }
 
+  const refreshAgentUsage = useCallback(async () => {
+    const response = await fetch(`${getBackendUrl()}/agent/usage`, {
+      credentials: "include",
+    });
+    if (!response.ok) return;
+    setAgentUsage((await response.json()) as AgentUsage);
+  }, []);
+
   async function handleSendMessage(content: string) {
     const userMessage: UiMessage = {
       id: crypto.randomUUID(),
@@ -220,7 +232,10 @@ export default function ChatInterface({
           response: assistant.response ?? undefined,
         },
       ]);
-      await refreshToolActivity(activeConversationId);
+      await Promise.all([
+        refreshToolActivity(activeConversationId),
+        onUsageChange?.() ?? Promise.resolve(),
+      ]);
     } catch (error) {
       setMessages((current) => [
         ...current,
@@ -236,6 +251,7 @@ export default function ChatInterface({
         },
       ]);
     } finally {
+      void refreshAgentUsage();
       setIsLoading(false);
     }
   }
@@ -345,6 +361,7 @@ export default function ChatInterface({
         if (!healthResponse.ok) throw new Error("Agent health is unavailable.");
         const health = (await healthResponse.json()) as AgentHealth;
         setAssistantStatus(health.available ? "available" : "disabled");
+        await refreshAgentUsage();
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") return;
         setAssistantStatus("unreachable");
@@ -383,7 +400,7 @@ export default function ChatInterface({
 
     void initialize();
     return () => controller.abort();
-  }, [loadConversation]);
+  }, [loadConversation, refreshAgentUsage]);
 
   useEffect(() => {
     if (
@@ -414,13 +431,17 @@ export default function ChatInterface({
     isSwitchingConversation ||
     !conversationReady ||
     assistantStatus !== "available";
+  const quotaExhausted = agentUsage?.questions_remaining === 0;
+  const interactionDisabled = inputDisabled || quotaExhausted;
   const inputPlaceholder =
     assistantStatus === "checking"
       ? "Checking availability…"
       : !conversationReady || isSwitchingConversation
         ? "Loading conversation…"
         : assistantStatus === "available"
-          ? "Ask about this workspace…"
+          ? quotaExhausted
+            ? "Daily question allowance used; available again at 00:00 UTC"
+            : "Ask about this workspace…"
           : "CarbonSage is not available in this environment";
   const showInterface =
     isPanel || (previousNavigationKey.current === navigationKey && isOpen);
@@ -451,6 +472,17 @@ export default function ChatInterface({
               </p>
             </div>
             <div className="flex items-center gap-3">
+              {agentUsage ? (
+                <span
+                  className="hidden rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground sm:inline-flex"
+                  title={`${agentUsage.questions_used} of ${agentUsage.question_limit} questions used today`}
+                >
+                  {agentUsage.questions_remaining} left ·{" "}
+                  {agentUsage.spend_usd > 0 && agentUsage.spend_usd < 0.01
+                    ? "<1¢"
+                    : `$${agentUsage.spend_usd.toFixed(2)}`}
+                </span>
+              ) : null}
               <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span
                   aria-hidden="true"
@@ -551,6 +583,7 @@ export default function ChatInterface({
                 conversation={activeConversation}
                 response={latestResponse}
                 toolEvents={toolEvents}
+                usage={agentUsage}
                 className="max-h-64 border-l-0 p-4"
                 showTitle={false}
               />
@@ -667,7 +700,7 @@ export default function ChatInterface({
 
               <ChatInput
                 sendMessage={handleSendMessage}
-                disabled={inputDisabled}
+                disabled={interactionDisabled}
                 placeholder={inputPlaceholder}
               />
             </div>
@@ -678,6 +711,7 @@ export default function ChatInterface({
                 conversation={activeConversation}
                 response={latestResponse}
                 toolEvents={toolEvents}
+                usage={agentUsage}
                 className="hidden lg:block"
               />
             ) : null}

@@ -8,6 +8,7 @@ from time import perf_counter
 
 from agent.evidence_support import EvidenceSupportAssessor, EvidenceSupportError
 from agent.planner import AgentPlanner, AgentPlanningError
+from agent.usage import ModelInvocationUsage
 from domain.agent.models import (
     AgentConversation,
     AgentMessage,
@@ -40,12 +41,14 @@ class AgentRuntimeService:
         tools: AgentToolRegistry,
         planner: AgentPlanner | None,
         consume_request: Callable[[str], None],
+        record_usage: Callable[[str, ModelInvocationUsage], None] | None = None,
         evidence_assessor: EvidenceSupportAssessor | None = None,
     ) -> None:
         self.repository = repository
         self.tools = tools
         self.planner = planner
         self.consume_request = consume_request
+        self.record_usage = record_usage
         self.evidence_assessor = evidence_assessor
 
     @staticmethod
@@ -118,11 +121,22 @@ class AgentRuntimeService:
         self.consume_request(principal.workspace_id)
         started_at = perf_counter()
         try:
-            plan = await self.planner.plan(
-                question=question,
-                history=tuple(detail.messages),
-                tool_schemas=self.tools.input_schemas(),
-            )
+            plan_with_usage = getattr(self.planner, "plan_with_usage", None)
+            if callable(plan_with_usage):
+                planned = await plan_with_usage(
+                    question=question,
+                    history=tuple(detail.messages),
+                    tool_schemas=self.tools.input_schemas(),
+                )
+                plan = planned.plan
+                if self.record_usage is not None:
+                    self.record_usage(principal.workspace_id, planned.usage)
+            else:
+                plan = await self.planner.plan(
+                    question=question,
+                    history=tuple(detail.messages),
+                    tool_schemas=self.tools.input_schemas(),
+                )
         except AgentPlanningError as exc:
             raise AgentRuntimeUnavailableError(str(exc)) from exc
 
@@ -141,10 +155,27 @@ class AgentRuntimeService:
             evidence_support = EvidenceSupportAssessment(status="limited")
             if self.evidence_assessor is not None:
                 try:
-                    assessed = await self.evidence_assessor.assess(
-                        question=question,
-                        candidates=candidates,
+                    assess_with_usage = getattr(
+                        self.evidence_assessor,
+                        "assess_with_usage",
+                        None,
                     )
+                    if callable(assess_with_usage):
+                        assessed_result = await assess_with_usage(
+                            question=question,
+                            candidates=candidates,
+                        )
+                        assessed = assessed_result.assessment
+                        if self.record_usage is not None:
+                            self.record_usage(
+                                principal.workspace_id,
+                                assessed_result.usage,
+                            )
+                    else:
+                        assessed = await self.evidence_assessor.assess(
+                            question=question,
+                            candidates=candidates,
+                        )
                     candidate_ids = {citation.citation_id for citation in candidates}
                     if set(assessed.citation_ids) <= candidate_ids:
                         evidence_support = assessed

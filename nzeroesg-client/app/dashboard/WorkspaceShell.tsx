@@ -370,6 +370,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
           >
             <ChatInterface
               navigationKey={pathname}
+              onUsageChange={refreshSession}
               onAction={runWorkspaceAgentAction}
               presentation={
                 pathname === "/dashboard/agent" ? "panel" : "launcher"

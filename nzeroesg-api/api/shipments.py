@@ -47,6 +47,7 @@ class ShipmentErrorResponse(BaseModel):
 class ShipmentRowResponse(BaseModel):
     shipment_id: str
     shipment_date: date | None
+    supplier_name: str | None
     origin: str
     destination: str
     weight_kg: float
@@ -55,15 +56,23 @@ class ShipmentRowResponse(BaseModel):
     source_row: int
 
 
+class SupplierContributionResponse(BaseModel):
+    supplier_name: str | None
+    shipment_count: int
+    emissions_kg: float
+
+
 class ModeBreakdownResponse(BaseModel):
     shipment_count: int
     weight_kg: float
     emissions_kg: float
+    suppliers: list[SupplierContributionResponse]
 
 
 class HotspotResponse(BaseModel):
     shipment_id: str
     shipment_date: date | None
+    supplier_name: str | None
     origin: str
     destination: str
     transport_method: str
@@ -329,6 +338,7 @@ async def export_shipments(
             (
                 row.shipment_id,
                 row.shipment_date.isoformat() if row.shipment_date else "",
+                row.supplier_name or "",
                 row.origin,
                 row.destination,
                 row.weight_kg,
@@ -365,6 +375,7 @@ async def shipment_template(
         (
             "EXAMPLE-001",
             "2026-01-15",
+            "Example Supplier",
             "Edmonton",
             "Calgary",
             1,

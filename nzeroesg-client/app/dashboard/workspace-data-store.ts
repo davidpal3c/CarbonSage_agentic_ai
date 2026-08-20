@@ -18,6 +18,7 @@ export type DemoDataStatus = {
 export type ShipmentRow = {
   shipment_id: string;
   shipment_date: string | null;
+  supplier_name: string | null;
   origin: string;
   destination: string;
   weight_kg: number;
@@ -36,7 +37,16 @@ export type ShipmentAnalysis = {
   total_emissions_tonnes: number;
   mode_breakdown: Record<
     string,
-    { shipment_count: number; weight_kg: number; emissions_kg: number }
+    {
+      shipment_count: number;
+      weight_kg: number;
+      emissions_kg: number;
+      suppliers: Array<{
+        supplier_name: string | null;
+        shipment_count: number;
+        emissions_kg: number;
+      }>;
+    }
   >;
   timeline: Array<{
     period: string;
@@ -49,6 +59,7 @@ export type ShipmentAnalysis = {
   hotspots: Array<{
     shipment_id: string;
     shipment_date: string | null;
+    supplier_name: string | null;
     origin: string;
     destination: string;
     transport_method: string;
