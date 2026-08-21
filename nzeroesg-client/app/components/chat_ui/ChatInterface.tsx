@@ -10,18 +10,23 @@ import type {
   AgentAvailability,
   AgentConversation,
   AgentHealth,
+  AgentResponseEnvelope,
   AgentUsage,
   ApiError,
   ConversationDetailResponse,
   ConversationListResponse,
   MessageExchangeResponse,
+  SuggestionsBlock,
   UiMessage,
 } from "@/app/types/chat";
 import AgentDetailsPanel from "./AgentDetailsPanel";
 import ChatInput from "./ChatInput";
 import { LoadingIndicator } from "./LoadingIndicator";
 import StructuredResponse from "./StructuredResponse";
-import { useWorkspaceDataStore } from "@/app/dashboard/workspace-data-store";
+import {
+  type DemoDataStatus,
+  useWorkspaceDataStore,
+} from "@/app/dashboard/workspace-data-store";
 
 interface ChatInterfaceProps {
   initialOpen?: boolean;
@@ -45,6 +50,72 @@ const suggestedPrompts = [
   "Recommend the most carbon-efficient supplier for a 1008 kg shipment from Toronto to Vancouver.",
   "Show the monthly emissions trend by transport mode.",
 ];
+
+function demoDataReadyMessage(data: DemoDataStatus): UiMessage {
+  const options: SuggestionsBlock["options"] = [];
+  if (data.shipment_count > 0) {
+    options.push(
+      {
+        label: "Find the largest footprint",
+        prompt:
+          "Across current shipments, which transport mode has the highest carbon footprint, and which supplier contributes most?",
+      },
+      {
+        label: "Compare with rail",
+        prompt: "Compare the current freight baseline with rail.",
+      },
+      {
+        label: "View the emissions trend",
+        prompt: "Show the monthly emissions trend by transport mode.",
+      },
+    );
+  }
+  if (data.evidence_document_count > 0) {
+    options.push({
+      label: "Review supplier evidence",
+      prompt:
+        "Which suppliers have cited disclosure evidence, and where are the most important evidence gaps?",
+    });
+  }
+
+  const now = new Date();
+  const summary = [
+    `${data.supplier_count} supplier${data.supplier_count === 1 ? "" : "s"}`,
+    `${data.shipment_count} shipment${data.shipment_count === 1 ? "" : "s"}`,
+    `${data.evidence_document_count} cited document${data.evidence_document_count === 1 ? "" : "s"}`,
+  ].join(", ");
+  const response = {
+    schema_version: "1.0",
+    response_id: crypto.randomUUID(),
+    policy_version: "1.0",
+    evidence_status: "not_required",
+    processing_time_ms: 0,
+    generated_at: now.toISOString(),
+    blocks: [
+      {
+        type: "text",
+        text: `Demo data is ready: ${summary}. Choose a next step or ask your own question.`,
+      },
+      ...(options.length
+        ? [
+            {
+              type: "suggestions" as const,
+              title: "Explore the demo workspace",
+              options,
+            },
+          ]
+        : []),
+    ],
+  } satisfies AgentResponseEnvelope;
+
+  return {
+    id: crypto.randomUUID(),
+    content: `Demo data is ready: ${summary}.`,
+    role: "assistant",
+    timestamp: now,
+    response,
+  };
+}
 
 async function apiDetail(response: Response, fallback: string) {
   const payload = (await response.json().catch(() => null)) as ApiError | null;
@@ -330,20 +401,49 @@ export default function ChatInterface({
     }
   }
 
-  async function handleLoadDemoData() {
-    if (!onAction) return;
-    setIsLoadingDemoData(true);
-    setControlError(null);
+  async function handleAgentAction(
+    actionId: string,
+    artifactId: string | null,
+  ) {
+    if (!onAction) throw new Error("This workspace action is not available.");
+    const loadsDemoData = actionId === "workspace.load_demo_data";
+    if (loadsDemoData) {
+      setIsLoadingDemoData(true);
+      setControlError(null);
+    }
     try {
-      await onAction("workspace.load_demo_data", null);
+      await onAction(actionId, artifactId);
+      if (loadsDemoData) {
+        const loaded = useWorkspaceDataStore.getState().demoData;
+        if (!loaded?.has_artifacts) {
+          throw new Error(
+            "Demo data finished loading without any workspace artifacts.",
+          );
+        }
+        setMessages((current) => [...current, demoDataReadyMessage(loaded)]);
+        if (onUsageChange) {
+          await Promise.allSettled([onUsageChange()]);
+        }
+      }
     } catch (error) {
-      setControlError(
-        error instanceof Error
-          ? error.message
-          : "Demo data could not be loaded.",
-      );
+      if (loadsDemoData) {
+        setControlError(
+          error instanceof Error
+            ? error.message
+            : "Demo data could not be loaded.",
+        );
+      }
+      throw error;
     } finally {
-      setIsLoadingDemoData(false);
+      if (loadsDemoData) setIsLoadingDemoData(false);
+    }
+  }
+
+  async function handleLoadDemoData() {
+    try {
+      await handleAgentAction("workspace.load_demo_data", null);
+    } catch {
+      // The shared action handler exposes the failure in the chat toolbar.
     }
   }
 
@@ -444,7 +544,8 @@ export default function ChatInterface({
     !conversationReady ||
     assistantStatus !== "available";
   const quotaExhausted = agentUsage?.questions_remaining === 0;
-  const interactionDisabled = inputDisabled || quotaExhausted;
+  const interactionDisabled =
+    inputDisabled || quotaExhausted || isLoadingDemoData;
   const inputPlaceholder =
     assistantStatus === "checking"
       ? "Checking availability…"
@@ -696,7 +797,7 @@ export default function ChatInterface({
                       {message.response ? (
                         <StructuredResponse
                           response={message.response}
-                          onAction={onAction}
+                          onAction={onAction ? handleAgentAction : undefined}
                           onPrompt={handleSendMessage}
                           promptDisabled={interactionDisabled}
                         />

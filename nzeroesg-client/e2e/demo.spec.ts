@@ -405,6 +405,114 @@ test("keeps the deterministic workspace usable when the agent is disabled", asyn
   ).toBeDisabled();
 });
 
+test("restores chat suggestions after loading demo data from an empty-workspace response", async ({
+  page,
+}) => {
+  const now = new Date().toISOString();
+  const conversation = {
+    conversation_id: "00000000-0000-4000-8000-000000000031",
+    workspace_id: "demo-empty-action",
+    title: "Decision 1",
+    status: "active",
+    policy_version: "1.0",
+    created_by: "demo-session",
+    created_at: now,
+    updated_at: now,
+    expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+  };
+
+  await page.route("**/agent/health", (route) =>
+    route.fulfill({
+      json: {
+        status: "ok",
+        available: true,
+        policy_version: "1.0",
+        response_schema_version: "1.0",
+      },
+    }),
+  );
+  await page.route("**/agent/usage", (route) =>
+    route.fulfill({
+      json: {
+        questions_used: 0,
+        question_limit: 15,
+        questions_remaining: 15,
+        model_calls: 0,
+        spend_usd: 0,
+        spend_is_estimate: true,
+        currency: "USD",
+        resets_at: new Date(Date.now() + 3_600_000).toISOString(),
+      },
+    }),
+  );
+  await page.route("**/agent/conversations", (route) =>
+    route.fulfill({ json: { conversations: [conversation] } }),
+  );
+  await page.route("**/agent/conversations/*", (route) =>
+    route.fulfill({
+      json: {
+        conversation,
+        messages: [
+          {
+            message_id: "00000000-0000-4000-8000-000000000032",
+            conversation_id: conversation.conversation_id,
+            workspace_id: conversation.workspace_id,
+            role: "user",
+            content: "What can I review in this workspace?",
+            response: null,
+            created_at: now,
+          },
+          {
+            message_id: "00000000-0000-4000-8000-000000000033",
+            conversation_id: conversation.conversation_id,
+            workspace_id: conversation.workspace_id,
+            role: "assistant",
+            content: "This workspace does not have data yet.",
+            created_at: now,
+            response: {
+              schema_version: "1.0",
+              response_id: "00000000-0000-4000-8000-000000000034",
+              policy_version: "1.0",
+              evidence_status: "not_required",
+              processing_time_ms: 2,
+              generated_at: now,
+              blocks: [
+                {
+                  type: "text",
+                  text: "No supplier or shipment data is available yet.",
+                },
+                {
+                  type: "action",
+                  action_id: "workspace.load_demo_data",
+                  label: "Load demo data",
+                  requires_confirmation: false,
+                  artifact_id: null,
+                },
+              ],
+            },
+          },
+        ],
+        tool_events: [],
+      },
+    }),
+  );
+
+  await enterWorkspace(page);
+  const agent = page.getByRole("region", { name: "CarbonSage" });
+  await agent.getByRole("button", { name: "Load demo data" }).click();
+
+  await expect(agent.getByText(/Demo data is ready: 24 suppliers/)).toBeVisible(
+    { timeout: backendActionTimeout },
+  );
+  await expect(
+    agent.getByRole("button", { name: "Find the largest footprint" }),
+  ).toBeEnabled();
+  await expect(
+    agent.getByRole("button", { name: "Compare with rail" }),
+  ).toBeEnabled();
+  await expect(agent.getByLabel("Message CarbonSage")).toBeEnabled();
+});
+
 test("restores the latest workspace conversation before enabling input", async ({
   page,
 }) => {
