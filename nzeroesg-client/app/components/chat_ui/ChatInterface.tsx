@@ -255,12 +255,36 @@ export default function ChatInterface({
     );
   }
 
-  const refreshAgentUsage = useCallback(async () => {
-    const response = await fetch(`${getBackendUrl()}/agent/usage`, {
-      credentials: "include",
-    });
-    if (!response.ok) return;
-    setAgentUsage((await response.json()) as AgentUsage);
+  const refreshAssistantAvailability = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const response = await fetch(`${getBackendUrl()}/agent/health`, {
+          credentials: "include",
+          signal,
+        });
+        if (!response.ok) throw new Error("Agent health is unavailable.");
+        const health = (await response.json()) as AgentHealth;
+        setAssistantStatus(health.available ? "available" : "disabled");
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
+        setAssistantStatus("unreachable");
+      }
+    },
+    [],
+  );
+
+  const refreshAgentUsage = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const response = await fetch(`${getBackendUrl()}/agent/usage`, {
+        credentials: "include",
+        signal,
+      });
+      if (!response.ok) return;
+      setAgentUsage((await response.json()) as AgentUsage);
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") return;
+      // Usage metering is supplementary and must never disable the assistant.
+    }
   }, []);
 
   async function handleSendMessage(content: string) {
@@ -424,9 +448,12 @@ export default function ChatInterface({
           );
         }
         setMessages((current) => [...current, demoDataReadyMessage(loaded)]);
-        if (onUsageChange) {
-          await Promise.allSettled([onUsageChange()]);
-        }
+        setIsLoadingDemoData(false);
+        void Promise.allSettled([
+          refreshAssistantAvailability(),
+          refreshAgentUsage(),
+          onUsageChange?.() ?? Promise.resolve(),
+        ]);
       }
     } catch (error) {
       if (loadsDemoData) {
@@ -459,19 +486,10 @@ export default function ChatInterface({
     const controller = new AbortController();
 
     async function initialize() {
-      try {
-        const healthResponse = await fetch(`${getBackendUrl()}/agent/health`, {
-          credentials: "include",
-          signal: controller.signal,
-        });
-        if (!healthResponse.ok) throw new Error("Agent health is unavailable.");
-        const health = (await healthResponse.json()) as AgentHealth;
-        setAssistantStatus(health.available ? "available" : "disabled");
-        await refreshAgentUsage();
-      } catch (error) {
-        if (error instanceof Error && error.name === "AbortError") return;
-        setAssistantStatus("unreachable");
-      }
+      await Promise.allSettled([
+        refreshAssistantAvailability(controller.signal),
+        refreshAgentUsage(controller.signal),
+      ]);
 
       try {
         const listResponse = await fetch(
@@ -506,7 +524,11 @@ export default function ChatInterface({
 
     void initialize();
     return () => controller.abort();
-  }, [loadConversation, refreshAgentUsage]);
+  }, [
+    loadConversation,
+    refreshAgentUsage,
+    refreshAssistantAvailability,
+  ]);
 
   useEffect(() => {
     if (

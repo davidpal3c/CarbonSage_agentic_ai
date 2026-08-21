@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 import {
   ArrowUpRight,
+  Database,
   Files,
   PackageCheck,
   Truck,
@@ -172,6 +173,9 @@ export function WorkspaceSectionPage({
   const ensureArtifacts = useWorkspaceDataStore(
     (state) => state.ensureArtifacts,
   );
+  const loadWorkspaceDemoData = useWorkspaceDataStore(
+    (state) => state.loadDemoData,
+  );
   const suppliers = useWorkspaceDataStore((state) => state.suppliers);
   const suppliersStatus = useWorkspaceDataStore(
     (state) => state.suppliersStatus,
@@ -212,6 +216,8 @@ export function WorkspaceSectionPage({
   const [scenarioError, setScenarioError] = useState<string | null>(null);
   const [isRunningScenario, setIsRunningScenario] = useState(false);
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
+  const [isLoadingDemoData, setIsLoadingDemoData] = useState(false);
+  const [demoLoadError, setDemoLoadError] = useState<string | null>(null);
   const [analyticsGranularity, setAnalyticsGranularity] = useState<
     "month" | "year"
   >("month");
@@ -313,6 +319,23 @@ export function WorkspaceSectionPage({
     setShipmentError(null);
     setShipmentImportIssues([]);
     if (shipmentInputRef.current) shipmentInputRef.current.value = "";
+  }
+
+  async function loadDemoData() {
+    setIsLoadingDemoData(true);
+    setDemoLoadError(null);
+    try {
+      await loadWorkspaceDemoData();
+      void refreshSession().catch(() => undefined);
+    } catch (requestError) {
+      setDemoLoadError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Demo data could not be loaded.",
+      );
+    } finally {
+      setIsLoadingDemoData(false);
+    }
   }
 
   async function uploadShipments(event: FormEvent<HTMLFormElement>) {
@@ -808,16 +831,31 @@ export function WorkspaceSectionPage({
                   Start with shipment intelligence
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                  Load the fictional dataset from Integrations or import a
-                  CSV/XLSX workbook to populate carbon metrics and trends.
+                  Load the fictional dataset here or import a CSV/XLSX
+                  workbook to populate carbon metrics and trends.
                 </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Link
-                    href="/dashboard/integrations"
-                    className="rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white hover:bg-secondary/85"
+                {demoLoadError ? (
+                  <p
+                    role="alert"
+                    className="mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800"
                   >
+                    {demoLoadError}
+                  </p>
+                ) : null}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void loadDemoData()}
+                    disabled={isLoadingDemoData}
+                    className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white hover:bg-secondary/85 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isLoadingDemoData ? (
+                      <Spinner />
+                    ) : (
+                      <Database aria-hidden="true" className="h-4 w-4" />
+                    )}
                     Load demo data
-                  </Link>
+                  </button>
                   <Link
                     href="/dashboard/shipments"
                     className="rounded-lg border border-border px-3.5 py-2 text-sm font-semibold text-primary hover:border-accent"

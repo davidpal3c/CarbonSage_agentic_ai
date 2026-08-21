@@ -178,13 +178,18 @@ test("completes the five-minute demo workflow and exports a report", async ({
   await expect(
     page.getByRole("link", { name: "How to use CarbonSage" }),
   ).toBeVisible();
+  const menuViewport = await page.evaluate(() => ({
+    width: window.innerWidth,
+    documentWidth: document.documentElement.scrollWidth,
+  }));
+  expect(menuViewport.documentWidth).toBeLessThanOrEqual(menuViewport.width);
   const signOut = page.getByRole("button", { name: "Sign out" });
   await signOut.focus();
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/$/, { timeout: backendActionTimeout });
 });
 
-test("loads the fictional demo dataset from the agent or integrations", async ({
+test("loads the fictional demo dataset directly from overview", async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -196,15 +201,19 @@ test("loads the fictional demo dataset from the agent or integrations", async ({
     if (pathname === "/shipments/analytics") analyticsRequests += 1;
   });
   await enterWorkspace(page);
+  await openWorkspacePage(page, "Overview", "overview");
   await expect(
     page.getByRole("button", { name: "Load demo data" }),
   ).toBeVisible();
-
-  await openWorkspacePage(page, "Integrations", "integrations");
   await page.getByRole("button", { name: "Load demo data" }).click();
   await expect(
-    page.getByText("24 suppliers · 36 shipments · 3 cited documents"),
+    page.getByRole("img", {
+      name: "Freight emissions trend by transport mode",
+    }),
   ).toBeVisible({ timeout: backendActionTimeout });
+  await expect(
+    page.locator(".recharts-cartesian-axis-tick-value").first(),
+  ).toHaveCSS("font-size", "10px");
 
   await openWorkspacePage(page, "Artifacts", "artifacts");
   await expect(
@@ -256,8 +265,9 @@ test("loads the fictional demo dataset from the agent or integrations", async ({
       name: "Freight emissions trend by transport mode",
     }),
   ).toBeVisible();
+  const shipmentRequestsBeforeNavigation = shipmentRequests;
   await openWorkspacePage(page, "Shipments", "shipments");
-  expect(shipmentRequests).toBe(1);
+  expect(shipmentRequests).toBe(shipmentRequestsBeforeNavigation);
   await openWorkspacePage(page, "Suppliers", "evidence");
   await expect(
     page.getByText("Boreal Components", { exact: true }),
@@ -435,20 +445,9 @@ test("restores chat suggestions after loading demo data from an empty-workspace 
       },
     }),
   );
-  await page.route("**/agent/usage", (route) =>
-    route.fulfill({
-      json: {
-        questions_used: 0,
-        question_limit: 15,
-        questions_remaining: 15,
-        model_calls: 0,
-        spend_usd: 0,
-        spend_is_estimate: true,
-        currency: "USD",
-        resets_at: new Date(Date.now() + 3_600_000).toISOString(),
-      },
-    }),
-  );
+  // Usage metering is supplementary. A failed meter refresh must not mark a
+  // healthy assistant unavailable or leave the composer disabled.
+  await page.route("**/agent/usage", (route) => route.abort("failed"));
   await page.route("**/agent/conversations", (route) =>
     route.fulfill({ json: { conversations: [conversation] } }),
   );

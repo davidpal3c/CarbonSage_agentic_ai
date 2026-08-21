@@ -226,7 +226,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
   return (
     <WorkspaceContext.Provider value={{ session, refreshSession }}>
       <div className="flex min-h-screen w-full flex-col overflow-x-clip bg-background lg:flex-row">
-        <aside className="sticky top-0 z-40 flex border-b border-sidebar-border bg-sidebar px-4 py-3 lg:h-screen lg:w-[7.25rem] lg:shrink-0 lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-2 lg:py-4">
+        <aside className="sticky top-0 z-40 flex border-b border-sidebar-border bg-sidebar px-4 py-3 lg:h-screen lg:w-[7.25rem] lg:shrink-0 lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-2 lg:py-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-4 px-1 lg:flex-col lg:justify-center lg:gap-2 lg:px-0 lg:text-center">
               <div className="flex items-center gap-3 lg:flex-col lg:gap-1.5">
@@ -315,7 +315,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
 
           <div ref={profileRef} className="relative mt-4 hidden lg:block">
             {profileOpen ? (
-              <div className="absolute bottom-0 left-full ml-2 w-52 overflow-hidden rounded-xl border border-border bg-card p-1.5 shadow-xl">
+              <div className="fixed bottom-4 left-[7.75rem] z-[80] w-52 overflow-hidden rounded-xl border border-border bg-card p-1.5 shadow-xl">
                 <Link
                   href="/dashboard/how-to"
                   onClick={() => setProfileOpen(false)}

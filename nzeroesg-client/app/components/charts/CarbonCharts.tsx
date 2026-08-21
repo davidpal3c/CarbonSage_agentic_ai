@@ -66,6 +66,11 @@ const tooltipStyle = {
   fontSize: "0.75rem",
 };
 
+const axisTickStyle = {
+  fill: "var(--muted-foreground)",
+  fontSize: 10,
+};
+
 export function StructuredDataChart({
   title,
   description,
@@ -100,11 +105,13 @@ export function StructuredDataChart({
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
               <XAxis
                 dataKey={xKey}
-                tick={{ fill: "var(--muted-foreground)" }}
+                tick={axisTickStyle}
+                tickMargin={6}
               />
               <YAxis
                 tickFormatter={compactNumber}
-                tick={{ fill: "var(--muted-foreground)" }}
+                tick={axisTickStyle}
+                tickMargin={6}
               />
               <Tooltip
                 contentStyle={tooltipStyle}
@@ -138,11 +145,13 @@ export function StructuredDataChart({
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
               <XAxis
                 dataKey={xKey}
-                tick={{ fill: "var(--muted-foreground)" }}
+                tick={axisTickStyle}
+                tickMargin={6}
               />
               <YAxis
                 tickFormatter={compactNumber}
-                tick={{ fill: "var(--muted-foreground)" }}
+                tick={axisTickStyle}
+                tickMargin={6}
               />
               <Tooltip
                 contentStyle={tooltipStyle}
@@ -261,12 +270,14 @@ export function ShipmentTrendChart({
             />
             <XAxis
               dataKey="period"
-              tick={{ fill: "var(--muted-foreground)" }}
+              tick={axisTickStyle}
+              tickMargin={6}
             />
             <YAxis
               width={48}
               tickFormatter={compactNumber}
-              tick={{ fill: "var(--muted-foreground)" }}
+              tick={axisTickStyle}
+              tickMargin={6}
             />
             <Tooltip contentStyle={tooltipStyle} />
             {series.map((item) => (
@@ -323,13 +334,15 @@ export function ShipmentHotspotChart({
             <XAxis
               type="number"
               tickFormatter={compactNumber}
-              tick={{ fill: "var(--muted-foreground)" }}
+              tick={axisTickStyle}
+              tickMargin={6}
             />
             <YAxis
               type="category"
               dataKey="shipment_id"
               width={72}
-              tick={{ fill: "var(--muted-foreground)" }}
+              tick={axisTickStyle}
+              tickMargin={6}
             />
             <Tooltip
               contentStyle={tooltipStyle}
