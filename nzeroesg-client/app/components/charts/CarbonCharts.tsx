@@ -58,10 +58,33 @@ function tooltipValue(value: unknown, unit?: string | null) {
   return unit ? `${formatted} ${unit}` : formatted;
 }
 
+function seriesUnit(series: CarbonChartSeries) {
+  if (series.unit) return series.unit;
+  return /emissions?/i.test(`${series.key} ${series.label}`) ? "kg CO2e" : null;
+}
+
+function tooltipSeries(
+  series: CarbonChartSeries[],
+  name: string | number | undefined,
+  payload?: { dataKey?: unknown },
+) {
+  const dataKey =
+    typeof payload?.dataKey === "string" || typeof payload?.dataKey === "number"
+      ? String(payload.dataKey)
+      : null;
+  const displayName = String(name ?? "");
+  return series.find(
+    (item) =>
+      item.key === dataKey ||
+      item.key === displayName ||
+      item.label === displayName,
+  );
+}
+
 const tooltipStyle = {
   background: "var(--card)",
   border: "1px solid var(--border)",
-  borderRadius: "0.75rem",
+  borderRadius: "var(--radius-lg)",
   color: "var(--primary)",
   fontSize: "0.75rem",
 };
@@ -103,11 +126,7 @@ export function StructuredDataChart({
           {kind === "line" ? (
             <LineChart {...common}>
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis
-                dataKey={xKey}
-                tick={axisTickStyle}
-                tickMargin={6}
-              />
+              <XAxis dataKey={xKey} tick={axisTickStyle} tickMargin={6} />
               <YAxis
                 tickFormatter={compactNumber}
                 tick={axisTickStyle}
@@ -115,13 +134,13 @@ export function StructuredDataChart({
               />
               <Tooltip
                 contentStyle={tooltipStyle}
-                formatter={(value, name) => [
-                  tooltipValue(
-                    value,
-                    series.find((item) => item.key === name)?.unit,
-                  ),
-                  series.find((item) => item.key === name)?.label ?? name,
-                ]}
+                formatter={(value, name, payload) => {
+                  const item = tooltipSeries(series, name, payload);
+                  return [
+                    tooltipValue(value, item ? seriesUnit(item) : null),
+                    item?.label ?? name ?? "Value",
+                  ];
+                }}
               />
               {series.length > 1 ? <Legend /> : null}
               {series.map((item, index) => (
@@ -143,11 +162,7 @@ export function StructuredDataChart({
           ) : (
             <BarChart {...common}>
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis
-                dataKey={xKey}
-                tick={axisTickStyle}
-                tickMargin={6}
-              />
+              <XAxis dataKey={xKey} tick={axisTickStyle} tickMargin={6} />
               <YAxis
                 tickFormatter={compactNumber}
                 tick={axisTickStyle}
@@ -155,13 +170,13 @@ export function StructuredDataChart({
               />
               <Tooltip
                 contentStyle={tooltipStyle}
-                formatter={(value, name) => [
-                  tooltipValue(
-                    value,
-                    series.find((item) => item.key === name)?.unit,
-                  ),
-                  series.find((item) => item.key === name)?.label ?? name,
-                ]}
+                formatter={(value, name, payload) => {
+                  const item = tooltipSeries(series, name, payload);
+                  return [
+                    tooltipValue(value, item ? seriesUnit(item) : null),
+                    item?.label ?? name ?? "Value",
+                  ];
+                }}
               />
               {series.length > 1 ? <Legend /> : null}
               {series.map((item, index) => (
@@ -268,18 +283,23 @@ export function ShipmentTrendChart({
               strokeDasharray="3 3"
               vertical={false}
             />
-            <XAxis
-              dataKey="period"
-              tick={axisTickStyle}
-              tickMargin={6}
-            />
+            <XAxis dataKey="period" tick={axisTickStyle} tickMargin={6} />
             <YAxis
               width={48}
               tickFormatter={compactNumber}
               tick={axisTickStyle}
               tickMargin={6}
             />
-            <Tooltip contentStyle={tooltipStyle} />
+            <Tooltip
+              contentStyle={tooltipStyle}
+              formatter={(value, name, payload) => {
+                const item = tooltipSeries(series, name, payload);
+                return [
+                  tooltipValue(value, item ? seriesUnit(item) : "kg CO2e"),
+                  item?.label ?? name ?? "Value",
+                ];
+              }}
+            />
             {series.map((item) => (
               <Area
                 key={item.key}

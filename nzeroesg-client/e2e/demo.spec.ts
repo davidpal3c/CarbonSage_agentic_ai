@@ -178,6 +178,15 @@ test("completes the five-minute demo workflow and exports a report", async ({
   await expect(
     page.getByRole("link", { name: "How to use CarbonSage" }),
   ).toBeVisible();
+  const menuBox = await page
+    .getByRole("menu", { name: "Workspace menu" })
+    .boundingBox();
+  const avatarBox = await workspaceMenu.boundingBox();
+  expect(menuBox).not.toBeNull();
+  expect(avatarBox).not.toBeNull();
+  expect(
+    (menuBox?.x ?? 0) - ((avatarBox?.x ?? 0) + (avatarBox?.width ?? 0)),
+  ).toBeLessThanOrEqual(24);
   const menuViewport = await page.evaluate(() => ({
     width: window.innerWidth,
     documentWidth: document.documentElement.scrollWidth,
@@ -241,6 +250,18 @@ test("loads the fictional demo dataset directly from overview", async ({
   await expect(
     page.getByRole("button", { name: "Download source" }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "View", exact: true }).click();
+  const artifactPreview = page.getByRole("dialog", {
+    name: "carbonsage-demo-shipments.csv",
+  });
+  await expect(artifactPreview).toBeVisible();
+  await expect(
+    artifactPreview.getByText(/shipment_id,shipment_date/),
+  ).toBeVisible();
+  await artifactPreview
+    .getByRole("button", { name: "Close artifact preview" })
+    .click();
+  await expect(artifactPreview).toBeHidden();
 
   await openWorkspacePage(page, "Shipments", "shipments");
   await expect(page.getByText("36", { exact: true }).first()).toBeVisible();
@@ -791,6 +812,39 @@ test("renders a typed interactive response with keyboard-accessible chart data",
       },
     }),
   );
+  await page.route("**/artifacts/**", (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    if (pathname.endsWith("/content")) {
+      return route.fulfill({
+        headers: {
+          ...corsHeaders(route),
+          "content-type": "text/plain; charset=utf-8",
+        },
+        body: "The supplier reports a validated transition target.",
+      });
+    }
+    return route.fulfill({
+      headers: corsHeaders(route),
+      json: {
+        artifact_id: "00000000-0000-4000-8000-000000000006",
+        workspace_id: "demo-renderer",
+        kind: "evidence_document",
+        title: "supplier.txt",
+        status: "ready",
+        source_type: "generated",
+        source_reference: null,
+        media_type: "text/plain",
+        content_sha256:
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        version: 1,
+        metadata: {},
+        created_by: "demo-session",
+        created_at: now,
+        updated_at: now,
+        deleted_at: null,
+      },
+    });
+  });
   await page.route("**/agent/conversations", (route) => {
     if (route.request().method() === "GET") {
       return route.fulfill({
@@ -989,6 +1043,10 @@ test("renders a typed interactive response with keyboard-accessible chart data",
   await expect(
     agentDialog.getByRole("img", { name: /Rail and air emissions/ }),
   ).toBeVisible();
+  await agentDialog.locator(".recharts-bar-rectangle").first().hover();
+  await expect(
+    agentDialog.locator(".recharts-tooltip-wrapper").getByText(/kg CO2e/),
+  ).toBeVisible();
   await expect(agentDialog.getByText("14 left · <1¢")).toBeVisible();
   const chartTableToggle = agentDialog.getByText("View chart data");
   await chartTableToggle.focus();
@@ -1004,6 +1062,19 @@ test("renders a typed interactive response with keyboard-accessible chart data",
       "The supplier reports a validated transition target.",
     ),
   ).toBeVisible();
+  await agentDialog
+    .getByRole("button", { name: "View source supplier.txt" })
+    .click();
+  const citationPreview = page.getByRole("dialog", { name: "supplier.txt" });
+  await expect(citationPreview).toBeVisible();
+  await expect(
+    citationPreview.getByText(
+      "The supplier reports a validated transition target.",
+    ),
+  ).toBeVisible();
+  await citationPreview
+    .getByRole("button", { name: "Close artifact preview" })
+    .click();
   await expect(
     agentDialog.getByText("Supplier evidence", { exact: true }),
   ).toBeVisible();
@@ -1034,11 +1105,8 @@ test("renders a typed interactive response with keyboard-accessible chart data",
     }),
   ).toBeVisible();
   await expect(
-    agentDialog.getByRole("link", { name: "Supplier evidence" }).first(),
-  ).toHaveAttribute(
-    "href",
-    "/dashboard/artifacts?artifact=00000000-0000-4000-8000-000000000006",
-  );
+    agentDialog.getByRole("button", { name: /Supplier evidence/ }).first(),
+  ).toBeVisible();
 
   const action = agentDialog
     .getByRole("button", {

@@ -2,6 +2,10 @@
 
 @theme {
   --default-transition-duration: 180ms;
+  --radius-lg: 0.45rem;
+  --radius-xl: 0.65rem;
+  --radius-2xl: 0.8rem;
+  --radius-3xl: 1rem;
 }
 
 :root {

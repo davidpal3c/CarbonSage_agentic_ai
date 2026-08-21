@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronDown,
   Download,
+  Eye,
   MoreHorizontal,
   Pencil,
   Trash2,
@@ -11,6 +12,7 @@ import {
 
 import { getBackendUrl } from "@/app/api/urls";
 import { LoadingState, Spinner } from "@/app/components/Spinner";
+import { useArtifactViewer } from "@/app/dashboard/artifact-viewer-context";
 import {
   type Artifact,
   type ArtifactKind,
@@ -61,6 +63,7 @@ function sourceRetentionFor(artifact: Artifact): SourceRetention | null {
 export default function ArtifactCatalog({
   focusedArtifactId,
 }: ArtifactCatalogProps) {
+  const { openArtifact } = useArtifactViewer();
   const artifacts = useWorkspaceDataStore((state) => state.artifacts);
   const artifactsStatus = useWorkspaceDataStore(
     (state) => state.artifactsStatus,
@@ -87,6 +90,7 @@ export default function ArtifactCatalog({
   const [draftTitle, setDraftTitle] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [busyExport, setBusyExport] = useState<string | null>(null);
+  const openedFocusedId = useRef<string | null>(null);
   const isLoading = artifactsStatus === "loading" && artifacts.length === 0;
   const error = actionError ?? artifactsError;
 
@@ -100,6 +104,17 @@ export default function ArtifactCatalog({
       .getElementById(`artifact-${focusedArtifactId}`)
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [artifacts, focusedArtifactId]);
+
+  useEffect(() => {
+    if (!focusedArtifactId || openedFocusedId.current === focusedArtifactId) {
+      return;
+    }
+    const focusedArtifact = artifacts.find(
+      (artifact) => artifact.artifact_id === focusedArtifactId,
+    );
+    openedFocusedId.current = focusedArtifactId;
+    openArtifact(focusedArtifactId, focusedArtifact?.title);
+  }, [artifacts, focusedArtifactId, openArtifact]);
 
   async function renameArtifact(artifact: Artifact) {
     const title = draftTitle.trim();
@@ -370,6 +385,23 @@ export default function ArtifactCatalog({
                     </button>
                     {menuId === artifact.artifact_id ? (
                       <div className="absolute right-4 top-12 z-20 w-44 rounded-lg border border-border bg-card p-1.5 shadow-xl">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuId(null);
+                            openArtifact(artifact.artifact_id, artifact.title);
+                          }}
+                          disabled={!sourceAvailable}
+                          title={
+                            sourceAvailable
+                              ? undefined
+                              : "Source bytes are not retained in this environment."
+                          }
+                          className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-primary hover:bg-muted disabled:cursor-not-allowed disabled:text-muted-foreground disabled:opacity-55"
+                        >
+                          <Eye aria-hidden="true" className="h-4 w-4" />
+                          View
+                        </button>
                         <button
                           type="button"
                           onClick={() => void downloadArtifact(artifact)}

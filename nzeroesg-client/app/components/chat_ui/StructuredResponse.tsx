@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -12,6 +11,7 @@ import {
 
 import { Spinner } from "@/app/components/Spinner";
 import { StructuredDataChart } from "@/app/components/charts/CarbonCharts";
+import { useArtifactViewer } from "@/app/dashboard/artifact-viewer-context";
 import type {
   ActionBlock,
   AgentResponseEnvelope,
@@ -118,25 +118,66 @@ function Chart({ block }: { block: ChartBlock }) {
 }
 
 function Citation({ block }: { block: CitationBlock }) {
+  const { openArtifact } = useArtifactViewer();
   return (
-    <figure className="rounded-xl border-l-4 border-accent bg-background p-4">
+    <button
+      type="button"
+      onClick={() => openArtifact(block.artifact_id, block.filename)}
+      aria-label={`View source ${block.filename}`}
+      className="w-full rounded-xl border border-border border-l-4 border-l-accent bg-background p-4 text-left shadow-sm transition hover:border-accent hover:border-l-accent"
+    >
       <div className="flex gap-3">
         <Quote
           aria-hidden="true"
           className="mt-0.5 h-4 w-4 shrink-0 text-accent"
         />
         <div className="min-w-0">
-          <blockquote className="text-sm leading-6 text-primary">
+          <span className="block text-sm leading-6 text-primary">
             {block.excerpt}
-          </blockquote>
-          <figcaption className="mt-2 break-words text-xs text-muted-foreground">
-            {block.filename} · chunk {block.chunk_index}
-            {block.page_number ? ` · page ${block.page_number}` : ""} · document{" "}
-            {block.document_sha256.slice(0, 12)}…
-          </figcaption>
+          </span>
+          <span className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span className="break-words">
+              {block.filename} · chunk {block.chunk_index}
+              {block.page_number ? ` · page ${block.page_number}` : ""} ·
+              document {block.document_sha256.slice(0, 12)}…
+            </span>
+            <span className="inline-flex items-center gap-1 font-semibold text-accent">
+              View source
+              <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
+            </span>
+          </span>
         </div>
       </div>
-    </figure>
+    </button>
+  );
+}
+
+function ArtifactReference({ block }: { block: ArtifactReferenceBlock }) {
+  const { openArtifact } = useArtifactViewer();
+  return (
+    <button
+      type="button"
+      onClick={() => openArtifact(block.artifact_id, block.title)}
+      className="flex w-full items-start gap-3 rounded-xl border border-border bg-background p-4 text-left transition hover:border-accent"
+    >
+      <FileText
+        aria-hidden="true"
+        className="mt-0.5 h-4 w-4 shrink-0 text-accent"
+      />
+      <span className="min-w-0">
+        <strong className="block break-words text-sm text-primary">
+          {block.title}
+        </strong>
+        <span className="text-xs text-muted-foreground">
+          {block.artifact_kind.replaceAll("_", " ")} ·{" "}
+          {block.artifact_id.slice(0, 8)}
+        </span>
+      </span>
+      <ArrowUpRight
+        aria-hidden="true"
+        className="ml-auto h-4 w-4 shrink-0 text-accent"
+      />
+    </button>
   );
 }
 
@@ -253,27 +294,7 @@ function Block({
     case "citation":
       return <Citation block={value as CitationBlock} />;
     case "artifact_reference": {
-      const block = value as ArtifactReferenceBlock;
-      return (
-        <Link
-          href={`/dashboard/artifacts?artifact=${encodeURIComponent(block.artifact_id)}`}
-          className="flex items-start gap-3 rounded-xl border border-border bg-background p-4 transition hover:border-accent"
-        >
-          <FileText
-            aria-hidden="true"
-            className="mt-0.5 h-4 w-4 shrink-0 text-accent"
-          />
-          <span className="min-w-0">
-            <strong className="block break-words text-sm text-primary">
-              {block.title}
-            </strong>
-            <span className="text-xs text-muted-foreground">
-              {block.artifact_kind.replaceAll("_", " ")} ·{" "}
-              {block.artifact_id.slice(0, 8)}
-            </span>
-          </span>
-        </Link>
-      );
+      return <ArtifactReference block={value as ArtifactReferenceBlock} />;
     }
     case "warning": {
       const block = value as WarningBlock;

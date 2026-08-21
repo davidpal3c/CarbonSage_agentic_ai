@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   CheckCircle2,
   Clock3,
@@ -7,6 +6,7 @@ import {
   Wrench,
 } from "lucide-react";
 
+import { useArtifactViewer } from "@/app/dashboard/artifact-viewer-context";
 import type {
   AgentAvailability,
   AgentConversation,
@@ -65,6 +65,7 @@ export default function AgentDetailsPanel({
   className = "",
   showTitle = true,
 }: AgentDetailsPanelProps) {
+  const { openArtifact } = useArtifactViewer();
   const citedSources = response
     ? response.blocks
         .filter((block): block is CitationBlock => block.type === "citation")
@@ -209,12 +210,13 @@ export default function AgentDetailsPanel({
           <ul className="mt-3 space-y-2">
             {sources.map((source, index) => (
               <li key={`${source.artifactId}-${index}`}>
-                <Link
-                  href={`/dashboard/artifacts?artifact=${encodeURIComponent(source.artifactId)}`}
-                  className="block rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-primary transition hover:border-accent hover:bg-card"
+                <button
+                  type="button"
+                  onClick={() => openArtifact(source.artifactId, source.label)}
+                  className="block w-full rounded-lg border border-border bg-background px-3 py-2 text-left text-sm font-medium text-primary transition hover:border-accent hover:bg-card"
                 >
                   {source.label}
-                </Link>
+                </button>
               </li>
             ))}
           </ul>
