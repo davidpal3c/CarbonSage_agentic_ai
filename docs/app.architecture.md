@@ -230,6 +230,13 @@ Each tool accepts and returns validated domain schemas. Domain logic must not
 depend on FastAPI, LangChain, a model provider, or a future MCP adapter.
 LangChain can orchestrate these commands, but it does not own them.
 
+`recommend_shipment_supplier` remains exact-lane and deterministic. It
+recalculates emissions at the requested weight from recorded shipment history,
+normalizes only location punctuation and country suffixes, and abstains when no
+lane exists. Optional historical freight cost may support an explicitly
+requested carbon-and-cost screening score when all compared values share one
+currency; it is never represented as a live carrier quote.
+
 ## Structured response protocol
 
 The dashboard and iframe share one renderer over a versioned response envelope:

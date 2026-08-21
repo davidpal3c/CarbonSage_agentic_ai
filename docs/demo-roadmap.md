@@ -869,8 +869,8 @@ Implementation evidence (completed 2026-08-18):
   panel; the compact launcher starts closed on each destination.
 - An empty workspace presents an explicit choice between loading a guided,
   fictional CarbonSage dataset and uploading user sources. The seed operation
-  is authenticated, idempotent, workspace-scoped, and creates 36 shipments,
-  24 supplier profiles, and three cited supplier evidence artifacts.
+  is authenticated, idempotent, workspace-scoped, and creates 48 shipments,
+  30 supplier profiles, and five cited supplier evidence artifacts.
 - Empty artifact-aware agent responses expose the same
   `workspace.load_demo_data` action through the versioned action-block
   contract. No client-authored mutation name is passed to the model.
@@ -928,8 +928,8 @@ Implementation evidence (completed 2026-08-19):
 - Scenarios is a concise coming-soon page while scenario comparison remains an
   agent and report capability. The workspace guide describes the current
   agent-first path without exposing implementation notes in the primary UI.
-- The expanded fictional seed now provides 24 suppliers, 36 dated mixed-mode
-  shipments, and three cited disclosures. API tests, production build, and ten
+- The expanded fictional seed now provides 30 suppliers, 48 dated mixed-mode
+  shipments, and five cited disclosures. API tests, production build, and ten
   Playwright flows cover the updated data and interaction contracts.
 
 Exit gate:
@@ -983,7 +983,7 @@ Implementation evidence (completed on the feature branch 2026-08-20):
   date. CSV and XLSX ingestion accepts common date aliases while remaining
   backward-compatible with undated files; templates, normalized exports, and
   repository round trips preserve ISO dates.
-- The fictional seed contains 36 shipments spanning September 2025 through
+- The fictional seed contains 48 shipments spanning September 2025 through
   August 2026 and all four supported transport modes. Undated user records
   remain visible as an explicit group rather than receiving invented dates.
 - One deterministic shipment-analysis service owns totals, monthly or yearly
@@ -1042,8 +1042,8 @@ Implementation evidence (completed on the feature branch 2026-08-20):
 - Supplier recommendations recalculate validated historical exact-lane options
   at the requested weight, rank one option per supplier, state the historical
   shipment and distance used, and abstain when lane or supplier linkage is
-  absent. They do not invent route distance, price, capacity, or procurement
-  approval.
+  absent. They do not invent route distance, live pricing, capacity, or
+  procurement approval.
 - Structured answers lead with the requested decision, then expose reconciled
   metrics, interactive Recharts visuals, and exact table fallbacks. The
   supplier recommendation for 1,008 kg from Toronto to Vancouver resolves to
@@ -1073,6 +1073,39 @@ Promotion gate:
 - Publish `feature/agent-answer-accuracy` to `dev` and hold `main` for review.
 - Before production promotion, verify migration 009 on PostgreSQL and repeat
   both exact prompts against the deployed Render API and Vercel client.
+
+### Phase 10.6 — Global lane and cost-aware demo coverage
+
+Implementation evidence (completed on the feature branch 2026-08-21):
+
+- Migration `010_shipment_costs.sql` adds optional positive historical freight
+  cost and ISO currency fields. Existing CSV and XLSX files remain valid, while
+  imports, normalized exports, templates, in-memory records, and PostgreSQL
+  round trips preserve supplied cost context.
+- The fictional seed now contains 30 suppliers, 48 dated shipments, and five
+  cited disclosures. Its Canadian, transatlantic, European, and Asian lanes
+  include Toronto-to-Madrid ocean and air options plus London-to-Madrid rail
+  and road options.
+- Exact-lane matching tolerates country suffixes and punctuation without
+  broadening the underlying route. A request for Toronto to Madrid, Spain can
+  match the recorded `Toronto` to `Madrid, Spain` lane while still abstaining
+  for locations that have no historical route.
+- Carbon-only requests continue to rank recalculated deterministic emissions.
+  When a user explicitly asks for cost and carbon efficiency, the typed tool
+  compares only options with historical costs in one currency and uses a
+  transparent equal-weight screening score. Costs scale to requested weight
+  and remain clearly labelled as historical estimates rather than live quotes.
+- Regression tests cover the reported 2,214 kg Toronto-to-Madrid and
+  London-to-Madrid questions, including tool selection, country normalization,
+  supplier ranking, emissions, historical cost, and structured-response
+  reconciliation.
+
+Exit gate:
+
+> With demo data loaded, CarbonSage can compare supported Canadian,
+> transatlantic, European, and Asian shipment lanes, answer both reported
+> Madrid requests without inventing route data, and distinguish deterministic
+> carbon results from historical cost screening.
 
 ### Phase 11 — Authenticated JavaScript embed
 

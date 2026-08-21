@@ -25,7 +25,12 @@ REQUIRED_HEADERS = (
     "distance_unit",
     "transport_method",
 )
-OPTIONAL_HEADERS = ("shipment_date", "supplier_name")
+OPTIONAL_HEADERS = (
+    "shipment_date",
+    "supplier_name",
+    "freight_cost_value",
+    "freight_cost_currency",
+)
 EXPORT_HEADERS = (
     "shipment_id",
     "shipment_date",
@@ -37,6 +42,8 @@ EXPORT_HEADERS = (
     "distance_value",
     "distance_unit",
     "transport_method",
+    "freight_cost_value",
+    "freight_cost_currency",
 )
 CSV_CONTENT_TYPES = {"text/csv", "application/csv", "text/plain"}
 XLSX_CONTENT_TYPES = {
@@ -68,6 +75,12 @@ HEADER_ALIASES = {
     "vendor_name": "supplier_name",
     "carrier": "supplier_name",
     "carrier_name": "supplier_name",
+    "freight_cost": "freight_cost_value",
+    "shipping_cost": "freight_cost_value",
+    "transport_cost": "freight_cost_value",
+    "cost": "freight_cost_value",
+    "currency": "freight_cost_currency",
+    "cost_currency": "freight_cost_currency",
     "from": "origin",
     "origin_location": "origin",
     "origin_city": "origin",
@@ -409,6 +422,31 @@ def parse_shipments_csv(
             weight_unit = _cell(normalized_row, "weight_unit")
             distance_unit = _cell(normalized_row, "distance_unit")
             transport_method = _cell(normalized_row, "transport_method")
+            freight_cost_text = _cell(normalized_row, "freight_cost_value")
+            freight_cost_currency = _cell(normalized_row, "freight_cost_currency").upper()
+            freight_cost_value: float | None = None
+            if freight_cost_text or freight_cost_currency:
+                if not freight_cost_text:
+                    _issue(
+                        row_errors,
+                        row_number=row_number,
+                        field="freight_cost_value",
+                        message="Freight cost is required when a currency is provided.",
+                    )
+                else:
+                    freight_cost_value = _parse_positive_number(
+                        freight_cost_text,
+                        field="freight_cost_value",
+                        row_number=row_number,
+                        errors=row_errors,
+                    )
+                if not re.fullmatch(r"[A-Z]{3}", freight_cost_currency):
+                    _issue(
+                        row_errors,
+                        row_number=row_number,
+                        field="freight_cost_currency",
+                        message="Currency must use a three-letter ISO code such as CAD or EUR.",
+                    )
             try:
                 weight_kg = (
                     normalize_weight_kg(weight_value, weight_unit)
@@ -461,6 +499,8 @@ def parse_shipments_csv(
                     distance_km=distance_km,
                     transport_method=normalized_mode,
                     source_row=row_number,
+                    freight_cost_value=freight_cost_value,
+                    freight_cost_currency=freight_cost_currency or None,
                 )
             )
     except csv.Error:

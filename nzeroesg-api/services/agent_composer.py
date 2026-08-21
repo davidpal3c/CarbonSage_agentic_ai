@@ -485,13 +485,22 @@ def compose_agent_response(
         elif isinstance(output, RecommendShipmentSupplierOutput):
             if output.recommended_supplier_name is not None:
                 recommended = output.candidates[0]
+                balanced_cost = (
+                    output.objective == "carbon_and_cost"
+                    and output.recommended_cost_value is not None
+                    and output.cost_currency is not None
+                )
+                recommendation_label = (
+                    "strongest balanced carbon-and-cost" if balanced_cost else "lowest-emissions"
+                )
                 blocks.extend(
                     (
                         TextBlock(
                             text=(
-                                f"{output.recommended_supplier_name} is the lowest-emissions "
+                                f"{output.recommended_supplier_name} is the "
+                                f"{recommendation_label} "
                                 f"supplier-linked option in this workspace for {output.origin} "
-                                f"to {output.destination}. The recommendation uses "
+                                f"to {output.destination}. The comparison uses "
                                 f"{recommended.transport_method} history from shipment "
                                 f"{recommended.historical_shipment_id}, not an invented route."
                             )
@@ -508,6 +517,24 @@ def compose_agent_response(
                         ),
                     )
                 )
+                if balanced_cost:
+                    blocks.append(
+                        MetricBlock(
+                            label="Estimated historical freight cost",
+                            value=output.recommended_cost_value or 0.0,
+                            unit=output.cost_currency or "",
+                            context="Scaled linearly from the historical shipment cost",
+                        )
+                    )
+                comparable_costs = (
+                    balanced_cost
+                    and bool(output.candidates)
+                    and all(
+                        candidate.estimated_cost_value is not None
+                        and candidate.cost_currency == output.candidates[0].cost_currency
+                        for candidate in output.candidates
+                    )
+                )
                 candidate_rows = [
                     {
                         "supplier": candidate.supplier_name,
@@ -515,9 +542,53 @@ def compose_agent_response(
                         "distance_km": candidate.distance_km,
                         "emissions_kg": candidate.estimated_emissions_kg,
                         "historical_shipment": candidate.historical_shipment_id,
+                        **(
+                            {
+                                "estimated_cost": candidate.estimated_cost_value or 0.0,
+                                "currency": candidate.cost_currency or "",
+                            }
+                            if comparable_costs
+                            else {}
+                        ),
+                        **(
+                            {"efficiency_score": candidate.efficiency_score or 0.0}
+                            if balanced_cost
+                            else {}
+                        ),
                     }
                     for candidate in output.candidates
                 ]
+                candidate_columns = [
+                    TableColumn(key="supplier", label="Supplier"),
+                    TableColumn(key="transport_method", label="Mode"),
+                    TableColumn(key="distance_km", label="Distance", unit="km"),
+                    TableColumn(
+                        key="emissions_kg",
+                        label="Estimated emissions",
+                        unit="kg CO2e",
+                    ),
+                ]
+                if comparable_costs:
+                    candidate_columns.extend(
+                        (
+                            TableColumn(key="estimated_cost", label="Estimated cost"),
+                            TableColumn(key="currency", label="Currency"),
+                        )
+                    )
+                    if balanced_cost:
+                        candidate_columns.append(
+                            TableColumn(
+                                key="efficiency_score",
+                                label="Balanced score",
+                                unit="/100",
+                            )
+                        )
+                candidate_columns.append(
+                    TableColumn(
+                        key="historical_shipment",
+                        label="Historical shipment",
+                    )
+                )
                 blocks.append(
                     _chart(
                         title="Supplier-linked lane options",
@@ -530,20 +601,7 @@ def compose_agent_response(
                                 unit="kg CO2e",
                             )
                         ],
-                        columns=[
-                            TableColumn(key="supplier", label="Supplier"),
-                            TableColumn(key="transport_method", label="Mode"),
-                            TableColumn(key="distance_km", label="Distance", unit="km"),
-                            TableColumn(
-                                key="emissions_kg",
-                                label="Estimated emissions",
-                                unit="kg CO2e",
-                            ),
-                            TableColumn(
-                                key="historical_shipment",
-                                label="Historical shipment",
-                            ),
-                        ],
+                        columns=candidate_columns,
                     )
                 )
                 blocks.append(TextBlock(text=output.basis))

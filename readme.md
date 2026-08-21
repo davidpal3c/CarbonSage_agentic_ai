@@ -39,8 +39,8 @@ The current CarbonSage demo is live at:
 The intended path is short:
 
 1. Enter an isolated, expiring demo workspace.
-2. Start with the guided fictional demo dataset—24 suppliers, six shipments,
-   and three cited disclosures—or upload your own CSV/XLSX shipment data and
+2. Start with the guided fictional demo dataset—30 suppliers, 48 dated shipments,
+   and five cited disclosures—or upload your own CSV/XLSX shipment data and
    PDF/TXT supplier evidence.
 3. Ask CarbonSage to review emissions, data quality, supplier claims, or an
    alternative freight decision.
@@ -52,7 +52,7 @@ The API health endpoint is:
 
 - <https://nzeroesg-api.onrender.com/health>
 
-Production follows `main`. The agent is the primary workspace entry point, but
+Production follows `main`. The agent is the primary intelligence surface, but
 it still fails closed unless a compatible model provider is configured;
 artifact management, retrieval, calculations, scenarios, and exports remain
 available independently.
@@ -69,8 +69,9 @@ available independently.
 - Text and text-based PDF evidence ingestion with structured supplier records,
   recoverable page/chunk citations, and PostgreSQL full-text retrieval.
 - An explicit first-run choice between a checked-in fictional demo dataset and
-  user uploads. The seed includes 24 supplier profiles, 36 dated mixed-mode
-  supplier-linked shipments, and three cited disclosures. Demo sources, retained uploads,
+  user uploads. The seed includes 30 supplier profiles, 48 dated mixed-mode
+  supplier-linked shipments, and five cited disclosures across Canadian,
+  transatlantic, European, and Asian lanes. Demo sources, retained uploads,
   normalized shipments, and the supplier catalog are downloadable from the
   workspace, and the seeded records can be unloaded without deleting user
   uploads.

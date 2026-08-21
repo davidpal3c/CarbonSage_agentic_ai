@@ -7,7 +7,8 @@ from dataclasses import dataclass
 DEMO_SHIPMENTS_FILENAME = "carbonsage-demo-shipments.csv"
 DEMO_SHIPMENTS_CSV = (
     b"shipment_id,shipment_date,supplier_name,origin,destination,weight_value,weight_unit,"
-    b"distance_value,distance_unit,transport_method\n"
+    b"distance_value,distance_unit,transport_method,freight_cost_value,"
+    b"freight_cost_currency\n"
     b"CS-1001,2025-09-04,Boreal Components,Edmonton,Calgary,12,mt,300,km,truck\n"
     b"CS-1002,2025-09-13,Northstar Logistics,Vancouver,Toronto,8,mt,4400,km,train\n"
     b"CS-1003,2025-09-25,Pacific Circuitry,Shanghai,Vancouver,24,mt,10200,km,ocean container\n"
@@ -37,13 +38,36 @@ DEMO_SHIPMENTS_CSV = (
     b"CS-1027,2026-05-27,Atlas Fasteners,Detroit,Toronto,6,mt,375,km,truck\n"
     b"CS-1028,2026-06-08,Frontier Composites,Calgary,Regina,4.8,mt,760,km,truck\n"
     b"CS-1029,2026-06-18,Bluewater Motors,Hamburg,Halifax,25,mt,5300,km,ship\n"
-    b"CS-1030,2026-06-29,Northstar Logistics,Toronto,Vancouver,9,mt,4400,km,train\n"
+    b"CS-1030,2026-06-29,Northstar Logistics,Toronto,Vancouver,9,mt,4400,km,train,10800,CAD\n"
     b"CS-1031,2026-07-07,Cascade Textiles,Los Angeles,Vancouver,5.5,mt,2050,km,truck\n"
     b"CS-1032,2026-07-19,Meridian Electronics,Taipei,Toronto,1,mt,12100,km,plane\n"
     b"CS-1033,2026-07-28,Cedar Paper Co,Prince Rupert,Montreal,15,mt,4750,km,train\n"
     b"CS-1034,2026-08-05,Boreal Components,Vancouver,Calgary,7.2,mt,970,km,train\n"
     b"CS-1035,2026-08-12,Solstice Solar Materials,Singapore,Vancouver,20,mt,12800,km,ship\n"
-    b"CS-1036,2026-08-18,Aurora Packaging,Toronto,Vancouver,4.2,mt,4400,km,truck\n"
+    b"CS-1036,2026-08-18,Aurora Packaging,Toronto,Vancouver,4.2,mt,4400,km,truck,8400,CAD\n"
+    b"CS-1037,2025-09-09,Atlantic Bridge Logistics,Toronto,"
+    b'"Madrid, Spain",6,mt,6650,km,ship,10800,CAD\n'
+    b'CS-1038,2025-10-11,Iberia Air Cargo,Toronto,"Madrid, Spain",2.4,mt,6050,km,plane,22800,CAD\n'
+    b'CS-1039,2025-11-12,EuroRail Forwarding,"London, UK","Madrid, Spain",'
+    b"8,mt,1900,km,train,9600,EUR\n"
+    b'CS-1040,2025-12-10,Iberia Road Logistics,"London, UK","Madrid, Spain",'
+    b"7,mt,1750,km,truck,9450,EUR\n"
+    b'CS-1041,2026-01-14,Silk Route Freight,"Shanghai, China","Madrid, Spain",'
+    b"22,mt,19800,km,ship,27500,EUR\n"
+    b'CS-1042,2026-02-12,Iberia Air Cargo,"Shanghai, China","Madrid, Spain",'
+    b"1.5,mt,10300,km,plane,14700,EUR\n"
+    b'CS-1043,2026-03-18,Nordic Ocean Lines,Singapore,"Rotterdam, Netherlands",'
+    b"23,mt,15800,km,ship,30000,EUR\n"
+    b'CS-1044,2026-04-21,Nordic Ocean Lines,"Tokyo, Japan","London, UK",'
+    b"19,mt,21000,km,ship,28500,GBP\n"
+    b'CS-1045,2026-05-22,Silk Route Freight,"Seoul, South Korea",'
+    b'"Frankfurt, Germany",12,mt,11000,km,train,24000,EUR\n'
+    b'CS-1046,2026-06-24,Iberia Road Logistics,"Madrid, Spain","Paris, France",'
+    b"5,mt,1270,km,truck,6500,EUR\n"
+    b'CS-1047,2026-07-23,EuroRail Forwarding,"Rotterdam, Netherlands",'
+    b'"Berlin, Germany",11,mt,700,km,train,10450,EUR\n'
+    b'CS-1048,2026-08-20,Silk Route Freight,"Busan, South Korea","Madrid, Spain",'
+    b"20,mt,18600,km,ship,25000,EUR\n"
 )
 
 
@@ -80,6 +104,17 @@ DEMO_SUPPLIERS = (
     DemoSupplier("Frontier Composites", "Canada", "ISO 9001", "truck, train"),
     DemoSupplier("Maple Leaf Warehousing", "Canada", "LEED Gold", "truck, train"),
     DemoSupplier("Coastal Biofuels", "Canada", "ISCC", "ship, truck"),
+    DemoSupplier(
+        "Atlantic Bridge Logistics",
+        "Canada and European Union",
+        "ISO 14001",
+        "ship",
+    ),
+    DemoSupplier("Iberia Air Cargo", "Spain", "IATA CEIV", "plane"),
+    DemoSupplier("EuroRail Forwarding", "European Union", "ISO 14001", "train"),
+    DemoSupplier("Iberia Road Logistics", "Spain", "ISO 14001", "truck"),
+    DemoSupplier("Silk Route Freight", "Asia and European Union", "ISO 14001", "ship, train"),
+    DemoSupplier("Nordic Ocean Lines", "European Union", "Clean Cargo", "ship"),
 )
 
 
@@ -138,6 +173,37 @@ DEMO_EVIDENCE_SOURCES = (
             b"ISO 14001 certification. Its 2025 disclosure states that recovered fibre made "
             b"up 81 percent of production inputs. Delivery data covers truck routes from the "
             b"Ontario facility; upstream forestry emissions are reported separately."
+        ),
+    ),
+    DemoEvidenceSource(
+        key="atlantic-bridge-lane-profile",
+        filename="atlantic-bridge-lane-profile.txt",
+        supplier_name="Atlantic Bridge Logistics",
+        supplier_region="Canada and European Union",
+        certifications="ISO 14001",
+        transport_modes="ship",
+        content=(
+            b"Fictional demo carrier profile for Atlantic Bridge Logistics. The provider "
+            b"offers consolidated less-than-container-load service between Ontario and Spain "
+            b"through Canadian and Iberian port partners. The sample Toronto-to-Madrid lane "
+            b"uses ocean freight as its dominant mode and includes terminal and inland legs "
+            b"inside the historical route distance. Published demo costs are historical "
+            b"screening values, not live freight quotes."
+        ),
+    ),
+    DemoEvidenceSource(
+        key="eurorail-lane-profile",
+        filename="eurorail-lane-profile.txt",
+        supplier_name="EuroRail Forwarding",
+        supplier_region="European Union",
+        certifications="ISO 14001",
+        transport_modes="train",
+        content=(
+            b"Fictional demo carrier profile for EuroRail Forwarding. The provider operates "
+            b"cross-border rail consolidation through the Channel Tunnel and western Europe. "
+            b"The sample London-to-Madrid lane represents a terminal-to-terminal rail service "
+            b"with local pickup and delivery included in the recorded route distance. Published "
+            b"demo costs are historical screening values, not capacity or price commitments."
         ),
     ),
 )

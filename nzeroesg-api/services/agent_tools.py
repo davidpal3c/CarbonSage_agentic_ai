@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import date
@@ -434,7 +435,24 @@ class AgentToolRegistry:
         payload: RecommendShipmentSupplierInput,
     ) -> tuple[BaseModel, tuple[CitationRecord, ...], tuple[str, ...], int]:
         def location_key(value: str) -> str:
-            return " ".join(value.casefold().split())
+            normalized = re.sub(r"[^a-z0-9]+", " ", value.casefold()).strip()
+            country_suffixes = (
+                "south korea",
+                "united kingdom",
+                "united states",
+                "netherlands",
+                "germany",
+                "france",
+                "canada",
+                "spain",
+                "china",
+                "japan",
+                "uk",
+            )
+            for suffix in country_suffixes:
+                if normalized.endswith(f" {suffix}"):
+                    return normalized[: -(len(suffix) + 1)].strip()
+            return normalized
 
         origin_key = location_key(payload.origin)
         destination_key = location_key(payload.destination)
@@ -448,8 +466,8 @@ class AgentToolRegistry:
         linked_shipments = [
             shipment for shipment in route_shipments if shipment.supplier_name is not None
         ]
-        candidates_by_supplier: dict[str, ShipmentSupplierCandidateOutput] = {}
-        candidate_provenance: dict[str, tuple[str, str]] = {}
+        candidate_options: list[ShipmentSupplierCandidateOutput] = []
+        candidate_provenance: dict[tuple[str, str], tuple[str, str]] = {}
         for shipment in linked_shipments:
             assert shipment.supplier_name is not None
             result = calculate_emissions(
@@ -468,30 +486,95 @@ class AgentToolRegistry:
                 transport_method=shipment.transport_method,
                 distance_km=shipment.distance_km,
                 estimated_emissions_kg=result.emissions_kg,
+                estimated_cost_value=(
+                    round(
+                        shipment.freight_cost_value * weight_kg / shipment.weight_kg,
+                        2,
+                    )
+                    if shipment.freight_cost_value is not None
+                    and shipment.freight_cost_currency is not None
+                    else None
+                ),
+                cost_currency=shipment.freight_cost_currency,
             )
-            current = candidates_by_supplier.get(shipment.supplier_name)
-            if current is None or (
-                candidate.estimated_emissions_kg,
-                candidate.historical_shipment_id,
-            ) < (
-                current.estimated_emissions_kg,
-                current.historical_shipment_id,
-            ):
-                candidates_by_supplier[shipment.supplier_name] = candidate
-                candidate_provenance[shipment.supplier_name] = (
-                    result.factor.source,
-                    result.factor.version,
+            candidate_options.append(candidate)
+            candidate_provenance[(shipment.supplier_name, shipment.shipment_id)] = (
+                result.factor.source,
+                result.factor.version,
+            )
+
+        warnings: list[str] = []
+        cost_ranked = False
+        if payload.objective == "carbon_and_cost" and candidate_options:
+            priced_options = [
+                candidate
+                for candidate in candidate_options
+                if candidate.estimated_cost_value is not None and candidate.cost_currency
+            ]
+            currencies = {candidate.cost_currency for candidate in priced_options}
+            cost_ranked = bool(priced_options) and len(currencies) == 1
+            if cost_ranked:
+                min_emissions = min(
+                    candidate.estimated_emissions_kg for candidate in priced_options
+                )
+                max_emissions = max(
+                    candidate.estimated_emissions_kg for candidate in priced_options
+                )
+                min_cost = min(candidate.estimated_cost_value or 0 for candidate in priced_options)
+                max_cost = max(candidate.estimated_cost_value or 0 for candidate in priced_options)
+
+                def efficiency_score(candidate: ShipmentSupplierCandidateOutput) -> float:
+                    emissions_range = max_emissions - min_emissions
+                    cost_range = max_cost - min_cost
+                    emissions_score = (
+                        (candidate.estimated_emissions_kg - min_emissions) / emissions_range
+                        if emissions_range
+                        else 0.0
+                    )
+                    cost_score = (
+                        ((candidate.estimated_cost_value or 0) - min_cost) / cost_range
+                        if cost_range
+                        else 0.0
+                    )
+                    return round(100 * (1 - ((emissions_score + cost_score) / 2)), 2)
+
+                candidate_options = [
+                    candidate.model_copy(update={"efficiency_score": efficiency_score(candidate)})
+                    for candidate in priced_options
+                ]
+                if len(priced_options) != len(linked_shipments):
+                    warnings.append(
+                        "Some matching shipment options were excluded because comparable "
+                        "historical freight cost was unavailable."
+                    )
+            else:
+                warnings.append(
+                    "Comparable historical freight cost is unavailable in one currency, so "
+                    "CarbonSage ranked this lane by emissions only."
                 )
 
-        candidates = sorted(
-            candidates_by_supplier.values(),
-            key=lambda candidate: (
-                candidate.estimated_emissions_kg,
-                candidate.supplier_name.casefold(),
-            ),
-        )[:10]
+        if cost_ranked:
+            ranked_options = sorted(
+                candidate_options,
+                key=lambda candidate: (
+                    -(candidate.efficiency_score or 0),
+                    candidate.estimated_emissions_kg,
+                    candidate.supplier_name.casefold(),
+                ),
+            )
+        else:
+            ranked_options = sorted(
+                candidate_options,
+                key=lambda candidate: (
+                    candidate.estimated_emissions_kg,
+                    candidate.supplier_name.casefold(),
+                ),
+            )
+        candidates_by_supplier: dict[str, ShipmentSupplierCandidateOutput] = {}
+        for candidate in ranked_options:
+            candidates_by_supplier.setdefault(candidate.supplier_name, candidate)
+        candidates = list(candidates_by_supplier.values())[:10]
         recommended = candidates[0] if candidates else None
-        warnings: list[str] = []
         if not route_shipments:
             warnings.append(
                 "No historical shipment matches this exact origin and destination, so "
@@ -508,7 +591,9 @@ class AgentToolRegistry:
             )
 
         provenance = (
-            candidate_provenance[recommended.supplier_name] if recommended is not None else None
+            candidate_provenance[(recommended.supplier_name, recommended.historical_shipment_id)]
+            if recommended is not None
+            else None
         )
         output = RecommendShipmentSupplierOutput(
             origin=payload.origin,
@@ -517,11 +602,21 @@ class AgentToolRegistry:
             recommended_supplier_name=(recommended.supplier_name if recommended else None),
             recommended_transport_method=(recommended.transport_method if recommended else None),
             recommended_emissions_kg=(recommended.estimated_emissions_kg if recommended else None),
+            recommended_cost_value=(recommended.estimated_cost_value if recommended else None),
+            cost_currency=(recommended.cost_currency if recommended else None),
+            objective="carbon_and_cost" if cost_ranked else "carbon",
             candidates=candidates,
             basis=(
-                "Lowest recalculated freight emissions among supplier-linked historical "
-                "shipments on the exact requested lane. This is a carbon-efficiency "
-                "recommendation, not a price, capacity, or procurement approval."
+                (
+                    "Equal-weight carbon-and-cost screening score among supplier-linked "
+                    "historical shipments on the requested lane. Historical freight cost is "
+                    "scaled linearly to the requested weight."
+                    if cost_ranked
+                    else "Lowest recalculated freight emissions among supplier-linked "
+                    "historical shipments on the requested lane."
+                )
+                + " This is a screening comparison, not a live quote, capacity commitment, "
+                "or procurement approval."
             ),
             factor_source=provenance[0] if provenance else None,
             factor_version=provenance[1] if provenance else None,

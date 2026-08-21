@@ -290,14 +290,14 @@ def test_demo_data_is_explicit_idempotent_and_downloadable():
     assert loaded.json() == {
         "loaded": True,
         "has_artifacts": True,
-        "artifact_count": 4,
-        "shipment_count": 36,
-        "supplier_count": 24,
-        "evidence_document_count": 3,
+        "artifact_count": 6,
+        "shipment_count": 48,
+        "supplier_count": 30,
+        "evidence_document_count": 5,
     }
     assert repeated.status_code == 200
     assert repeated.json()["loaded"] is True
-    assert repeated.json()["artifact_count"] == 4
+    assert repeated.json()["artifact_count"] == 6
 
     artifacts = demo_client.get("/artifacts").json()["artifacts"]
     for artifact in artifacts:
