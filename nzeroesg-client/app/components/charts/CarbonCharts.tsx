@@ -7,9 +7,12 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Legend,
   Line,
   LineChart,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -344,6 +347,72 @@ export function ShipmentHotspotChart({
             />
           </BarChart>
         </ResponsiveContainer>
+      </div>
+    </figure>
+  );
+}
+
+export function ShipmentModeDonutChart({
+  analysis,
+  height = 210,
+}: {
+  analysis: ShipmentAnalysis;
+  height?: number;
+}) {
+  const reduceMotion = useReducedMotion();
+  const data = Object.entries(analysis.mode_breakdown)
+    .map(([mode, values]) => ({
+      mode,
+      emissions_kg: values.emissions_kg,
+    }))
+    .sort((left, right) => right.emissions_kg - left.emissions_kg);
+
+  return (
+    <figure role="img" aria-label="Freight emissions share by transport mode">
+      <figcaption className="sr-only">
+        Freight emissions share by transport mode
+      </figcaption>
+      <div style={{ height }} className="relative w-full min-w-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart accessibilityLayer>
+            <Tooltip
+              contentStyle={tooltipStyle}
+              formatter={(value) => [
+                tooltipValue(value, "kg CO2e"),
+                "Emissions",
+              ]}
+            />
+            <Pie
+              data={data}
+              dataKey="emissions_kg"
+              nameKey="mode"
+              innerRadius="58%"
+              outerRadius="84%"
+              paddingAngle={3}
+              stroke="var(--card)"
+              strokeWidth={3}
+              isAnimationActive={!reduceMotion}
+            >
+              {data.map((entry, index) => (
+                <Cell
+                  key={entry.mode}
+                  fill={
+                    MODE_COLORS[entry.mode] ??
+                    CHART_COLORS[index % CHART_COLORS.length]
+                  }
+                />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+          <strong className="text-lg text-primary">
+            {compactNumber(analysis.total_emissions_kg)}
+          </strong>
+          <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+            kg CO₂e
+          </span>
+        </div>
       </div>
     </figure>
   );

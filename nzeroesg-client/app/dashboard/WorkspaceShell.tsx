@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 
 import { getBackendUrl } from "@/app/api/urls";
+import BrandWordmark from "@/app/components/BrandWordmark";
 import { LoadingState } from "@/app/components/Spinner";
 import ChatInterface from "@/app/components/chat_ui/ChatInterface";
 import { runWorkspaceAgentAction } from "@/app/dashboard/agent-actions";
@@ -99,14 +100,14 @@ function NavigationLink({
       href={item.href}
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
-      className={`inline-flex shrink-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition lg:flex ${
+      className={`inline-flex min-w-[4.75rem] shrink-0 flex-col items-center justify-center gap-1 rounded-lg px-1.5 py-2 text-center text-[10px] leading-tight transition lg:min-h-[3.75rem] lg:w-full lg:min-w-0 ${
         active
-          ? "bg-secondary/10 font-semibold text-secondary"
-          : "text-muted-foreground hover:bg-card hover:text-primary"
+          ? "bg-secondary/10 font-semibold text-brand-primary"
+          : "text-muted-foreground hover:bg-card/80 hover:text-primary"
       }`}
     >
-      <Icon aria-hidden="true" className="h-4 w-4" />
-      {item.label}
+      <Icon aria-hidden="true" className="h-[18px] w-[18px]" />
+      <span>{item.label}</span>
     </Link>
   );
 }
@@ -225,21 +226,23 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
   return (
     <WorkspaceContext.Provider value={{ session, refreshSession }}>
       <div className="flex min-h-screen w-full flex-col overflow-x-clip bg-background lg:flex-row">
-        <aside className="sticky top-0 z-40 flex border-b border-sidebar-border bg-sidebar px-4 py-3 lg:h-screen lg:w-64 lg:shrink-0 lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-4 lg:py-5">
+        <aside className="sticky top-0 z-40 flex border-b border-sidebar-border bg-sidebar px-4 py-3 lg:h-screen lg:w-[7.25rem] lg:shrink-0 lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-2 lg:py-4">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-4 px-1">
-              <div className="flex items-center gap-3">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-accent">
-                  <Leaf aria-hidden="true" className="h-4 w-4" />
+            <div className="flex items-center justify-between gap-4 px-1 lg:flex-col lg:justify-center lg:gap-2 lg:px-0 lg:text-center">
+              <div className="flex items-center gap-3 lg:flex-col lg:gap-1.5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-brand-mark text-brand-primary shadow-sm">
+                  <Leaf aria-hidden="true" className="h-[18px] w-[18px]" />
                 </span>
                 <div>
                   <Link
                     href="/"
-                    className="text-base font-bold tracking-tight text-primary"
+                    className="text-base font-bold tracking-tight lg:text-[13px]"
                   >
-                    CarbonSage
+                    <BrandWordmark />
                   </Link>
-                  <p className="text-[11px] text-muted-foreground">Workspace</p>
+                  <p className="text-[11px] text-muted-foreground lg:text-[9px] lg:uppercase lg:tracking-[0.12em]">
+                    Workspace
+                  </p>
                 </div>
               </div>
               <button
@@ -253,7 +256,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
 
             <nav
               aria-label="Workspace navigation"
-              className="mt-3 flex gap-1.5 overflow-x-auto pb-1 lg:hidden"
+              className="mt-3 flex gap-1 overflow-x-auto pb-1 lg:hidden"
             >
               {allNavigation.map((item) => (
                 <NavigationLink
@@ -267,12 +270,12 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
 
             <nav
               aria-label="Workspace navigation"
-              className="mt-7 hidden lg:block"
+              className="mt-6 hidden lg:block"
             >
-              <p className="px-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">
+              <p className="text-center text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">
                 Workspace
               </p>
-              <div className="mt-1.5 space-y-0.5">
+              <div className="mt-1.5 space-y-1">
                 {workspaceNavigation.map((item) => (
                   <NavigationLink
                     key={item.href}
@@ -287,7 +290,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
                 type="button"
                 onClick={() => setSimulationsOpen((current) => !current)}
                 aria-expanded={simulationsOpen}
-                className="mt-6 flex w-full items-center justify-between px-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80"
+                className="mt-5 flex w-full items-center justify-center gap-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80"
               >
                 Simulations
                 <ChevronDown
@@ -296,7 +299,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
                 />
               </button>
               {simulationsOpen ? (
-                <div className="mt-1.5 space-y-0.5">
+                <div className="mt-1.5 space-y-1">
                   {simulationNavigation.map((item) => (
                     <NavigationLink
                       key={item.href}
@@ -310,9 +313,9 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
             </nav>
           </div>
 
-          <div ref={profileRef} className="relative mt-5 hidden lg:block">
+          <div ref={profileRef} className="relative mt-4 hidden lg:block">
             {profileOpen ? (
-              <div className="absolute bottom-full left-0 mb-2 w-52 overflow-hidden rounded-xl border border-border bg-card p-1.5 shadow-xl">
+              <div className="absolute bottom-0 left-full ml-2 w-52 overflow-hidden rounded-xl border border-border bg-card p-1.5 shadow-xl">
                 <Link
                   href="/dashboard/how-to"
                   onClick={() => setProfileOpen(false)}
@@ -326,7 +329,10 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
                 </Link>
                 <button
                   type="button"
-                  onClick={toggleTheme}
+                  onClick={() => {
+                    toggleTheme();
+                    setProfileOpen(false);
+                  }}
                   disabled={!mounted}
                   className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-primary transition hover:bg-muted disabled:opacity-50"
                 >
@@ -352,7 +358,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
               onClick={() => setProfileOpen((current) => !current)}
               aria-label="Open workspace menu"
               aria-expanded={profileOpen}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-sm font-bold text-white shadow-sm transition hover:bg-accent"
+              className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-sm font-bold text-white shadow-sm transition hover:bg-secondary/85"
             >
               DW
             </button>

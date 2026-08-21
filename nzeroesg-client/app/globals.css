@@ -5,51 +5,59 @@
 }
 
 :root {
-  --background: #eef0ed;
-  --foreground: #181a18;
-  --secondary-bg: #e9ece8;
-  --secondary-fg: #414641;
-  --card: #fafbf8;
-  --card-foreground: #202320;
-  --muted: #f2f4f1;
-  --muted-foreground: #666c67;
-  --border: #d9ddd7;
-  --sidebar: #f7f8f5;
-  --sidebar-border: #dfe2dd;
-  --chat-surface: #fafbf8;
-  --user-message: #e9ece8;
-  --primary: #1c201d;
-  --secondary: #245f3e;
-  --tertiary: #8a711f;
-  --accent: #3f7f58;
-  --chart-plane: #214f35;
-  --chart-truck: #3f7f58;
-  --chart-train: #6c9d7d;
-  --chart-ship: #a2bca9;
+  --background: #eeece8;
+  --foreground: #1b1a1d;
+  --secondary-bg: #e5e3df;
+  --secondary-fg: #45434a;
+  --card: #f9f8f5;
+  --card-foreground: #201f22;
+  --muted: #f2f0ec;
+  --muted-foreground: #6c6970;
+  --border: #d8d5d0;
+  --sidebar: #f6f5f2;
+  --sidebar-border: #dedbd6;
+  --chat-surface: #fbfaf7;
+  --user-message: #e8e6e1;
+  --primary: #1d1c20;
+  --secondary: #4a4466;
+  --tertiary: #b96555;
+  --accent: #4b7480;
+  --brand-primary: #4a4466;
+  --brand-secondary: #597a64;
+  --brand-mark: #dce7df;
+  --chart-plane: #4a4466;
+  --chart-truck: #d77f6c;
+  --chart-train: #78a887;
+  --chart-ship: #6fabbc;
+  --chart-highlight: #a6b568;
 }
 
 .dark {
-  --background: #111311;
-  --foreground: #eff1ed;
-  --secondary-bg: #171a18;
-  --secondary-fg: #d5d9d4;
-  --card: #1a1d1b;
-  --card-foreground: #f3f5f1;
-  --muted: #202421;
-  --muted-foreground: #a9b0aa;
-  --border: #343a35;
-  --sidebar: #151815;
-  --sidebar-border: #2d322e;
-  --chat-surface: #191c1a;
-  --user-message: #252a26;
-  --primary: #f1f3ef;
-  --secondary: #4f9669;
-  --tertiary: #c7ad58;
-  --accent: #73b388;
-  --chart-plane: #b4d9c0;
-  --chart-truck: #73b388;
-  --chart-train: #4f9669;
-  --chart-ship: #346548;
+  --background: #111115;
+  --foreground: #f1f0ed;
+  --secondary-bg: #202026;
+  --secondary-fg: #d7d4dc;
+  --card: #1c1c22;
+  --card-foreground: #f4f2ef;
+  --muted: #24242b;
+  --muted-foreground: #aaa7b0;
+  --border: #35343d;
+  --sidebar: #17171c;
+  --sidebar-border: #2e2d35;
+  --chat-surface: #1a1a20;
+  --user-message: #27272e;
+  --primary: #f1f0ed;
+  --secondary: #5d567d;
+  --tertiary: #ef9b87;
+  --accent: #88bdcb;
+  --brand-primary: #b6b0d2;
+  --brand-secondary: #9fcbad;
+  --brand-mark: #292733;
+  --chart-plane: #aaa5c8;
+  --chart-truck: #ef9b87;
+  --chart-train: #9fcbad;
+  --chart-ship: #86c1d1;
+  --chart-highlight: #f1f6d3;
 }
 
 @theme {
@@ -70,6 +78,9 @@
   --color-tertiary: var(--tertiary);
   --color-secondary: var(--secondary);
   --color-accent: var(--accent);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-mark: var(--brand-mark);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -127,6 +138,14 @@ body {
 }
 
 @layer utilities {
+  .brand-wordmark {
+    color: var(--brand-primary);
+  }
+
+  .brand-wordmark-sage {
+    color: var(--brand-secondary);
+  }
+
   .theme-transition {
     transition:
       background-color var(--default-transition-duration),

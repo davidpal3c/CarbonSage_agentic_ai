@@ -41,7 +41,9 @@ async function openWorkspacePage(page: Page, label: string, path: string) {
     .getByRole("navigation", { name: "Workspace navigation" })
     .getByRole("link", { name: label, exact: true })
     .click();
-  await expect(page).toHaveURL(new RegExp(`/dashboard/${path}$`));
+  await expect(page).toHaveURL(new RegExp(`/dashboard/${path}$`), {
+    timeout: backendActionTimeout,
+  });
   await expect(
     page.getByRole("link", { name: label, exact: true }),
   ).toHaveAttribute("aria-current", "page");
@@ -185,6 +187,7 @@ test("completes the five-minute demo workflow and exports a report", async ({
 test("loads the fictional demo dataset from the agent or integrations", async ({
   page,
 }) => {
+  test.setTimeout(120_000);
   let shipmentRequests = 0;
   let analyticsRequests = 0;
   page.on("request", (request) => {

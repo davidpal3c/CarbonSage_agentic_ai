@@ -227,7 +227,7 @@ export default function ReportPage() {
               type="button"
               onClick={() => void loadDemoData()}
               disabled={isLoadingDemoData}
-              className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-accent disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-secondary/85 disabled:opacity-60"
             >
               {isLoadingDemoData ? (
                 <Spinner />

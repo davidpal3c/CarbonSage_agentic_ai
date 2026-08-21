@@ -37,7 +37,7 @@ export default function ParticlesContainer() {
   }, []);
 
   const options: ISourceOptions = useMemo(() => {
-    const baseColor = isDark ? "#d1e7dd" : "#2f4f45";
+    const baseColor = isDark ? "#aaa5c8" : "#4a4466";
 
     return {
       fullScreen: { enable: false },

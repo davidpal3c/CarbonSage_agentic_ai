@@ -73,7 +73,7 @@ export default function LoginPage() {
             type="button"
             onClick={enterDemoWorkspace}
             disabled={isEntering}
-            className="inline-flex items-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-accent disabled:cursor-wait disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-secondary/85 disabled:cursor-wait disabled:opacity-60"
           >
             {isEntering ? <Spinner /> : null}
             Enter demo workspace

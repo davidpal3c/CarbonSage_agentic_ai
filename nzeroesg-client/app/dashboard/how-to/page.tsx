@@ -85,7 +85,7 @@ export default function HowToPage() {
       <div className="mt-6 flex flex-wrap gap-2">
         <Link
           href="/dashboard/agent"
-          className="rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-accent"
+          className="rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-secondary/85"
         >
           Ask CarbonSage
         </Link>

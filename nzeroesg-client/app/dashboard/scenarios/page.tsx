@@ -32,7 +32,7 @@ export default function ScenariosPage() {
           </p>
           <Link
             href="/dashboard/agent"
-            className="mt-5 inline-flex rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-accent"
+            className="mt-5 inline-flex rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-secondary/85"
           >
             Ask CarbonSage
           </Link>

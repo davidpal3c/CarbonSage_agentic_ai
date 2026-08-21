@@ -145,7 +145,7 @@ export default function IntegrationsPage() {
                 type="button"
                 onClick={() => void loadDemoData()}
                 disabled={pendingAction !== null}
-                className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-accent disabled:opacity-60"
+                className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-secondary/85 disabled:opacity-60"
               >
                 {pendingAction === "load" ? <Spinner /> : null}
                 Load demo data

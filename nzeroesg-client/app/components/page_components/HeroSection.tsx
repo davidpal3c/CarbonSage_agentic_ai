@@ -25,7 +25,10 @@ export default function HeroSection({ onTry }: HeroSectionProps) {
         </p>
         <h1 className="mb-6 text-4xl font-extrabold leading-tight tracking-tight text-primary md:text-6xl">
           Ask better Scope 3 questions.{" "}
-          <span className="text-accent">See the evidence and the tools.</span>
+          <span className="brand-wordmark">
+            See the evidence{" "}
+            <span className="brand-wordmark-sage">and the tools.</span>
+          </span>
         </h1>
         <p className="mx-auto max-w-2xl text-lg leading-8 text-primary">
           CarbonSage brings hybrid retrieval, cited supplier evidence, trusted
@@ -34,7 +37,7 @@ export default function HeroSection({ onTry }: HeroSectionProps) {
         </p>
         <button
           onClick={onTry}
-          className="mt-10 rounded-lg bg-accent px-6 py-3 font-semibold text-white shadow transition hover:bg-secondary"
+          className="mt-10 rounded-lg bg-secondary px-6 py-3 font-semibold text-white shadow transition hover:bg-secondary/85"
         >
           Enter the demo workspace
         </button>

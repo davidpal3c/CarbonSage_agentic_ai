@@ -174,7 +174,7 @@ function Action({
         type="button"
         onClick={run}
         disabled={!onAction || status === "running" || status === "done"}
-        className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-secondary/85 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {status === "running" ? <Spinner /> : null}
         {status === "done" ? "Completed" : block.label}

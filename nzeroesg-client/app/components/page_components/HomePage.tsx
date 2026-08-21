@@ -1,7 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Leaf } from "lucide-react";
 
+import BrandWordmark from "@/app/components/BrandWordmark";
 import ThemeToggle from "@/app/components/ThemeToggle";
 import AboutSection from "@/app/components/page_components/AboutSection";
 import HeroSection from "@/app/components/page_components/HeroSection";
@@ -20,8 +22,14 @@ export default function HomePage() {
     <>
       <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-background/80 backdrop-blur-lg">
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
-          <a href="#" className="text-xl font-bold tracking-tight text-primary">
-            🌱 CarbonSage
+          <a
+            href="#"
+            className="flex items-center gap-2 text-xl font-bold tracking-tight"
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-brand-mark text-brand-primary">
+              <Leaf aria-hidden="true" className="h-4 w-4" />
+            </span>
+            <BrandWordmark />
           </a>
           <div className="flex items-center gap-5 text-sm font-semibold">
             {navigation.map((item) => (
@@ -110,7 +118,7 @@ export default function HomePage() {
         </section>
       </main>
 
-      <footer className="bg-gray-900 px-6 py-8 text-center text-sm text-gray-300">
+      <footer className="border-t border-border bg-secondary-bg px-6 py-8 text-center text-sm text-muted-foreground">
         © {new Date().getFullYear()} CarbonSage · Evidence-grounded Scope 3
         intelligence, wherever decisions happen
       </footer>

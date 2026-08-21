@@ -64,7 +64,7 @@ export default function ChatInput({
         type="button"
         onClick={handleSend}
         disabled={!input.trim() || disabled}
-        className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition hover:bg-secondary/85 disabled:cursor-not-allowed disabled:opacity-50"
       >
         Send
       </button>
