@@ -409,6 +409,7 @@ test("restores chat suggestions after loading demo data from an empty-workspace 
   page,
 }) => {
   const now = new Date().toISOString();
+  let conversationDetailRequests = 0;
   const conversation = {
     conversation_id: "00000000-0000-4000-8000-000000000031",
     workspace_id: "demo-empty-action",
@@ -448,8 +449,12 @@ test("restores chat suggestions after loading demo data from an empty-workspace 
   await page.route("**/agent/conversations", (route) =>
     route.fulfill({ json: { conversations: [conversation] } }),
   );
-  await page.route("**/agent/conversations/*", (route) =>
-    route.fulfill({
+  await page.route("**/agent/conversations/*", async (route) => {
+    conversationDetailRequests += 1;
+    if (conversationDetailRequests > 1) {
+      await new Promise((resolve) => setTimeout(resolve, 5_000));
+    }
+    await route.fulfill({
       json: {
         conversation,
         messages: [
@@ -494,6 +499,43 @@ test("restores chat suggestions after loading demo data from an empty-workspace 
         ],
         tool_events: [],
       },
+    });
+  });
+  await page.route("**/agent/conversations/*/messages", (route) =>
+    route.fulfill({
+      json: {
+        user_message: {
+          message_id: "00000000-0000-4000-8000-000000000035",
+          conversation_id: conversation.conversation_id,
+          workspace_id: conversation.workspace_id,
+          role: "user",
+          content: "Compare the current freight baseline with rail.",
+          response: null,
+          created_at: now,
+        },
+        assistant_message: {
+          message_id: "00000000-0000-4000-8000-000000000036",
+          conversation_id: conversation.conversation_id,
+          workspace_id: conversation.workspace_id,
+          role: "assistant",
+          content: "The baseline comparison is ready.",
+          created_at: now,
+          response: {
+            schema_version: "1.0",
+            response_id: "00000000-0000-4000-8000-000000000037",
+            policy_version: "1.0",
+            evidence_status: "not_required",
+            processing_time_ms: 8,
+            generated_at: now,
+            blocks: [
+              {
+                type: "text",
+                text: "The baseline comparison is ready.",
+              },
+            ],
+          },
+        },
+      },
     }),
   );
 
@@ -511,6 +553,14 @@ test("restores chat suggestions after loading demo data from an empty-workspace 
     agent.getByRole("button", { name: "Compare with rail" }),
   ).toBeEnabled();
   await expect(agent.getByLabel("Message CarbonSage")).toBeEnabled();
+
+  await agent.getByRole("button", { name: "Compare with rail" }).click();
+  await expect(
+    agent.getByText("The baseline comparison is ready."),
+  ).toBeVisible();
+  await expect(agent.getByLabel("Message CarbonSage")).toBeEnabled({
+    timeout: 2_000,
+  });
 });
 
 test("restores the latest workspace conversation before enabling input", async ({

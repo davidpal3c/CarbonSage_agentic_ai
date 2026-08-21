@@ -264,6 +264,7 @@ export default function ChatInterface({
   }, []);
 
   async function handleSendMessage(content: string) {
+    let responseReceived = false;
     const userMessage: UiMessage = {
       id: crypto.randomUUID(),
       content,
@@ -306,7 +307,9 @@ export default function ChatInterface({
           response: assistant.response ?? undefined,
         },
       ]);
-      await Promise.all([
+      responseReceived = true;
+      setIsLoading(false);
+      void Promise.allSettled([
         refreshToolActivity(activeConversationId),
         onUsageChange?.() ?? Promise.resolve(),
       ]);
@@ -326,7 +329,7 @@ export default function ChatInterface({
       ]);
     } finally {
       void refreshAgentUsage();
-      setIsLoading(false);
+      if (!responseReceived) setIsLoading(false);
     }
   }
 
