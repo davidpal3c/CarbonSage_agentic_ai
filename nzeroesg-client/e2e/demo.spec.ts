@@ -22,11 +22,11 @@ async function enterWorkspace(page: Page) {
     page.getByRole("heading", { name: "Enter the demo workspace" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Enter demo workspace" }).click();
-  await expect(page).toHaveURL(/\/dashboard\/agent$/, {
+  await expect(page).toHaveURL(/\/dashboard\/overview$/, {
     timeout: backendActionTimeout,
   });
   await expect(
-    page.getByRole("heading", { name: "Ask CarbonSage" }),
+    page.getByRole("heading", { name: "Overview" }),
   ).toBeVisible();
   await expect(page.getByText(/^Ready$/)).toHaveCount(0);
   await expect(page.getByText(/Phase\s+\d+/)).toHaveCount(0);
@@ -1136,9 +1136,9 @@ test("supports keyboard entry and a narrow viewport", async ({ page }) => {
   await expect(enterButton).toBeFocused();
   await page.keyboard.press("Enter");
 
-  await expect(page).toHaveURL(/\/dashboard\/agent$/);
+  await expect(page).toHaveURL(/\/dashboard\/overview$/);
   await expect(
-    page.getByRole("heading", { name: "Ask CarbonSage" }),
+    page.getByRole("heading", { name: "Overview" }),
   ).toBeVisible();
 
   const viewport = await page.evaluate(() => ({
