@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Database } from "lucide-react";
 
 import { getBackendUrl } from "@/app/api/urls";
 import { LoadingState, Spinner } from "@/app/components/Spinner";
@@ -23,12 +24,21 @@ export default function ReportPage() {
   const refreshAfterReportSnapshot = useWorkspaceDataStore(
     (state) => state.refreshAfterReportSnapshot,
   );
+  const loadWorkspaceDemoData = useWorkspaceDataStore(
+    (state) => state.loadDemoData,
+  );
   const [actionError, setActionError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingDemoData, setIsLoadingDemoData] = useState(false);
   const isLoading = reportStatus === "loading";
   const error = actionError ?? reportError;
+  const canLoadDemoData = Boolean(
+    error?.includes(
+      "Upload at least one valid shipment before running a scenario.",
+    ),
+  );
 
   useEffect(() => {
     void ensureReport(alternativeMode).catch(() => undefined);
@@ -112,6 +122,27 @@ export default function ReportPage() {
     }
   }
 
+  async function loadDemoData() {
+    setIsLoadingDemoData(true);
+    setActionError(null);
+    setStatusMessage(null);
+    try {
+      await loadWorkspaceDemoData();
+      await ensureReport(alternativeMode, true);
+      setStatusMessage(
+        "Demo data loaded. The report now uses the seeded baseline.",
+      );
+    } catch (requestError) {
+      setActionError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Demo data could not be loaded.",
+      );
+    } finally {
+      setIsLoadingDemoData(false);
+    }
+  }
+
   const modes = report
     ? Object.entries(report.shipment_analysis.mode_breakdown)
     : [];
@@ -189,9 +220,24 @@ export default function ReportPage() {
         </p>
       ) : null}
       {error ? (
-        <p className="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
-          {error}
-        </p>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <p>{error}</p>
+          {canLoadDemoData ? (
+            <button
+              type="button"
+              onClick={() => void loadDemoData()}
+              disabled={isLoadingDemoData}
+              className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-accent disabled:opacity-60"
+            >
+              {isLoadingDemoData ? (
+                <Spinner />
+              ) : (
+                <Database aria-hidden="true" className="h-4 w-4" />
+              )}
+              Load demo data
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       {report ? (

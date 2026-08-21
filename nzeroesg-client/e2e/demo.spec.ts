@@ -272,6 +272,15 @@ test("loads the fictional demo dataset from the agent or integrations", async ({
   await expect(
     page.getByRole("button", { name: "Load demo data" }),
   ).toBeVisible({ timeout: backendActionTimeout });
+  await openWorkspacePage(page, "Report", "report");
+  await expect(
+    page.getByText(
+      "Upload at least one valid shipment before running a scenario.",
+    ),
+  ).toBeVisible({ timeout: backendActionTimeout });
+  await expect(
+    page.getByRole("button", { name: "Load demo data" }),
+  ).toBeVisible();
   await openWorkspacePage(page, "Artifacts", "artifacts");
   await expect(
     page.getByText(
@@ -739,7 +748,7 @@ test("renders a typed interactive response with keyboard-accessible chart data",
                     { mode: "Rail", emissions_kg: 2.2 },
                     { mode: "Air", emissions_kg: 60.2 },
                   ],
-                  caption: "Table equivalent for the chart values.",
+                  caption: "Chart values in table form.",
                 },
               },
               {
@@ -771,6 +780,16 @@ test("renders a typed interactive response with keyboard-accessible chart data",
                 requires_confirmation: true,
                 artifact_id: null,
               },
+              {
+                type: "suggestions",
+                title: "Explore this result",
+                options: [
+                  {
+                    label: "Compare with Train",
+                    prompt: "Compare the current freight baseline with train.",
+                  },
+                ],
+              },
               { type: "future_decision_block", value: "safe fallback" },
             ],
           },
@@ -798,6 +817,10 @@ test("renders a typed interactive response with keyboard-accessible chart data",
   await page.keyboard.press("Enter");
 
   await expect(
+    agentDialog.getByText("Compare rail and air.", { exact: true }),
+  ).toBeVisible();
+
+  await expect(
     agentDialog.getByText("Rail emissions", { exact: true }),
   ).toBeVisible();
   await expect(
@@ -807,13 +830,13 @@ test("renders a typed interactive response with keyboard-accessible chart data",
     agentDialog.getByRole("img", { name: /Rail and air emissions/ }),
   ).toBeVisible();
   await expect(agentDialog.getByText("14 left · <1¢")).toBeVisible();
-  const chartTableToggle = agentDialog.getByText("View exact chart data");
+  const chartTableToggle = agentDialog.getByText("View chart data");
   await chartTableToggle.focus();
   await expect(chartTableToggle).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(
     agentDialog.getByRole("table", {
-      name: "Table equivalent for the chart values.",
+      name: "Chart values in table form.",
     }),
   ).toBeVisible();
   await expect(
@@ -844,6 +867,12 @@ test("renders a typed interactive response with keyboard-accessible chart data",
   await expect(
     agentDialog.getByText("Calculated freight emissions").first(),
   ).toBeVisible();
+  await agentDialog.getByRole("button", { name: "Compare with Train" }).click();
+  await expect(
+    agentDialog.getByText("Compare the current freight baseline with train.", {
+      exact: true,
+    }),
+  ).toBeVisible();
   await expect(
     agentDialog.getByRole("link", { name: "Supplier evidence" }).first(),
   ).toHaveAttribute(
@@ -851,9 +880,11 @@ test("renders a typed interactive response with keyboard-accessible chart data",
     "/dashboard/artifacts?artifact=00000000-0000-4000-8000-000000000006",
   );
 
-  const action = agentDialog.getByRole("button", {
-    name: "Save report snapshot",
-  });
+  const action = agentDialog
+    .getByRole("button", {
+      name: "Save report snapshot",
+    })
+    .first();
   page.once("dialog", (dialog) => dialog.dismiss());
   await action.focus();
   await page.keyboard.press("Enter");

@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, BarChart3, FileText, Quote } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  BarChart3,
+  FileText,
+  Quote,
+} from "lucide-react";
 
 import { Spinner } from "@/app/components/Spinner";
 import { StructuredDataChart } from "@/app/components/charts/CarbonCharts";
@@ -15,6 +21,7 @@ import type {
   MetricBlock,
   ResponseBlock,
   ScalarValue,
+  SuggestionsBlock,
   TableBlock,
   TextBlock,
   WarningBlock,
@@ -23,6 +30,8 @@ import type {
 type StructuredResponseProps = {
   response: AgentResponseEnvelope;
   onAction?: (actionId: string, artifactId: string | null) => Promise<void>;
+  onPrompt?: (prompt: string) => void | Promise<void>;
+  promptDisabled?: boolean;
 };
 
 type UnknownBlock = Record<string, unknown>;
@@ -89,7 +98,7 @@ function Chart({ block }: { block: ChartBlock }) {
       </div>
       <StructuredDataChart
         title={block.title}
-        description={`${block.title}. Interactive ${block.chart_kind} chart. Exact values follow in a table.`}
+        description={`${block.title}. Interactive ${block.chart_kind} chart. Values are also available in a table.`}
         kind={block.chart_kind}
         data={block.rows}
         xKey={block.x_key}
@@ -98,7 +107,7 @@ function Chart({ block }: { block: ChartBlock }) {
       />
       <details className="mt-4 rounded-lg bg-muted px-3 py-2 text-primary">
         <summary className="cursor-pointer text-xs font-semibold">
-          View exact chart data
+          View chart data
         </summary>
         <div className="mt-3">
           <DataTable table={block.table_fallback} />
@@ -191,9 +200,13 @@ function isRecord(value: unknown): value is UnknownBlock {
 function Block({
   value,
   onAction,
+  onPrompt,
+  promptDisabled,
 }: {
   value: ResponseBlock | UnknownBlock;
   onAction?: StructuredResponseProps["onAction"];
+  onPrompt?: StructuredResponseProps["onPrompt"];
+  promptDisabled?: boolean;
 }) {
   if (!isRecord(value) || typeof value.type !== "string") {
     return (
@@ -279,6 +292,34 @@ function Block({
     }
     case "action":
       return <Action block={value as ActionBlock} onAction={onAction} />;
+    case "suggestions": {
+      const block = value as SuggestionsBlock;
+      return (
+        <section
+          aria-label={block.title}
+          className="rounded-xl border border-border bg-transparent p-4"
+        >
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {block.title}
+          </h4>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {block.options.map((option) => (
+              <button
+                key={`${option.label}-${option.prompt}`}
+                type="button"
+                onClick={() => void onPrompt?.(option.prompt)}
+                disabled={!onPrompt || promptDisabled}
+                title={option.prompt}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-chat-surface px-3 py-2 text-left text-xs font-semibold text-primary shadow-sm transition hover:border-accent hover:text-secondary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {option.label}
+                <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
+              </button>
+            ))}
+          </div>
+        </section>
+      );
+    }
     default:
       return (
         <p
@@ -294,6 +335,8 @@ function Block({
 export default function StructuredResponse({
   response,
   onAction,
+  onPrompt,
+  promptDisabled,
 }: StructuredResponseProps) {
   return (
     <div className="space-y-3">
@@ -305,6 +348,8 @@ export default function StructuredResponse({
           key={`${response.response_id}-${index}`}
           value={block}
           onAction={onAction}
+          onPrompt={onPrompt}
+          promptDisabled={promptDisabled}
         />
       ))}
     </div>

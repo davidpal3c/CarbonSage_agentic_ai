@@ -24,7 +24,7 @@ const steps = [
   {
     title: "Inspect the evidence",
     description:
-      "Open citations, exact chart values, calculation details, and source artifacts before carrying a result into a decision.",
+      "Open citations, chart values, calculation details, and source artifacts before carrying a result into a decision.",
     icon: FileSearch,
   },
   {

@@ -47,7 +47,7 @@ export default function ChatInput({
   }, [input]);
 
   return (
-    <div className="flex items-end gap-2 border-t border-border bg-background p-3">
+    <div className="flex items-end gap-2 border-t border-border bg-chat-surface p-3">
       <textarea
         ref={textAreaRef}
         value={input}

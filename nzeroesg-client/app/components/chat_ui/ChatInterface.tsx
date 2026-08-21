@@ -40,6 +40,7 @@ const statusLabels: Record<AgentAvailability, string> = {
 };
 
 const suggestedPrompts = [
+  "Compare the current freight baseline with rail.",
   "Across current shipments, which transport mode has the highest carbon footprint, and which supplier contributes most?",
   "Recommend the most carbon-efficient supplier for a 1008 kg shipment from Toronto to Vancouver.",
   "Show the monthly emissions trend by transport mode.",
@@ -87,7 +88,8 @@ export default function ChatInterface({
   const demoData = useWorkspaceDataStore((state) => state.demoData);
   const [isLoadingDemoData, setIsLoadingDemoData] = useState(false);
   const conversationId = useRef<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageElements = useRef(new Map<string, HTMLElement>());
+  const pendingScrollTarget = useRef<string | null>(null);
   const previousNavigationKey = useRef(navigationKey);
 
   const applyConversationDetail = useCallback(
@@ -197,6 +199,7 @@ export default function ChatInterface({
       role: "user",
       timestamp: new Date(),
     };
+    pendingScrollTarget.current = userMessage.id;
     setMessages((current) => [...current, userMessage]);
     setIsLoading(true);
 
@@ -415,8 +418,17 @@ export default function ChatInterface({
   }, [isPanel, navigationKey, onOpenChange]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+    const targetId = pendingScrollTarget.current;
+    if (!targetId) return;
+    const frame = window.requestAnimationFrame(() => {
+      messageElements.current.get(targetId)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      pendingScrollTarget.current = null;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [messages]);
 
   const latestResponse = useMemo(
     () =>
@@ -455,11 +467,11 @@ export default function ChatInterface({
           aria-labelledby="carbonsage-agent-title"
           className={
             isPanel
-              ? "flex h-[min(50rem,calc(100vh-11rem))] min-h-[38rem] w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
-              : "fixed inset-x-3 bottom-3 z-50 flex h-[min(46rem,calc(100vh-1.5rem))] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl sm:left-auto sm:right-4 sm:w-[min(48rem,calc(100vw-2rem))]"
+              ? "flex h-[min(50rem,calc(100vh-11rem))] min-h-[38rem] w-full flex-col overflow-hidden rounded-2xl border border-border bg-chat-surface shadow-sm"
+              : "fixed inset-x-3 bottom-3 z-50 flex h-[min(46rem,calc(100vh-1.5rem))] flex-col overflow-hidden rounded-2xl border border-border bg-chat-surface shadow-2xl sm:left-auto sm:right-4 sm:w-[min(48rem,calc(100vw-2rem))]"
           }
         >
-          <header className="flex items-start justify-between gap-4 border-b border-border bg-background px-5 py-4">
+          <header className="flex items-start justify-between gap-4 border-b border-border bg-chat-surface px-5 py-4">
             <div>
               <h2
                 id="carbonsage-agent-title"
@@ -474,7 +486,7 @@ export default function ChatInterface({
             <div className="flex items-center gap-3">
               {agentUsage ? (
                 <span
-                  className="hidden rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground sm:inline-flex"
+                  className="inline-flex rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
                   title={`${agentUsage.questions_used} of ${agentUsage.question_limit} questions used today`}
                 >
                   {agentUsage.questions_remaining} left ·{" "}
@@ -510,7 +522,7 @@ export default function ChatInterface({
           </header>
 
           {isPanel ? (
-            <div className="border-b border-border bg-background px-4 py-3">
+            <div className="border-b border-border bg-chat-surface px-4 py-3">
               <div className="flex flex-wrap items-center gap-2">
                 <label htmlFor="agent-conversation" className="sr-only">
                   Conversation
@@ -598,7 +610,7 @@ export default function ChatInterface({
             }`}
           >
             <div className="flex min-h-0 flex-col">
-              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-background px-4 py-5 sm:px-5">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-chat-surface px-4 py-5 sm:px-5">
                 {isSwitchingConversation ? (
                   <LoadingState label="Loading conversation" />
                 ) : !messages.length && !isLoading ? (
@@ -659,6 +671,12 @@ export default function ChatInterface({
                 {messages.map((message) => (
                   <article
                     key={message.id}
+                    ref={(element) => {
+                      if (element)
+                        messageElements.current.set(message.id, element);
+                      else messageElements.current.delete(message.id);
+                    }}
+                    data-message-id={message.id}
                     className={`flex ${
                       message.role === "user" ? "justify-end" : "justify-start"
                     }`}
@@ -666,10 +684,10 @@ export default function ChatInterface({
                     <div
                       className={`min-w-0 max-w-[94%] rounded-2xl px-4 py-3 sm:max-w-[88%] ${
                         message.role === "user"
-                          ? "bg-primary text-background"
+                          ? "bg-user-message text-primary"
                           : message.isError
                             ? "border border-red-300 bg-red-50 text-red-900"
-                            : "border border-border bg-card text-primary"
+                            : "border border-border bg-transparent text-primary shadow-sm"
                       }`}
                     >
                       <p className="mb-2 text-xs font-semibold">
@@ -679,6 +697,8 @@ export default function ChatInterface({
                         <StructuredResponse
                           response={message.response}
                           onAction={onAction}
+                          onPrompt={handleSendMessage}
+                          promptDisabled={interactionDisabled}
                         />
                       ) : (
                         <p className="whitespace-pre-wrap text-sm leading-6">
@@ -695,7 +715,6 @@ export default function ChatInterface({
                   </article>
                 ))}
                 {isLoading ? <LoadingIndicator /> : null}
-                <div ref={messagesEndRef} />
               </div>
 
               <ChatInput

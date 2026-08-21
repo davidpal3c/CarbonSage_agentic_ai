@@ -210,7 +210,7 @@ export function ShipmentTrendChart({
     return (
       <StructuredDataChart
         title="Freight emissions over time"
-        description={`Stacked ${analysis.filters.granularity} freight emissions by transport mode. Exact values are available in the adjacent table.`}
+        description={`Stacked ${analysis.filters.granularity} freight emissions by transport mode. Values are available in the adjacent table.`}
         kind="bar"
         data={data}
         xKey="period"

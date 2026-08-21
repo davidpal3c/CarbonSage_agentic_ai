@@ -75,6 +75,17 @@ export type ActionBlock = {
   artifact_id: string | null;
 };
 
+export type SuggestedPrompt = {
+  label: string;
+  prompt: string;
+};
+
+export type SuggestionsBlock = {
+  type: "suggestions";
+  title: string;
+  options: SuggestedPrompt[];
+};
+
 export type ResponseBlock =
   | TextBlock
   | MetricBlock
@@ -83,7 +94,8 @@ export type ResponseBlock =
   | CitationBlock
   | ArtifactReferenceBlock
   | WarningBlock
-  | ActionBlock;
+  | ActionBlock
+  | SuggestionsBlock;
 
 export type AgentResponseEnvelope = {
   schema_version: "1.0";

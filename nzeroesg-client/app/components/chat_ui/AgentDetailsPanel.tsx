@@ -207,8 +207,8 @@ export default function AgentDetailsPanel({
             Sources
           </h4>
           <ul className="mt-3 space-y-2">
-            {sources.map((source) => (
-              <li key={source.artifactId}>
+            {sources.map((source, index) => (
+              <li key={`${source.artifactId}-${index}`}>
                 <Link
                   href={`/dashboard/artifacts?artifact=${encodeURIComponent(source.artifactId)}`}
                   className="block rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-primary transition hover:border-accent hover:bg-card"

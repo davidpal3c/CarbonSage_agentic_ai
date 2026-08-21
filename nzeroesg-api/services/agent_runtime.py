@@ -186,6 +186,7 @@ class AgentRuntimeService:
             executions,
             processing_time_ms=elapsed_ms,
             evidence_support=evidence_support,
+            question=question,
         )
         return self.repository.append_exchange(
             workspace_id=principal.workspace_id,

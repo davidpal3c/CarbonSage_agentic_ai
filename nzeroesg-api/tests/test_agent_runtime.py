@@ -28,6 +28,7 @@ from domain.agent.tools import (
     AgentToolName,
     AnalyzeShipmentEmissionsOutput,
     BuildDecisionReportOutput,
+    CompareTransportScenariosOutput,
     ListWorkspaceArtifactsOutput,
     PlannedToolCall,
     RecommendShipmentSupplierOutput,
@@ -131,6 +132,8 @@ def test_reported_shipment_questions_use_one_current_question_specific_tool():
         "shipment from Toronto to Vancouver."
     )
     trend = _deterministic_plan("Show the monthly emissions trend by transport mode.")
+    rail_comparison = _deterministic_plan("Compare the current freight baseline with rail.")
+    plane_trend = _deterministic_plan("Show the monthly emissions trend for plane shipments.")
 
     assert ranking is not None
     assert [call.tool_name for call in ranking.calls] == [AgentToolName.ANALYZE_SHIPMENT_EMISSIONS]
@@ -147,6 +150,15 @@ def test_reported_shipment_questions_use_one_current_question_specific_tool():
     assert trend is not None
     assert [call.tool_name for call in trend.calls] == [AgentToolName.ANALYZE_SHIPMENT_EMISSIONS]
     assert trend.calls[0].arguments.model_dump()["granularity"] == "month"
+    assert rail_comparison is not None
+    assert [call.tool_name for call in rail_comparison.calls] == [
+        AgentToolName.COMPARE_TRANSPORT_SCENARIOS
+    ]
+    assert rail_comparison.calls[0].arguments.model_dump() == {
+        "alternative_transport_method": "train"
+    }
+    assert plane_trend is not None
+    assert plane_trend.calls[0].arguments.model_dump()["transport_methods"] == ["plane"]
 
 
 def principal_for(workspace_id: str = "demo-agent") -> WorkspacePrincipal:
@@ -444,7 +456,11 @@ def test_highest_footprint_prompt_names_the_mode_and_supplier_from_demo_rows():
     assert isinstance(execution.output, AnalyzeShipmentEmissionsOutput)
     assert execution.output.mode_breakdown[0].transport_method == "plane"
     assert execution.output.mode_breakdown[0].suppliers[0].supplier_name == ("Nimbus Controls")
-    response, _ = compose_agent_response((execution,), processing_time_ms=1)
+    question = (
+        "Based on the current shipments made, indicate the transport mode with the "
+        "highest carbon footprint and the supplier involved in it."
+    )
+    response, _ = compose_agent_response((execution,), processing_time_ms=1, question=question)
     direct_answer = next(block for block in response.blocks if block.type == "text")
     assert "Plane has the highest aggregate shipment footprint" in direct_answer.text
     assert "Nimbus Controls" in direct_answer.text
@@ -452,7 +468,49 @@ def test_highest_footprint_prompt_names_the_mode_and_supplier_from_demo_rows():
         block.type == "chart" and block.title == "Emissions by transport mode"
         for block in response.blocks
     )
+    assert not any(block.type in {"metric", "table"} for block in response.blocks)
+    suggestions = next(block for block in response.blocks if block.type == "suggestions")
+    assert any("plane shipments" in option.prompt for option in suggestions.options)
     assert not any(block.type == "artifact_reference" for block in response.blocks)
+
+
+def test_rail_baseline_prompt_returns_only_the_scenario_and_contextual_followups():
+    workspace_id = "demo-agent-rail-scenario"
+    shipment_repository = InMemoryShipmentRepository()
+    parsed = parse_shipments_csv(DEMO_SHIPMENTS_CSV)
+    shipment_repository.replace_for_workspace(
+        workspace_id,
+        "00000000-0000-4000-8000-000000000034",
+        parsed.rows,
+    )
+    registry = AgentToolRegistry(
+        artifact_repository=InMemoryArtifactRepository(),
+        evidence_repository=InMemoryEvidenceRepository(),
+        shipment_repository=shipment_repository,
+        evidence_search=empty_search,
+    )
+    question = "Compare the current freight baseline with rail."
+    plan = _deterministic_plan(question)
+    assert plan is not None
+
+    execution = asyncio.run(registry.execute(workspace_id, plan.calls[0]))
+
+    assert isinstance(execution.output, CompareTransportScenariosOutput)
+    assert execution.output.alternative_mode == "train"
+    response, _ = compose_agent_response((execution,), processing_time_ms=1, question=question)
+    text_blocks = [block for block in response.blocks if block.type == "text"]
+    charts = [block for block in response.blocks if block.type == "chart"]
+    metrics = [block for block in response.blocks if block.type == "metric"]
+    suggestions = next(block for block in response.blocks if block.type == "suggestions")
+
+    assert len(text_blocks) == len(charts) == len(metrics) == 1
+    assert "Using train for the current" in text_blocks[0].text
+    assert charts[0].title == "Baseline and alternative emissions"
+    assert metrics[0].label in {"Estimated reduction", "Estimated increase"}
+    assert not any(block.type == "artifact_reference" for block in response.blocks)
+    assert all(
+        "baseline" in option.prompt or "trend" in option.prompt for option in suggestions.options
+    )
 
 
 def test_supplier_recommendation_uses_exact_lane_data_and_renders_a_chart():

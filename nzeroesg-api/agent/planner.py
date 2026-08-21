@@ -116,6 +116,18 @@ _ROUTE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+_TRANSPORT_ALIASES = {
+    "air": "plane",
+    "air freight": "plane",
+    "ocean": "ship",
+    "ocean container": "ship",
+    "plane": "plane",
+    "rail": "train",
+    "ship": "ship",
+    "train": "train",
+    "truck": "truck",
+}
+
 
 def _weight_unit(value: str) -> str:
     normalized = value.casefold().replace(" ", "")
@@ -145,8 +157,33 @@ def _question_references_history(question: str) -> bool:
     )
 
 
+def _requested_transport_mode(question: str) -> str | None:
+    normalized = question.casefold()
+    for alias in sorted(_TRANSPORT_ALIASES, key=len, reverse=True):
+        if re.search(rf"\b{re.escape(alias)}\b", normalized):
+            return _TRANSPORT_ALIASES[alias]
+    return None
+
+
 def _deterministic_plan(question: str) -> AgentPlan | None:
     normalized = " ".join(question.casefold().split())
+    requested_mode = _requested_transport_mode(question)
+    scenario_comparison = (
+        requested_mode is not None
+        and any(term in normalized for term in ("compare", "comparison", "scenario"))
+        and any(term in normalized for term in ("baseline", "current freight", "all shipment"))
+    )
+    if scenario_comparison:
+        return AgentPlan(
+            calls=[
+                PlannedToolCall(
+                    call_id="transport-scenario-comparison",
+                    tool_name=AgentToolName.COMPARE_TRANSPORT_SCENARIOS,
+                    arguments={"alternative_transport_method": requested_mode},
+                )
+            ]
+        )
+
     supplier_recommendation = "supplier" in normalized and any(
         term in normalized for term in ("recommend", "efficient", "lowest")
     )
@@ -160,18 +197,19 @@ def _deterministic_plan(question: str) -> AgentPlan | None:
         term in normalized for term in ("emission", "emissions", "footprint")
     ) and any(term in normalized for term in ("monthly", "yearly", "annual", "trend"))
     if shipment_footprint_question or shipment_trend_question:
+        arguments: dict[str, object] = {
+            "granularity": (
+                "year" if any(term in normalized for term in ("yearly", "annual")) else "month"
+            )
+        }
+        if shipment_trend_question and requested_mode is not None:
+            arguments["transport_methods"] = [requested_mode]
         return AgentPlan(
             calls=[
                 PlannedToolCall(
                     call_id="shipment-emissions-ranking",
                     tool_name=AgentToolName.ANALYZE_SHIPMENT_EMISSIONS,
-                    arguments={
-                        "granularity": (
-                            "year"
-                            if any(term in normalized for term in ("yearly", "annual"))
-                            else "month"
-                        )
-                    },
+                    arguments=arguments,
                 )
             ]
         )
