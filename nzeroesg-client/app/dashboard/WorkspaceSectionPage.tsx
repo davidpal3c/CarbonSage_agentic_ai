@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowUpRight,
   Database,
@@ -141,6 +142,8 @@ function modeColor(mode: string) {
     : "var(--chart-highlight)";
 }
 
+const dashboardModes = ["plane", "ship", "train", "truck"] as const;
+
 export function WorkspaceSectionPage({
   section,
   focusedArtifactId,
@@ -148,6 +151,7 @@ export function WorkspaceSectionPage({
   section: WorkspaceSection;
   focusedArtifactId?: string;
 }) {
+  const router = useRouter();
   const { session, refreshSession } = useWorkspace();
   const details = sectionDetails[section];
   const shipmentData = useWorkspaceDataStore((state) => state.shipments);
@@ -256,6 +260,8 @@ export function WorkspaceSectionPage({
   const activeShipmentAnalysis = usesDefaultAnalytics
     ? shipmentData?.analysis
     : (cachedAnalytics ?? shipmentData?.analysis);
+  const overviewAnalysis = shipmentData?.analysis ?? null;
+  const hasOverviewData = Boolean(overviewAnalysis?.shipment_count);
   const shipmentError = localShipmentError ?? cachedShipmentError;
   const visibleEvidenceError = evidenceError ?? cachedSuppliersError;
   const isLoadingShipments =
@@ -326,7 +332,8 @@ export function WorkspaceSectionPage({
     setDemoLoadError(null);
     try {
       await loadWorkspaceDemoData();
-      void refreshSession().catch(() => undefined);
+      await refreshSession();
+      router.refresh();
     } catch (requestError) {
       setDemoLoadError(
         requestError instanceof Error
@@ -582,257 +589,17 @@ export function WorkspaceSectionPage({
       </header>
 
       {section === "overview" ? (
-        isLoadingShipments ? (
-          <LoadingState label="Loading carbon intelligence" />
-        ) : (
-          <div className="space-y-4">
-            {shipmentData?.analysis.shipment_count ? (
-              <>
-                <div className="grid gap-4 xl:grid-cols-12">
-                  <section className="rounded-xl border border-border bg-card p-4 shadow-sm xl:col-span-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                          Current baseline
-                        </p>
-                        <h2 className="mt-1 text-base font-semibold text-primary">
-                          Carbon metrics
-                        </h2>
-                      </div>
-                      <span className="rounded-lg bg-secondary/10 p-2 text-brand-primary">
-                        <PackageCheck aria-hidden="true" className="h-4 w-4" />
-                      </span>
-                    </div>
-                    <dl className="mt-4 divide-y divide-border">
-                      <div className="py-3 first:pt-0">
-                        <dt className="text-xs text-muted-foreground">
-                          Total emissions
-                        </dt>
-                        <dd className="mt-1 text-xl font-bold tracking-tight text-primary">
-                          <AnimatedNumber
-                            value={shipmentData.analysis.total_emissions_kg}
-                            maximumFractionDigits={1}
-                            suffix=" kg CO₂e"
-                          />
-                        </dd>
-                      </div>
-                      <div className="flex items-center justify-between gap-3 py-3">
-                        <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Truck aria-hidden="true" className="h-3.5 w-3.5" />
-                          Shipments
-                        </dt>
-                        <dd className="text-base font-semibold text-primary">
-                          <AnimatedNumber
-                            value={shipmentData.analysis.shipment_count}
-                          />
-                        </dd>
-                      </div>
-                      <div className="flex items-center justify-between gap-3 py-3">
-                        <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Weight aria-hidden="true" className="h-3.5 w-3.5" />
-                          Freight weight
-                        </dt>
-                        <dd className="text-base font-semibold text-primary">
-                          <AnimatedNumber
-                            value={shipmentData.analysis.total_weight_kg}
-                            maximumFractionDigits={0}
-                            suffix=" kg"
-                          />
-                        </dd>
-                      </div>
-                      <div className="flex items-center justify-between gap-3 pt-3">
-                        <dt className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Files aria-hidden="true" className="h-3.5 w-3.5" />
-                          Active artifacts
-                        </dt>
-                        <dd className="text-base font-semibold text-primary">
-                          <AnimatedNumber value={artifacts.length} />
-                        </dd>
-                      </div>
-                    </dl>
-                  </section>
-
-                  <section className="rounded-xl border border-border bg-card p-4 shadow-sm xl:col-span-6">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">
-                          Emissions trajectory
-                        </p>
-                        <h2 className="mt-1 text-base font-semibold text-primary">
-                          Monthly freight footprint
-                        </h2>
-                      </div>
-                      <Link
-                        href="/dashboard/shipments"
-                        aria-label="Explore shipment analytics"
-                        className="rounded-lg border border-border p-2 text-muted-foreground transition hover:border-accent hover:text-primary"
-                      >
-                        <ArrowUpRight aria-hidden="true" className="h-4 w-4" />
-                      </Link>
-                    </div>
-                    <div className="mt-3">
-                      <ShipmentTrendChart
-                        analysis={shipmentData.analysis}
-                        variant="area"
-                        height={250}
-                      />
-                    </div>
-                  </section>
-
-                  <section className="rounded-xl border border-border bg-card p-4 shadow-sm xl:col-span-3">
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                        Mode distribution
-                      </p>
-                      <h2 className="mt-1 text-base font-semibold text-primary">
-                        Emissions mix
-                      </h2>
-                    </div>
-                    <ShipmentModeDonutChart
-                      analysis={shipmentData.analysis}
-                      height={180}
-                    />
-                    <ul className="grid grid-cols-2 gap-x-3 gap-y-2">
-                      {orderedModes.map(([mode, values]) => (
-                        <li key={mode} className="min-w-0">
-                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                            <span
-                              aria-hidden="true"
-                              className="h-2 w-2 shrink-0 rounded-full"
-                              style={{ backgroundColor: modeColor(mode) }}
-                            />
-                            <span className="truncate capitalize">{mode}</span>
-                          </div>
-                          <p className="mt-0.5 pl-3.5 text-xs font-semibold text-primary">
-                            {shipmentData.analysis.total_emissions_kg
-                              ? `${((values.emissions_kg / shipmentData.analysis.total_emissions_kg) * 100).toFixed(0)}%`
-                              : "0%"}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                </div>
-
-                <div className="grid gap-4 xl:grid-cols-12">
-                  <section className="rounded-xl border border-border bg-card p-4 shadow-sm xl:col-span-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                          Workspace activity
-                        </p>
-                        <h2 className="mt-1 text-base font-semibold text-primary">
-                          Recent artifacts
-                        </h2>
-                      </div>
-                      <Link
-                        href="/dashboard/artifacts"
-                        className="text-xs font-semibold text-accent hover:text-primary"
-                      >
-                        View all
-                      </Link>
-                    </div>
-                    {artifactsStatus === "loading" &&
-                    !recentArtifacts.length ? (
-                      <div className="flex min-h-52 items-center justify-center">
-                        <Spinner label="Loading artifacts" />
-                      </div>
-                    ) : recentArtifacts.length ? (
-                      <ul className="mt-4 divide-y divide-border">
-                        {recentArtifacts.map((artifact) => (
-                          <li key={artifact.artifact_id}>
-                            <Link
-                              href={`/dashboard/artifacts?artifact=${artifact.artifact_id}`}
-                              className="flex items-center justify-between gap-3 py-3 first:pt-0 hover:text-accent"
-                            >
-                              <span className="min-w-0">
-                                <span className="block truncate text-sm font-medium text-primary">
-                                  {artifact.title}
-                                </span>
-                                <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                                  {artifactKindLabels[artifact.kind]} · version{" "}
-                                  {artifact.version}
-                                </span>
-                              </span>
-                              <ArrowUpRight
-                                aria-hidden="true"
-                                className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
-                              />
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="mt-4 rounded-lg border border-dashed border-border bg-muted/40 p-4 text-sm text-muted-foreground">
-                        No active artifacts yet.
-                      </p>
-                    )}
-                  </section>
-
-                  <section className="rounded-xl border border-border bg-card p-4 shadow-sm xl:col-span-7">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                          Decision signals
-                        </p>
-                        <h2 className="mt-1 text-base font-semibold text-primary">
-                          Highest-impact shipments
-                        </h2>
-                      </div>
-                      {highestMode ? (
-                        <span className="rounded-full border border-border bg-muted px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                          {highestMode[0]} leads
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_12rem]">
-                      <ShipmentHotspotChart
-                        hotspots={shipmentData.analysis.hotspots}
-                        height={230}
-                      />
-                      <dl className="divide-y divide-border rounded-lg bg-muted/45 px-3">
-                        <div className="py-3">
-                          <dt className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                            Largest footprint
-                          </dt>
-                          <dd className="mt-1 text-sm font-semibold text-primary">
-                            {highestHotspot?.shipment_id ?? "—"}
-                          </dd>
-                          <p className="mt-0.5 text-[11px] text-muted-foreground">
-                            {highestHotspot
-                              ? `${highestHotspot.emissions_kg.toFixed(1)} kg CO₂e`
-                              : "No shipment data"}
-                          </p>
-                        </div>
-                        <div className="py-3">
-                          <dt className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                            Highest mode
-                          </dt>
-                          <dd className="mt-1 text-sm font-semibold capitalize text-primary">
-                            {highestMode?.[0] ?? "—"}
-                          </dd>
-                        </div>
-                        <div className="py-3">
-                          <dt className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                            Leading supplier
-                          </dt>
-                          <dd className="mt-1 text-sm font-semibold text-primary">
-                            {highestModeSupplier?.supplier_name ?? "Not linked"}
-                          </dd>
-                        </div>
-                      </dl>
-                    </div>
-                  </section>
-                </div>
-              </>
-            ) : (
-              <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                <h2 className="text-lg font-semibold text-primary">
-                  Start with shipment intelligence
+        <div className="space-y-4">
+          {!hasOverviewData ? (
+            <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+              <div>
+                <h2 className="text-base font-semibold text-primary">
+                  No shipment data yet
                 </h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                  Load the fictional dataset here or import a CSV/XLSX
-                  workbook to populate carbon metrics and trends.
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+                  Load the fictional dataset or import a CSV/XLSX workbook to
+                  populate the dashboard. The empty cards below show what will
+                  become available.
                 </p>
                 {demoLoadError ? (
                   <p
@@ -842,31 +609,305 @@ export function WorkspaceSectionPage({
                     {demoLoadError}
                   </p>
                 ) : null}
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void loadDemoData()}
-                    disabled={isLoadingDemoData}
-                    className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white hover:bg-secondary/85 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isLoadingDemoData ? (
-                      <Spinner />
-                    ) : (
-                      <Database aria-hidden="true" className="h-4 w-4" />
-                    )}
-                    Load demo data
-                  </button>
-                  <Link
-                    href="/dashboard/shipments"
-                    className="rounded-lg border border-border px-3.5 py-2 text-sm font-semibold text-primary hover:border-accent"
-                  >
-                    Import shipments
-                  </Link>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void loadDemoData()}
+                  disabled={isLoadingDemoData}
+                  className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white hover:bg-secondary/85 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isLoadingDemoData ? (
+                    <Spinner />
+                  ) : (
+                    <Database aria-hidden="true" className="h-4 w-4" />
+                  )}
+                  Load demo data
+                </button>
+                <Link
+                  href="/dashboard/shipments"
+                  className="rounded-lg border border-border px-3.5 py-2 text-sm font-semibold text-primary hover:border-accent"
+                >
+                  Import shipments
+                </Link>
+              </div>
+            </section>
+          ) : null}
+
+          <div className="grid gap-4 xl:grid-cols-12">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm xl:col-span-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    Current baseline
+                  </p>
+                  <h2 className="mt-1 text-base font-semibold text-primary">
+                    Carbon metrics
+                  </h2>
                 </div>
-              </section>
-            )}
+                <span className="rounded-lg bg-secondary/10 p-2 text-brand-primary">
+                  <PackageCheck aria-hidden="true" className="h-4 w-4" />
+                </span>
+              </div>
+              <dl className="mt-4 divide-y divide-border">
+                <div className="py-3 first:pt-0">
+                  <dt className="text-xs text-muted-foreground">
+                    Total emissions
+                  </dt>
+                  <dd className="mt-1 text-xl font-bold tracking-tight text-primary">
+                    <AnimatedNumber
+                      value={overviewAnalysis?.total_emissions_kg ?? 0}
+                      maximumFractionDigits={1}
+                      suffix=" kg CO₂e"
+                    />
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-3 py-3">
+                  <dt className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Truck aria-hidden="true" className="h-3.5 w-3.5" />
+                    Shipments
+                  </dt>
+                  <dd className="text-base font-semibold text-primary">
+                    <AnimatedNumber
+                      value={overviewAnalysis?.shipment_count ?? 0}
+                    />
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-3 py-3">
+                  <dt className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Weight aria-hidden="true" className="h-3.5 w-3.5" />
+                    Freight weight
+                  </dt>
+                  <dd className="text-base font-semibold text-primary">
+                    <AnimatedNumber
+                      value={overviewAnalysis?.total_weight_kg ?? 0}
+                      maximumFractionDigits={0}
+                      suffix=" kg"
+                    />
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-3 pt-3">
+                  <dt className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Files aria-hidden="true" className="h-3.5 w-3.5" />
+                    Active artifacts
+                  </dt>
+                  <dd className="text-base font-semibold text-primary">
+                    <AnimatedNumber value={artifacts.length} />
+                  </dd>
+                </div>
+              </dl>
+            </section>
+
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm xl:col-span-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">
+                    Emissions trajectory
+                  </p>
+                  <h2 className="mt-1 text-base font-semibold text-primary">
+                    Monthly freight footprint
+                  </h2>
+                </div>
+                <Link
+                  href="/dashboard/shipments"
+                  aria-label="Explore shipment analytics"
+                  className="rounded-lg border border-border p-2 text-muted-foreground transition hover:border-accent hover:text-primary"
+                >
+                  <ArrowUpRight aria-hidden="true" className="h-4 w-4" />
+                </Link>
+              </div>
+              <div className="mt-3">
+                {overviewAnalysis && hasOverviewData ? (
+                  <ShipmentTrendChart
+                    analysis={overviewAnalysis}
+                    variant="area"
+                    height={250}
+                  />
+                ) : (
+                  <div className="flex h-[250px] items-center justify-center rounded-lg border border-dashed border-border bg-muted/35 px-4 text-center text-xs text-muted-foreground">
+                    No emissions trend yet
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm xl:col-span-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  Mode distribution
+                </p>
+                <h2 className="mt-1 text-base font-semibold text-primary">
+                  Aggregate emissions mix
+                </h2>
+              </div>
+              {overviewAnalysis && hasOverviewData ? (
+                <ShipmentModeDonutChart
+                  analysis={overviewAnalysis}
+                  height={180}
+                />
+              ) : (
+                <div className="flex h-[180px] items-center justify-center px-4 text-center text-xs text-muted-foreground">
+                  No mode distribution yet
+                </div>
+              )}
+              <ul className="grid grid-cols-2 gap-x-3 gap-y-2">
+                {orderedModes.length
+                  ? orderedModes.map(([mode, values]) => (
+                      <li key={mode} className="min-w-0">
+                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <span
+                            aria-hidden="true"
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: modeColor(mode) }}
+                          />
+                          <span className="truncate capitalize">{mode}</span>
+                        </div>
+                        <p className="mt-0.5 pl-3.5 text-xs font-semibold text-primary">
+                          {overviewAnalysis?.total_emissions_kg
+                            ? `${((values.emissions_kg / overviewAnalysis.total_emissions_kg) * 100).toFixed(0)}%`
+                            : "0%"}
+                        </p>
+                      </li>
+                    ))
+                  : dashboardModes.map((mode) => (
+                      <li key={mode} className="min-w-0 opacity-65">
+                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <span
+                            aria-hidden="true"
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: modeColor(mode) }}
+                          />
+                          <span className="truncate capitalize">{mode}</span>
+                        </div>
+                        <p className="mt-0.5 pl-3.5 text-xs font-semibold text-muted-foreground">
+                          0%
+                        </p>
+                      </li>
+                    ))}
+              </ul>
+              <p className="mt-3 text-[10px] leading-4 text-muted-foreground">
+                Totals combine each shipment&apos;s payload, route distance, and
+                transport intensity.
+              </p>
+            </section>
           </div>
-        )
+
+          <div className="grid gap-4 xl:grid-cols-12">
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm xl:col-span-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    Workspace activity
+                  </p>
+                  <h2 className="mt-1 text-base font-semibold text-primary">
+                    Recent artifacts
+                  </h2>
+                </div>
+                <Link
+                  href="/dashboard/artifacts"
+                  className="text-xs font-semibold text-accent hover:text-primary"
+                >
+                  View all
+                </Link>
+              </div>
+              {artifactsStatus === "loading" && !recentArtifacts.length ? (
+                <div className="flex min-h-52 items-center justify-center">
+                  <Spinner label="Loading artifacts" />
+                </div>
+              ) : recentArtifacts.length ? (
+                <ul className="mt-4 divide-y divide-border">
+                  {recentArtifacts.map((artifact) => (
+                    <li key={artifact.artifact_id}>
+                      <Link
+                        href={`/dashboard/artifacts?artifact=${artifact.artifact_id}`}
+                        className="flex items-center justify-between gap-3 py-3 first:pt-0 hover:text-accent"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-primary">
+                            {artifact.title}
+                          </span>
+                          <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                            {artifactKindLabels[artifact.kind]} · version{" "}
+                            {artifact.version}
+                          </span>
+                        </span>
+                        <ArrowUpRight
+                          aria-hidden="true"
+                          className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                        />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-4 rounded-lg border border-dashed border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+                  No active artifacts yet.
+                </p>
+              )}
+            </section>
+
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm xl:col-span-7">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    Decision signals
+                  </p>
+                  <h2 className="mt-1 text-base font-semibold text-primary">
+                    Highest-impact shipments
+                  </h2>
+                </div>
+                {highestMode ? (
+                  <span className="rounded-full border border-border bg-muted px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                    {highestMode[0]} leads
+                  </span>
+                ) : null}
+              </div>
+              <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_12rem]">
+                {overviewAnalysis && hasOverviewData ? (
+                  <ShipmentHotspotChart
+                    hotspots={overviewAnalysis.hotspots}
+                    height={230}
+                  />
+                ) : (
+                  <div className="flex h-[230px] items-center justify-center rounded-lg border border-dashed border-border bg-muted/35 px-4 text-center text-xs text-muted-foreground">
+                    No shipment hotspots yet
+                  </div>
+                )}
+                <dl className="divide-y divide-border rounded-lg bg-muted/45 px-3">
+                  <div className="py-3">
+                    <dt className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                      Largest footprint
+                    </dt>
+                    <dd className="mt-1 text-sm font-semibold text-primary">
+                      {highestHotspot?.shipment_id ?? "—"}
+                    </dd>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {highestHotspot
+                        ? `${highestHotspot.emissions_kg.toFixed(1)} kg CO₂e`
+                        : "No shipment data"}
+                    </p>
+                  </div>
+                  <div className="py-3">
+                    <dt className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                      Highest mode
+                    </dt>
+                    <dd className="mt-1 text-sm font-semibold capitalize text-primary">
+                      {highestMode?.[0] ?? "—"}
+                    </dd>
+                  </div>
+                  <div className="py-3">
+                    <dt className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                      Leading supplier
+                    </dt>
+                    <dd className="mt-1 text-sm font-semibold text-primary">
+                      {highestModeSupplier?.supplier_name ?? "Not linked"}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </section>
+          </div>
+        </div>
       ) : null}
 
       {section === "artifacts" ? (

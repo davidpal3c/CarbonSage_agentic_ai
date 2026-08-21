@@ -29,6 +29,8 @@ class NormalizedShipment:
     source_row: int
     shipment_date: date | None = None
     supplier_name: str | None = None
+    freight_cost_value: float | None = None
+    freight_cost_currency: str | None = None
 
     def to_dict(self) -> dict[str, int | float | str | None]:
         return {
@@ -42,5 +44,7 @@ class NormalizedShipment:
             "weight_kg": self.weight_kg,
             "distance_km": self.distance_km,
             "transport_method": self.transport_method,
+            "freight_cost_value": self.freight_cost_value,
+            "freight_cost_currency": self.freight_cost_currency,
             "source_row": self.source_row,
         }

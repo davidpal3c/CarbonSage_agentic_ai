@@ -71,6 +71,7 @@ class RecommendShipmentSupplierInput(StrictModel):
     destination: str = Field(min_length=2, max_length=160)
     weight_value: float = Field(gt=0)
     weight_unit: Literal["g", "kg", "lb", "mt"] = "kg"
+    objective: Literal["carbon", "carbon_and_cost"] = "carbon"
 
 
 class SummarizeDataQualityInput(NoArguments):
@@ -232,6 +233,9 @@ class ShipmentSupplierCandidateOutput(StrictModel):
     transport_method: str
     distance_km: float
     estimated_emissions_kg: float
+    estimated_cost_value: float | None = None
+    cost_currency: str | None = None
+    efficiency_score: float | None = None
 
 
 class RecommendShipmentSupplierOutput(StrictModel):
@@ -241,6 +245,9 @@ class RecommendShipmentSupplierOutput(StrictModel):
     recommended_supplier_name: str | None
     recommended_transport_method: str | None
     recommended_emissions_kg: float | None
+    recommended_cost_value: float | None
+    cost_currency: str | None
+    objective: Literal["carbon", "carbon_and_cost"]
     candidates: list[ShipmentSupplierCandidateOutput]
     basis: str
     factor_source: str | None

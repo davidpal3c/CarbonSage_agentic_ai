@@ -24,6 +24,8 @@ export type ShipmentRow = {
   weight_kg: number;
   distance_km: number;
   transport_method: string;
+  freight_cost_value: number | null;
+  freight_cost_currency: string | null;
   source_row: number;
 };
 
@@ -382,7 +384,7 @@ export const useWorkspaceDataStore = create<WorkspaceDataStore>((set, get) => ({
           reportStatuses: {},
           reportErrors: {},
         });
-        await Promise.allSettled([
+        await Promise.all([
           get().ensureShipments(true),
           get().ensureSuppliers(true),
           get().ensureArtifacts(true),

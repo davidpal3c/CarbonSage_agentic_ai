@@ -146,6 +146,7 @@ def test_reported_shipment_questions_use_one_current_question_specific_tool():
         "destination": "Vancouver",
         "weight_value": 1008.0,
         "weight_unit": "kg",
+        "objective": "carbon",
     }
     assert trend is not None
     assert [call.tool_name for call in trend.calls] == [AgentToolName.ANALYZE_SHIPMENT_EMISSIONS]
@@ -455,7 +456,7 @@ def test_highest_footprint_prompt_names_the_mode_and_supplier_from_demo_rows():
 
     assert isinstance(execution.output, AnalyzeShipmentEmissionsOutput)
     assert execution.output.mode_breakdown[0].transport_method == "plane"
-    assert execution.output.mode_breakdown[0].suppliers[0].supplier_name == ("Nimbus Controls")
+    assert execution.output.mode_breakdown[0].suppliers[0].supplier_name == ("Iberia Air Cargo")
     question = (
         "Based on the current shipments made, indicate the transport mode with the "
         "highest carbon footprint and the supplier involved in it."
@@ -463,7 +464,7 @@ def test_highest_footprint_prompt_names_the_mode_and_supplier_from_demo_rows():
     response, _ = compose_agent_response((execution,), processing_time_ms=1, question=question)
     direct_answer = next(block for block in response.blocks if block.type == "text")
     assert "Plane has the highest aggregate shipment footprint" in direct_answer.text
-    assert "Nimbus Controls" in direct_answer.text
+    assert "Iberia Air Cargo" in direct_answer.text
     assert any(
         block.type == "chart" and block.title == "Emissions by transport mode"
         for block in response.blocks
@@ -553,6 +554,98 @@ def test_supplier_recommendation_uses_exact_lane_data_and_renders_a_chart():
     assert chart.title == "Supplier-linked lane options"
     assert chart.rows == chart.table_fallback.rows
     assert chart.rows[0]["emissions_kg"] == 97.5744
+
+
+def test_transatlantic_supplier_recommendation_uses_demo_lane_without_invention():
+    workspace_id = "demo-agent-transatlantic-recommendation"
+    shipment_repository = InMemoryShipmentRepository()
+    parsed = parse_shipments_csv(DEMO_SHIPMENTS_CSV)
+    assert parsed.errors == ()
+    shipment_repository.replace_for_workspace(
+        workspace_id,
+        "00000000-0000-4000-8000-000000000035",
+        parsed.rows,
+    )
+    registry = AgentToolRegistry(
+        artifact_repository=InMemoryArtifactRepository(),
+        evidence_repository=InMemoryEvidenceRepository(),
+        shipment_repository=shipment_repository,
+        evidence_search=empty_search,
+    )
+    plan = _deterministic_plan(
+        "Indicate the best trans atlantic supplier to send 2214 Kg shipment from "
+        "Toronto to Madrid Spain."
+    )
+    assert plan is not None
+    assert plan.calls[0].arguments.model_dump() == {
+        "origin": "Toronto",
+        "destination": "Madrid Spain",
+        "weight_value": 2214.0,
+        "weight_unit": "kg",
+        "objective": "carbon",
+    }
+
+    execution = asyncio.run(registry.execute(workspace_id, plan.calls[0]))
+
+    assert isinstance(execution.output, RecommendShipmentSupplierOutput)
+    assert execution.output.recommended_supplier_name == "Atlantic Bridge Logistics"
+    assert execution.output.recommended_transport_method == "ship"
+    assert execution.output.recommended_emissions_kg == 117.7848
+    assert execution.output.recommended_cost_value == 3985.2
+    assert execution.output.cost_currency == "CAD"
+    assert [candidate.supplier_name for candidate in execution.output.candidates] == [
+        "Atlantic Bridge Logistics",
+        "Iberia Air Cargo",
+    ]
+
+
+def test_european_supplier_recommendation_balances_carbon_and_historical_cost():
+    workspace_id = "demo-agent-european-cost-recommendation"
+    shipment_repository = InMemoryShipmentRepository()
+    parsed = parse_shipments_csv(DEMO_SHIPMENTS_CSV)
+    assert parsed.errors == ()
+    shipment_repository.replace_for_workspace(
+        workspace_id,
+        "00000000-0000-4000-8000-000000000036",
+        parsed.rows,
+    )
+    registry = AgentToolRegistry(
+        artifact_repository=InMemoryArtifactRepository(),
+        evidence_repository=InMemoryEvidenceRepository(),
+        shipment_repository=shipment_repository,
+        evidence_search=empty_search,
+    )
+    plan = _deterministic_plan(
+        "Indicatae the best carbon and cost efficient supplier to send 2214Kg from "
+        "London, UK to Madrid, Spain."
+    )
+    assert plan is not None
+    assert plan.calls[0].arguments.model_dump() == {
+        "origin": "London, UK",
+        "destination": "Madrid, Spain",
+        "weight_value": 2214.0,
+        "weight_unit": "kg",
+        "objective": "carbon_and_cost",
+    }
+
+    execution = asyncio.run(registry.execute(workspace_id, plan.calls[0]))
+
+    assert isinstance(execution.output, RecommendShipmentSupplierOutput)
+    assert execution.output.recommended_supplier_name == "EuroRail Forwarding"
+    assert execution.output.recommended_transport_method == "train"
+    assert execution.output.recommended_emissions_kg == 92.5452
+    assert execution.output.recommended_cost_value == 2656.8
+    assert execution.output.cost_currency == "EUR"
+    assert execution.output.objective == "carbon_and_cost"
+    assert execution.output.candidates[0].efficiency_score == 100.0
+    assert execution.output.candidates[1].supplier_name == "Iberia Road Logistics"
+    response, _ = compose_agent_response((execution,), processing_time_ms=1)
+    metrics = [block for block in response.blocks if block.type == "metric"]
+    chart = next(block for block in response.blocks if block.type == "chart")
+    assert [metric.unit for metric in metrics] == ["kg CO2e", "EUR"]
+    assert chart.rows == chart.table_fallback.rows
+    assert chart.rows[0]["estimated_cost"] == 2656.8
+    assert "live quote" in execution.output.basis
 
 
 def test_supplier_recommendation_abstains_without_an_exact_lane():

@@ -201,40 +201,48 @@ export default function ChatInterface({
     [applyConversationDetail],
   );
 
-  const createConversation = useCallback(async () => {
-    const createResponse = await fetch(
-      `${getBackendUrl()}/agent/conversations`,
-      {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: `Decision ${conversations.length + 1}` }),
-      },
-    );
-    if (!createResponse.ok) {
-      throw new Error(
-        await apiDetail(createResponse, "A conversation could not be created."),
+  const createConversation = useCallback(
+    async (preserveMessages = false) => {
+      const createResponse = await fetch(
+        `${getBackendUrl()}/agent/conversations`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: `Decision ${conversations.length + 1}`,
+          }),
+        },
       );
-    }
-    const created = (await createResponse.json()) as AgentConversation;
-    conversationId.current = created.conversation_id;
-    setActiveConversation(created);
-    setConversations((current) => [
-      created,
-      ...current.filter(
-        (conversation) =>
-          conversation.conversation_id !== created.conversation_id,
-      ),
-    ]);
-    setMessages([]);
-    setToolEvents([]);
-    setControlError(null);
-    return created.conversation_id;
-  }, [conversations.length]);
+      if (!createResponse.ok) {
+        throw new Error(
+          await apiDetail(
+            createResponse,
+            "A conversation could not be created.",
+          ),
+        );
+      }
+      const created = (await createResponse.json()) as AgentConversation;
+      conversationId.current = created.conversation_id;
+      setActiveConversation(created);
+      setConversations((current) => [
+        created,
+        ...current.filter(
+          (conversation) =>
+            conversation.conversation_id !== created.conversation_id,
+        ),
+      ]);
+      if (!preserveMessages) setMessages([]);
+      setToolEvents([]);
+      setControlError(null);
+      return created.conversation_id;
+    },
+    [conversations.length],
+  );
 
   async function ensureConversation() {
     if (conversationId.current) return conversationId.current;
-    return createConversation();
+    return createConversation(true);
   }
 
   async function refreshToolActivity(id: string) {
@@ -322,7 +330,7 @@ export default function ChatInterface({
       const exchange = (await response.json()) as MessageExchangeResponse;
       const assistant = exchange.assistant_message;
       setMessages((current) => [
-        ...current,
+        ...current.filter((message) => message.id !== assistant.message_id),
         {
           id: assistant.message_id,
           content: assistant.content,
@@ -524,11 +532,7 @@ export default function ChatInterface({
 
     void initialize();
     return () => controller.abort();
-  }, [
-    loadConversation,
-    refreshAgentUsage,
-    refreshAssistantAvailability,
-  ]);
+  }, [loadConversation, refreshAgentUsage, refreshAssistantAvailability]);
 
   useEffect(() => {
     if (
@@ -751,7 +755,7 @@ export default function ChatInterface({
                     </h3>
                     <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
                       {demoData && !demoData.has_artifacts
-                        ? "This workspace is empty. Load 24 fictional suppliers, cited disclosures, and a shipment baseline, or upload CSV, XLSX, PDF, or TXT files."
+                        ? "This workspace is empty. Load 30 fictional suppliers, cited disclosures, and a global shipment baseline, or upload CSV, XLSX, PDF, or TXT files."
                         : "Ask about workspace files, supplier evidence, emissions, scenarios, or report data."}
                     </p>
                     {demoData && !demoData.has_artifacts ? (
@@ -813,7 +817,7 @@ export default function ChatInterface({
                           ? "bg-user-message text-primary"
                           : message.isError
                             ? "border border-red-300 bg-red-50 text-red-900"
-                            : "border border-border bg-transparent text-primary shadow-sm"
+                            : "border border-border bg-transparent text-primary shadow-[0_8px_24px_rgba(27,26,29,0.10)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.32)]"
                       }`}
                     >
                       <p className="mb-2 text-xs font-semibold">

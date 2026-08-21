@@ -112,7 +112,7 @@ _WEIGHT_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _ROUTE_PATTERN = re.compile(
-    r"\bfrom\s+(?P<origin>[^,.;!?]+?)\s+to\s+(?P<destination>[^,.;!?]+?)(?:\s*$|[,.!?])",
+    r"\bfrom\s+(?P<origin>.+?)\s+to\s+(?P<destination>.+?)(?=\s*(?:[.!?]\s*$|$))",
     re.IGNORECASE,
 )
 
@@ -185,8 +185,9 @@ def _deterministic_plan(question: str) -> AgentPlan | None:
         )
 
     supplier_recommendation = "supplier" in normalized and any(
-        term in normalized for term in ("recommend", "efficient", "lowest")
+        term in normalized for term in ("recommend", "efficient", "lowest", "best")
     )
+    cost_requested = any(term in normalized for term in ("cost", "price", "cheapest", "affordable"))
     shipment_footprint_question = (
         any(term in normalized for term in ("shipment", "shipments"))
         and any(term in normalized for term in ("highest", "largest", "most"))
@@ -227,6 +228,7 @@ def _deterministic_plan(question: str) -> AgentPlan | None:
                         "destination": route_match.group("destination").strip(),
                         "weight_value": float(weight_match.group("value")),
                         "weight_unit": _weight_unit(weight_match.group("unit")),
+                        "objective": "carbon_and_cost" if cost_requested else "carbon",
                     },
                 )
             ]

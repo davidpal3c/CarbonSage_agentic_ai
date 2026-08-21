@@ -25,9 +25,7 @@ async function enterWorkspace(page: Page) {
   await expect(page).toHaveURL(/\/dashboard\/overview$/, {
     timeout: backendActionTimeout,
   });
-  await expect(
-    page.getByRole("heading", { name: "Overview" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
   await expect(page.getByText(/^Ready$/)).toHaveCount(0);
   await expect(page.getByText(/Phase\s+\d+/)).toHaveCount(0);
   await expect(
@@ -214,12 +212,26 @@ test("loads the fictional demo dataset directly from overview", async ({
   await expect(
     page.getByRole("button", { name: "Load demo data" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Carbon metrics" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Monthly freight footprint" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Aggregate emissions mix" }),
+  ).toBeVisible();
+  await expect(page.getByText("No emissions trend yet")).toBeVisible();
+  await expect(page.getByText("No shipment hotspots yet")).toBeVisible();
   await page.getByRole("button", { name: "Load demo data" }).click();
   await expect(
     page.getByRole("img", {
       name: "Freight emissions trend by transport mode",
     }),
   ).toBeVisible({ timeout: backendActionTimeout });
+  await expect(
+    page.getByRole("button", { name: "Load demo data" }),
+  ).toBeHidden();
   await expect(
     page.locator(".recharts-cartesian-axis-tick-value").first(),
   ).toHaveCSS("font-size", "10px");
@@ -242,7 +254,7 @@ test("loads the fictional demo dataset directly from overview", async ({
     }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: /^Actions for / })).toHaveCount(
-    4,
+    6,
   );
   await page
     .getByRole("button", { name: "Actions for carbonsage-demo-shipments.csv" })
@@ -264,7 +276,7 @@ test("loads the fictional demo dataset directly from overview", async ({
   await expect(artifactPreview).toBeHidden();
 
   await openWorkspacePage(page, "Shipments", "shipments");
-  await expect(page.getByText("36", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("48", { exact: true }).first()).toBeVisible();
   await expect(
     page.getByRole("img", { name: /Stacked month freight emissions/ }),
   ).toBeVisible();
@@ -563,10 +575,11 @@ test("restores chat suggestions after loading demo data from an empty-workspace 
   );
 
   await enterWorkspace(page);
+  await openWorkspacePage(page, "Ask CarbonSage", "agent");
   const agent = page.getByRole("region", { name: "CarbonSage" });
   await agent.getByRole("button", { name: "Load demo data" }).click();
 
-  await expect(agent.getByText(/Demo data is ready: 24 suppliers/)).toBeVisible(
+  await expect(agent.getByText(/Demo data is ready: 30 suppliers/)).toBeVisible(
     { timeout: backendActionTimeout },
   );
   await expect(
@@ -1002,6 +1015,14 @@ test("renders a typed interactive response with keyboard-accessible chart data",
                     label: "Compare with Train",
                     prompt: "Compare the current freight baseline with train.",
                   },
+                  {
+                    label: "Review supplier evidence",
+                    prompt: "Review the supplier evidence behind this result.",
+                  },
+                  {
+                    label: "View mode trend",
+                    prompt: "Show the monthly trend for these transport modes.",
+                  },
                 ],
               },
               { type: "future_decision_block", value: "safe fallback" },
@@ -1081,6 +1102,30 @@ test("renders a typed interactive response with keyboard-accessible chart data",
   await expect(
     agentDialog.getByText("Semantic retrieval fell back to lexical evidence."),
   ).toBeVisible();
+  const suggestions = agentDialog.getByRole("region", {
+    name: "Explore this result",
+  });
+  await expect(suggestions).toBeVisible();
+  await expect(suggestions).not.toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
+  const suggestionButtons = suggestions.getByRole("button");
+  await expect(suggestionButtons).toHaveCount(3);
+  const firstSuggestionBorder = await suggestionButtons
+    .nth(0)
+    .evaluate((element) => getComputedStyle(element).borderColor);
+  const secondSuggestionBorder = await suggestionButtons
+    .nth(1)
+    .evaluate((element) => getComputedStyle(element).borderColor);
+  expect(firstSuggestionBorder).not.toBe(secondSuggestionBorder);
+  const assistantResponse = agentDialog
+    .locator("article[data-message-id]")
+    .filter({ hasText: "Validated tool results follow." });
+  await expect(assistantResponse.locator(":scope > div")).not.toHaveCSS(
+    "box-shadow",
+    "none",
+  );
   await expect(
     agentDialog.getByText(
       "This response includes an item that cannot be displayed here yet.",
@@ -1137,9 +1182,7 @@ test("supports keyboard entry and a narrow viewport", async ({ page }) => {
   await page.keyboard.press("Enter");
 
   await expect(page).toHaveURL(/\/dashboard\/overview$/);
-  await expect(
-    page.getByRole("heading", { name: "Overview" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
 
   const viewport = await page.evaluate(() => ({
     width: window.innerWidth,

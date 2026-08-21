@@ -103,9 +103,10 @@ export default function IntegrationsPage() {
                   Demo simulation data
                 </h2>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-                  Load a fictional workspace with 24 supplier profiles, cited
-                  disclosures, and a mixed-mode shipment baseline. Unloading it
-                  removes only seeded simulation records—not your uploads.
+                  Load a fictional workspace with 30 supplier profiles, cited
+                  disclosures, and a global mixed-mode shipment baseline.
+                  Unloading it removes only seeded simulation records—not your
+                  uploads.
                 </p>
                 {demoData?.loaded ? (
                   <p className="mt-3 inline-flex items-center gap-2 text-xs font-medium text-secondary">

@@ -53,6 +53,8 @@ class ShipmentRowResponse(BaseModel):
     weight_kg: float
     distance_km: float
     transport_method: str
+    freight_cost_value: float | None
+    freight_cost_currency: str | None
     source_row: int
 
 
@@ -346,6 +348,8 @@ async def export_shipments(
                 row.distance_km,
                 "km",
                 row.transport_method,
+                row.freight_cost_value or "",
+                row.freight_cost_currency or "",
             )
         )
     filename = quote("carbonsage-shipments.csv", safe="")
@@ -383,6 +387,8 @@ async def shipment_template(
             300,
             "km",
             "truck",
+            1250,
+            "CAD",
         )
     )
     output = io.BytesIO()

@@ -3,6 +3,8 @@ from datetime import date
 
 from openpyxl import Workbook
 
+from domain.demo_data import DEMO_SHIPMENTS_CSV
+from domain.emissions.factors import FACTOR_CATALOG
 from domain.shipments.analysis import analyze_shipments
 from domain.shipments.ingestion import (
     MAX_FILE_BYTES,
@@ -19,6 +21,27 @@ DATED_HEADER = (
     "shipment_id,shipment_date,origin,destination,weight_value,weight_unit,"
     "distance_value,distance_unit,transport_method\n"
 )
+
+
+def test_demo_seed_uses_plausible_modal_profiles_and_intensity_ordering():
+    parsed = parse_shipments_csv(DEMO_SHIPMENTS_CSV)
+    analysis = analyze_shipments(parsed.rows)
+    rows_by_mode = {
+        mode: [row for row in parsed.rows if row.transport_method == mode]
+        for mode in ("plane", "truck", "train", "ship")
+    }
+    factors = {factor.mode.value: factor.value for factor in FACTOR_CATALOG}
+
+    assert parsed.errors == ()
+    assert all(row.shipment_date is not None and row.supplier_name for row in parsed.rows)
+    assert all(rows_by_mode.values())
+    assert factors["plane"] > factors["truck"] > factors["train"] > factors["ship"]
+    assert len(parsed.rows) == 48
+    assert max(row.weight_kg for row in rows_by_mode["plane"]) <= 2_400
+    assert min(row.weight_kg for row in rows_by_mode["ship"]) >= 6_000
+    assert analysis.mode_breakdown["plane"].emissions_kg == max(
+        breakdown.emissions_kg for breakdown in analysis.mode_breakdown.values()
+    )
 
 
 def test_valid_csv_normalizes_units_and_aliases():
@@ -70,6 +93,34 @@ def test_optional_supplier_alias_is_normalized_and_used_in_mode_analysis():
     analysis = analyze_shipments(parsed.rows)
     assert analysis.mode_breakdown["train"].suppliers[0].supplier_name == ("Northstar Logistics")
     assert analysis.mode_breakdown["truck"].suppliers[0].supplier_name == ("Aurora Packaging")
+
+
+def test_optional_freight_cost_is_normalized_and_requires_an_iso_currency():
+    valid = parse_shipments_csv(
+        b"shipment_id,origin,destination,weight_value,weight_unit,distance_value,"
+        b"distance_unit,transport_method,shipping_cost,currency\n"
+        b"S-COST,Toronto,Madrid,2,mt,6650,km,ship,3600,cad\n"
+    )
+    missing_currency = parse_shipments_csv(
+        (
+            HEADER.replace("\n", ",freight_cost_value,freight_cost_currency\n")
+            + "S-MISSING,Toronto,Madrid,2,mt,6650,km,ship,3600,\n"
+        ).encode()
+    )
+    invalid_currency = parse_shipments_csv(
+        (
+            HEADER.replace("\n", ",freight_cost_value,freight_cost_currency\n")
+            + "S-BAD,Toronto,Madrid,2,mt,6650,km,ship,3600,dollars\n"
+        ).encode()
+    )
+
+    assert valid.errors == ()
+    assert valid.rows[0].freight_cost_value == 3600
+    assert valid.rows[0].freight_cost_currency == "CAD"
+    assert missing_currency.rows == ()
+    assert missing_currency.errors[0].field == "freight_cost_currency"
+    assert invalid_currency.rows == ()
+    assert invalid_currency.errors[0].field == "freight_cost_currency"
 
 
 def test_partial_csv_keeps_valid_rows_and_reports_row_level_errors():

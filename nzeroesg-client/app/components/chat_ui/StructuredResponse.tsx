@@ -318,7 +318,7 @@ function Block({
       return (
         <section
           aria-label={block.title}
-          className="rounded-xl border border-border bg-transparent p-4"
+          className="agent-suggestions rounded-xl border p-4"
         >
           <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {block.title}
@@ -331,7 +331,7 @@ function Block({
                 onClick={() => void onPrompt?.(option.prompt)}
                 disabled={!onPrompt || promptDisabled}
                 title={option.prompt}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-chat-surface px-3 py-2 text-left text-xs font-semibold text-primary shadow-sm transition hover:border-accent hover:text-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                className="agent-suggestion-option inline-flex items-center gap-1.5 rounded-full border bg-chat-surface px-3 py-2 text-left text-xs font-semibold text-primary transition hover:-translate-y-0.5 hover:text-secondary disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {option.label}
                 <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />

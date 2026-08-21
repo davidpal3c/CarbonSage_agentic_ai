@@ -300,13 +300,13 @@ export function ShipmentTrendChart({
                 ];
               }}
             />
+            <Legend wrapperStyle={{ fontSize: "0.6875rem" }} />
             {series.map((item) => (
               <Area
                 key={item.key}
                 type="monotone"
                 dataKey={item.key}
                 name={item.label}
-                stackId="emissions"
                 stroke={item.color}
                 fill={`url(#gradient-${item.key})`}
                 strokeWidth={2}

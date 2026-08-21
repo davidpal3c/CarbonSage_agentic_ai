@@ -38,6 +38,8 @@ def _clone(shipment: NormalizedShipment) -> NormalizedShipment:
         distance_km=shipment.distance_km,
         transport_method=shipment.transport_method,
         source_row=shipment.source_row,
+        freight_cost_value=shipment.freight_cost_value,
+        freight_cost_currency=shipment.freight_cost_currency,
     )
 
 
@@ -98,8 +100,9 @@ class PostgresShipmentRepository:
                     INSERT INTO shipments
                         (record_id, workspace_id, artifact_id, shipment_id, shipment_date,
                          supplier_name,
-                         origin, destination, weight_kg, distance_km, transport_method, source_row)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                         origin, destination, weight_kg, distance_km, transport_method, source_row,
+                         freight_cost_value, freight_cost_currency)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     [
                         (
@@ -115,6 +118,8 @@ class PostgresShipmentRepository:
                             shipment.distance_km,
                             shipment.transport_method,
                             shipment.source_row,
+                            shipment.freight_cost_value,
+                            shipment.freight_cost_currency,
                         )
                         for shipment in shipments
                     ],
@@ -127,7 +132,8 @@ class PostgresShipmentRepository:
                 cursor.execute(
                     """
                     SELECT shipment_id, shipment_date, supplier_name, origin, destination,
-                           weight_kg, distance_km, transport_method, source_row
+                           weight_kg, distance_km, transport_method, source_row,
+                           freight_cost_value, freight_cost_currency
                     FROM shipments AS shipment
                     JOIN artifacts AS artifact
                       ON artifact.artifact_id = shipment.artifact_id
@@ -150,6 +156,8 @@ class PostgresShipmentRepository:
                 distance_km=row[6],
                 transport_method=row[7],
                 source_row=row[8],
+                freight_cost_value=row[9],
+                freight_cost_currency=row[10],
             )
             for row in rows
         )
