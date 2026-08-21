@@ -10,17 +10,23 @@ import type {
   AgentAvailability,
   AgentConversation,
   AgentHealth,
+  AgentResponseEnvelope,
+  AgentUsage,
   ApiError,
   ConversationDetailResponse,
   ConversationListResponse,
   MessageExchangeResponse,
+  SuggestionsBlock,
   UiMessage,
 } from "@/app/types/chat";
 import AgentDetailsPanel from "./AgentDetailsPanel";
 import ChatInput from "./ChatInput";
 import { LoadingIndicator } from "./LoadingIndicator";
 import StructuredResponse from "./StructuredResponse";
-import { useWorkspaceDataStore } from "@/app/dashboard/workspace-data-store";
+import {
+  type DemoDataStatus,
+  useWorkspaceDataStore,
+} from "@/app/dashboard/workspace-data-store";
 
 interface ChatInterfaceProps {
   initialOpen?: boolean;
@@ -28,6 +34,7 @@ interface ChatInterfaceProps {
   onAction?: (actionId: string, artifactId: string | null) => Promise<void>;
   presentation?: "launcher" | "panel";
   navigationKey?: string;
+  onUsageChange?: () => Promise<void>;
 }
 
 const statusLabels: Record<AgentAvailability, string> = {
@@ -38,10 +45,77 @@ const statusLabels: Record<AgentAvailability, string> = {
 };
 
 const suggestedPrompts = [
-  "What files are available in this workspace?",
-  "What data-quality issues should I address?",
   "Compare the current freight baseline with rail.",
+  "Across current shipments, which transport mode has the highest carbon footprint, and which supplier contributes most?",
+  "Recommend the most carbon-efficient supplier for a 1008 kg shipment from Toronto to Vancouver.",
+  "Show the monthly emissions trend by transport mode.",
 ];
+
+function demoDataReadyMessage(data: DemoDataStatus): UiMessage {
+  const options: SuggestionsBlock["options"] = [];
+  if (data.shipment_count > 0) {
+    options.push(
+      {
+        label: "Find the largest footprint",
+        prompt:
+          "Across current shipments, which transport mode has the highest carbon footprint, and which supplier contributes most?",
+      },
+      {
+        label: "Compare with rail",
+        prompt: "Compare the current freight baseline with rail.",
+      },
+      {
+        label: "View the emissions trend",
+        prompt: "Show the monthly emissions trend by transport mode.",
+      },
+    );
+  }
+  if (data.evidence_document_count > 0) {
+    options.push({
+      label: "Review supplier evidence",
+      prompt:
+        "Which suppliers have cited disclosure evidence, and where are the most important evidence gaps?",
+    });
+  }
+
+  const now = new Date();
+  const summary = [
+    `${data.supplier_count} supplier${data.supplier_count === 1 ? "" : "s"}`,
+    `${data.shipment_count} shipment${data.shipment_count === 1 ? "" : "s"}`,
+    `${data.evidence_document_count} cited document${data.evidence_document_count === 1 ? "" : "s"}`,
+  ].join(", ");
+  const response = {
+    schema_version: "1.0",
+    response_id: crypto.randomUUID(),
+    policy_version: "1.0",
+    evidence_status: "not_required",
+    processing_time_ms: 0,
+    generated_at: now.toISOString(),
+    blocks: [
+      {
+        type: "text",
+        text: `Demo data is ready: ${summary}. Choose a next step or ask your own question.`,
+      },
+      ...(options.length
+        ? [
+            {
+              type: "suggestions" as const,
+              title: "Explore the demo workspace",
+              options,
+            },
+          ]
+        : []),
+    ],
+  } satisfies AgentResponseEnvelope;
+
+  return {
+    id: crypto.randomUUID(),
+    content: `Demo data is ready: ${summary}.`,
+    role: "assistant",
+    timestamp: now,
+    response,
+  };
+}
 
 async function apiDetail(response: Response, fallback: string) {
   const payload = (await response.json().catch(() => null)) as ApiError | null;
@@ -64,6 +138,7 @@ export default function ChatInterface({
   onAction,
   presentation = "launcher",
   navigationKey,
+  onUsageChange,
 }: ChatInterfaceProps) {
   const isPanel = presentation === "panel";
   const [messages, setMessages] = useState<UiMessage[]>([]);
@@ -80,10 +155,12 @@ export default function ChatInterface({
     useState<AgentAvailability>("checking");
   const [conversationReady, setConversationReady] = useState(false);
   const [controlError, setControlError] = useState<string | null>(null);
+  const [agentUsage, setAgentUsage] = useState<AgentUsage | null>(null);
   const demoData = useWorkspaceDataStore((state) => state.demoData);
   const [isLoadingDemoData, setIsLoadingDemoData] = useState(false);
   const conversationId = useRef<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageElements = useRef(new Map<string, HTMLElement>());
+  const pendingScrollTarget = useRef<string | null>(null);
   const previousNavigationKey = useRef(navigationKey);
 
   const applyConversationDetail = useCallback(
@@ -178,13 +255,23 @@ export default function ChatInterface({
     );
   }
 
+  const refreshAgentUsage = useCallback(async () => {
+    const response = await fetch(`${getBackendUrl()}/agent/usage`, {
+      credentials: "include",
+    });
+    if (!response.ok) return;
+    setAgentUsage((await response.json()) as AgentUsage);
+  }, []);
+
   async function handleSendMessage(content: string) {
+    let responseReceived = false;
     const userMessage: UiMessage = {
       id: crypto.randomUUID(),
       content,
       role: "user",
       timestamp: new Date(),
     };
+    pendingScrollTarget.current = userMessage.id;
     setMessages((current) => [...current, userMessage]);
     setIsLoading(true);
 
@@ -220,7 +307,12 @@ export default function ChatInterface({
           response: assistant.response ?? undefined,
         },
       ]);
-      await refreshToolActivity(activeConversationId);
+      responseReceived = true;
+      setIsLoading(false);
+      void Promise.allSettled([
+        refreshToolActivity(activeConversationId),
+        onUsageChange?.() ?? Promise.resolve(),
+      ]);
     } catch (error) {
       setMessages((current) => [
         ...current,
@@ -236,7 +328,8 @@ export default function ChatInterface({
         },
       ]);
     } finally {
-      setIsLoading(false);
+      void refreshAgentUsage();
+      if (!responseReceived) setIsLoading(false);
     }
   }
 
@@ -311,20 +404,49 @@ export default function ChatInterface({
     }
   }
 
-  async function handleLoadDemoData() {
-    if (!onAction) return;
-    setIsLoadingDemoData(true);
-    setControlError(null);
+  async function handleAgentAction(
+    actionId: string,
+    artifactId: string | null,
+  ) {
+    if (!onAction) throw new Error("This workspace action is not available.");
+    const loadsDemoData = actionId === "workspace.load_demo_data";
+    if (loadsDemoData) {
+      setIsLoadingDemoData(true);
+      setControlError(null);
+    }
     try {
-      await onAction("workspace.load_demo_data", null);
+      await onAction(actionId, artifactId);
+      if (loadsDemoData) {
+        const loaded = useWorkspaceDataStore.getState().demoData;
+        if (!loaded?.has_artifacts) {
+          throw new Error(
+            "Demo data finished loading without any workspace artifacts.",
+          );
+        }
+        setMessages((current) => [...current, demoDataReadyMessage(loaded)]);
+        if (onUsageChange) {
+          await Promise.allSettled([onUsageChange()]);
+        }
+      }
     } catch (error) {
-      setControlError(
-        error instanceof Error
-          ? error.message
-          : "Demo data could not be loaded.",
-      );
+      if (loadsDemoData) {
+        setControlError(
+          error instanceof Error
+            ? error.message
+            : "Demo data could not be loaded.",
+        );
+      }
+      throw error;
     } finally {
-      setIsLoadingDemoData(false);
+      if (loadsDemoData) setIsLoadingDemoData(false);
+    }
+  }
+
+  async function handleLoadDemoData() {
+    try {
+      await handleAgentAction("workspace.load_demo_data", null);
+    } catch {
+      // The shared action handler exposes the failure in the chat toolbar.
     }
   }
 
@@ -345,6 +467,7 @@ export default function ChatInterface({
         if (!healthResponse.ok) throw new Error("Agent health is unavailable.");
         const health = (await healthResponse.json()) as AgentHealth;
         setAssistantStatus(health.available ? "available" : "disabled");
+        await refreshAgentUsage();
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") return;
         setAssistantStatus("unreachable");
@@ -383,7 +506,7 @@ export default function ChatInterface({
 
     void initialize();
     return () => controller.abort();
-  }, [loadConversation]);
+  }, [loadConversation, refreshAgentUsage]);
 
   useEffect(() => {
     if (
@@ -398,8 +521,17 @@ export default function ChatInterface({
   }, [isPanel, navigationKey, onOpenChange]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+    const targetId = pendingScrollTarget.current;
+    if (!targetId) return;
+    const frame = window.requestAnimationFrame(() => {
+      messageElements.current.get(targetId)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      pendingScrollTarget.current = null;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [messages]);
 
   const latestResponse = useMemo(
     () =>
@@ -414,13 +546,18 @@ export default function ChatInterface({
     isSwitchingConversation ||
     !conversationReady ||
     assistantStatus !== "available";
+  const quotaExhausted = agentUsage?.questions_remaining === 0;
+  const interactionDisabled =
+    inputDisabled || quotaExhausted || isLoadingDemoData;
   const inputPlaceholder =
     assistantStatus === "checking"
       ? "Checking availability…"
       : !conversationReady || isSwitchingConversation
         ? "Loading conversation…"
         : assistantStatus === "available"
-          ? "Ask about this workspace…"
+          ? quotaExhausted
+            ? "Daily question allowance used; available again at 00:00 UTC"
+            : "Ask about this workspace…"
           : "CarbonSage is not available in this environment";
   const showInterface =
     isPanel || (previousNavigationKey.current === navigationKey && isOpen);
@@ -434,11 +571,11 @@ export default function ChatInterface({
           aria-labelledby="carbonsage-agent-title"
           className={
             isPanel
-              ? "flex h-[min(50rem,calc(100vh-11rem))] min-h-[38rem] w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
-              : "fixed inset-x-3 bottom-3 z-50 flex h-[min(46rem,calc(100vh-1.5rem))] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl sm:left-auto sm:right-4 sm:w-[min(48rem,calc(100vw-2rem))]"
+              ? "flex h-[min(50rem,calc(100vh-11rem))] min-h-[38rem] w-full flex-col overflow-hidden rounded-2xl border border-border bg-chat-surface shadow-sm"
+              : "fixed inset-x-3 bottom-3 z-50 flex h-[min(46rem,calc(100vh-1.5rem))] flex-col overflow-hidden rounded-2xl border border-border bg-chat-surface shadow-2xl sm:left-auto sm:right-4 sm:w-[min(48rem,calc(100vw-2rem))]"
           }
         >
-          <header className="flex items-start justify-between gap-4 border-b border-border bg-background px-5 py-4">
+          <header className="flex items-start justify-between gap-4 border-b border-border bg-chat-surface px-5 py-4">
             <div>
               <h2
                 id="carbonsage-agent-title"
@@ -451,6 +588,17 @@ export default function ChatInterface({
               </p>
             </div>
             <div className="flex items-center gap-3">
+              {agentUsage ? (
+                <span
+                  className="inline-flex rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+                  title={`${agentUsage.questions_used} of ${agentUsage.question_limit} questions used today`}
+                >
+                  {agentUsage.questions_remaining} left ·{" "}
+                  {agentUsage.spend_usd > 0 && agentUsage.spend_usd < 0.01
+                    ? "<1¢"
+                    : `$${agentUsage.spend_usd.toFixed(2)}`}
+                </span>
+              ) : null}
               <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span
                   aria-hidden="true"
@@ -478,7 +626,7 @@ export default function ChatInterface({
           </header>
 
           {isPanel ? (
-            <div className="border-b border-border bg-background px-4 py-3">
+            <div className="border-b border-border bg-chat-surface px-4 py-3">
               <div className="flex flex-wrap items-center gap-2">
                 <label htmlFor="agent-conversation" className="sr-only">
                   Conversation
@@ -551,6 +699,7 @@ export default function ChatInterface({
                 conversation={activeConversation}
                 response={latestResponse}
                 toolEvents={toolEvents}
+                usage={agentUsage}
                 className="max-h-64 border-l-0 p-4"
                 showTitle={false}
               />
@@ -565,7 +714,7 @@ export default function ChatInterface({
             }`}
           >
             <div className="flex min-h-0 flex-col">
-              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-background px-4 py-5 sm:px-5">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-chat-surface px-4 py-5 sm:px-5">
                 {isSwitchingConversation ? (
                   <LoadingState label="Loading conversation" />
                 ) : !messages.length && !isLoading ? (
@@ -626,6 +775,12 @@ export default function ChatInterface({
                 {messages.map((message) => (
                   <article
                     key={message.id}
+                    ref={(element) => {
+                      if (element)
+                        messageElements.current.set(message.id, element);
+                      else messageElements.current.delete(message.id);
+                    }}
+                    data-message-id={message.id}
                     className={`flex ${
                       message.role === "user" ? "justify-end" : "justify-start"
                     }`}
@@ -633,10 +788,10 @@ export default function ChatInterface({
                     <div
                       className={`min-w-0 max-w-[94%] rounded-2xl px-4 py-3 sm:max-w-[88%] ${
                         message.role === "user"
-                          ? "bg-primary text-background"
+                          ? "bg-user-message text-primary"
                           : message.isError
                             ? "border border-red-300 bg-red-50 text-red-900"
-                            : "border border-border bg-card text-primary"
+                            : "border border-border bg-transparent text-primary shadow-sm"
                       }`}
                     >
                       <p className="mb-2 text-xs font-semibold">
@@ -645,7 +800,9 @@ export default function ChatInterface({
                       {message.response ? (
                         <StructuredResponse
                           response={message.response}
-                          onAction={onAction}
+                          onAction={onAction ? handleAgentAction : undefined}
+                          onPrompt={handleSendMessage}
+                          promptDisabled={interactionDisabled}
                         />
                       ) : (
                         <p className="whitespace-pre-wrap text-sm leading-6">
@@ -662,12 +819,11 @@ export default function ChatInterface({
                   </article>
                 ))}
                 {isLoading ? <LoadingIndicator /> : null}
-                <div ref={messagesEndRef} />
               </div>
 
               <ChatInput
                 sendMessage={handleSendMessage}
-                disabled={inputDisabled}
+                disabled={interactionDisabled}
                 placeholder={inputPlaceholder}
               />
             </div>
@@ -678,6 +834,7 @@ export default function ChatInterface({
                 conversation={activeConversation}
                 response={latestResponse}
                 toolEvents={toolEvents}
+                usage={agentUsage}
                 className="hidden lg:block"
               />
             ) : null}

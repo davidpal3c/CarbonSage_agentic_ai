@@ -5,21 +5,27 @@
 }
 
 :root {
-  --background: #ffffff;
+  --background: #eef0ed;
   --foreground: #181a18;
-  --secondary-bg: #f4f5f2;
+  --secondary-bg: #e9ece8;
   --secondary-fg: #414641;
-  --card: #ffffff;
+  --card: #fafbf8;
   --card-foreground: #202320;
-  --muted: #f4f5f2;
+  --muted: #f2f4f1;
   --muted-foreground: #666c67;
-  --border: #e0e3de;
-  --sidebar: #f4f5f2;
+  --border: #d9ddd7;
+  --sidebar: #f7f8f5;
   --sidebar-border: #dfe2dd;
+  --chat-surface: #fafbf8;
+  --user-message: #e9ece8;
   --primary: #1c201d;
   --secondary: #245f3e;
   --tertiary: #8a711f;
   --accent: #3f7f58;
+  --chart-plane: #214f35;
+  --chart-truck: #3f7f58;
+  --chart-train: #6c9d7d;
+  --chart-ship: #a2bca9;
 }
 
 .dark {
@@ -34,10 +40,16 @@
   --border: #343a35;
   --sidebar: #151815;
   --sidebar-border: #2d322e;
+  --chat-surface: #191c1a;
+  --user-message: #252a26;
   --primary: #f1f3ef;
   --secondary: #4f9669;
   --tertiary: #c7ad58;
   --accent: #73b388;
+  --chart-plane: #b4d9c0;
+  --chart-truck: #73b388;
+  --chart-train: #4f9669;
+  --chart-ship: #346548;
 }
 
 @theme {
@@ -50,6 +62,8 @@
   --color-border: var(--border);
   --color-sidebar: var(--sidebar);
   --color-sidebar-border: var(--sidebar-border);
+  --color-chat-surface: var(--chat-surface);
+  --color-user-message: var(--user-message);
   --color-primary: var(--primary);
   --color-secondary-bg: var(--secondary-bg);
   --color-secondary-fg: var(--secondary-fg);

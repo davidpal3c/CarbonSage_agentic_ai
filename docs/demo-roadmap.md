@@ -83,6 +83,17 @@ vector database used by the former retrieval prototype, is replaced by
 pgvector in the existing PostgreSQL deployment. Source-object retention is a
 bounded S3 integration inside the same API, not a storage microservice.
 
+## Agent analytics checkpoint — August 20, 2026
+
+The production agent gate is active on the existing Render service. CarbonSage
+uses `openai/gpt-4.1-mini` through OpenRouter, reports provider availability
+through `/agent/health`, and performs hybrid retrieval through pgvector. A
+fresh production workspace passed authenticated typed calculation, report,
+scenario-comparison, and supplier-evidence searches with the exact
+`https://www.carbonsage.ca` CORS origin. This validates the deployed runtime;
+the shipment-analytics tool introduced in Phase 10.4 still requires promotion
+from `dev` before its own live smoke test.
+
 ## CarbonSage initial objective
 
 > An embeddable ESG decision agent demonstrating hybrid RAG, semantic
@@ -219,7 +230,8 @@ Public demo limits:
 - Maximum 10 MB per file.
 - Text-based documents only.
 - Maximum 10 analysis/scenario runs per workspace per day.
-- Maximum 3 agent requests per workspace per day.
+- Maximum 15 agent requests per workspace per UTC day, with question use and
+  USD spend visible to the reviewer.
 - Workspace and extracted document retention of 24 hours by default.
 - Source-object storage limits of 4 GB active, 10,000 writes, 100,000 reads, and
   2 GB metered egress per calendar month, enforced before provider calls.
@@ -857,7 +869,7 @@ Implementation evidence (completed 2026-08-18):
   panel; the compact launcher starts closed on each destination.
 - An empty workspace presents an explicit choice between loading a guided,
   fictional CarbonSage dataset and uploading user sources. The seed operation
-  is authenticated, idempotent, workspace-scoped, and creates six shipments,
+  is authenticated, idempotent, workspace-scoped, and creates 36 shipments,
   24 supplier profiles, and three cited supplier evidence artifacts.
 - Empty artifact-aware agent responses expose the same
   `workspace.load_demo_data` action through the versioned action-block
@@ -916,7 +928,7 @@ Implementation evidence (completed 2026-08-19):
 - Scenarios is a concise coming-soon page while scenario comparison remains an
   agent and report capability. The workspace guide describes the current
   agent-first path without exposing implementation notes in the primary UI.
-- The expanded fictional seed now provides 24 suppliers, six mixed-mode
+- The expanded fictional seed now provides 24 suppliers, 36 dated mixed-mode
   shipments, and three cited disclosures. API tests, production build, and ten
   Playwright flows cover the updated data and interaction contracts.
 
@@ -962,6 +974,105 @@ Exit gate:
 > Returning to a workspace page reuses current data, simulation records can be
 > removed without touching user uploads, and file import is an intentional
 > modal workflow rather than a permanent page-level form.
+
+### Phase 10.4 — Reconciled agent analytics dashboard
+
+Implementation evidence (completed on the feature branch 2026-08-20):
+
+- Migration `008_shipment_analytics.sql` adds an optional indexed shipment
+  date. CSV and XLSX ingestion accepts common date aliases while remaining
+  backward-compatible with undated files; templates, normalized exports, and
+  repository round trips preserve ISO dates.
+- The fictional seed contains 36 shipments spanning September 2025 through
+  August 2026 and all four supported transport modes. Undated user records
+  remain visible as an explicit group rather than receiving invented dates.
+- One deterministic shipment-analysis service owns totals, monthly or yearly
+  series, mode breakdowns, date and mode filters, hotspots, warnings, and
+  provenance. `/shipments/analytics`, dashboard charts, exact tables, and the
+  typed `analyze_shipment_emissions` agent tool all consume that same result.
+- Shared Recharts components provide accessible stacked trend, compact area,
+  hotspot, and structured-response charts. Every chart has an exact expandable
+  table fallback, keyboard coverage, responsive behavior, and reduced-motion
+  handling.
+- Shipments now supports cached month/year and date/mode analysis. Overview is
+  a carbon-intelligence dashboard with animated emissions, freight, shipment,
+  and evidence metrics plus a compact emissions trend. Agent analytics
+  responses render reconciled metrics, charts, tables, warnings, and concise
+  tool events from validated deterministic output.
+- Validation passes with 111 backend tests against disposable PostgreSQL with
+  pgvector, 107 credential-free backend tests with four provider skips,
+  Ruff formatting and linting, TypeScript, ESLint, the production Next.js
+  build, and all ten Playwright workflows.
+
+Exit gate:
+
+> A reviewer can load dated demo or uploaded shipment data, inspect consistent
+> monthly and yearly emissions charts, ask CarbonSage for an emissions
+> comparison, and receive an interactive structured response whose metrics,
+> chart, table, and underlying deterministic calculation reconcile exactly.
+
+Promotion gate:
+
+- Publish the feature branch to `dev` and hold `main` for review.
+- After review, promote `dev` to `main`, verify migration 008 on Render, and
+  smoke-test live selection of `analyze_shipment_emissions` plus the production
+  Vercel chart surfaces.
+- Resume the roadmap with the authenticated JavaScript embed, followed by the
+  selected-file Google Drive connector and optional MCP interoperability
+  surface.
+
+### Phase 10.5 — Grounded supplier-aware agent answers
+
+Implementation evidence (completed on the feature branch 2026-08-20):
+
+- Migration `009_agent_answer_accuracy.sql` adds optional supplier linkage to
+  normalized shipments, raises existing demo assistant allowances to 15
+  questions per UTC day, and adds workspace-scoped daily model-call and USD
+  cost accounting. Older shipment files remain valid without invented supplier
+  values.
+- The fictional shipment history identifies suppliers and provides two exact
+  Toronto-to-Vancouver options: Northstar Logistics by train and Aurora
+  Packaging by truck. Mode analytics now reconcile supplier contributions with
+  the same deterministic emissions totals used by the dashboard.
+- Current-question intent is authoritative. A highest-footprint shipment
+  question selects only shipment analytics; an origin, destination, weight,
+  and supplier-efficiency question selects only the typed exact-lane supplier
+  recommendation. Conversation history is supplied to planning only when the
+  user explicitly refers to a previous result.
+- Supplier recommendations recalculate validated historical exact-lane options
+  at the requested weight, rank one option per supplier, state the historical
+  shipment and distance used, and abstain when lane or supplier linkage is
+  absent. They do not invent route distance, price, capacity, or procurement
+  approval.
+- Structured answers lead with the requested decision, then expose reconciled
+  metrics, interactive Recharts visuals, and exact table fallbacks. The
+  supplier recommendation for 1,008 kg from Toronto to Vancouver resolves to
+  Northstar Logistics by train at `97.5744 kg CO2e`, using the 4,400 km
+  historical lane.
+- The agent header and response-details panel expose questions remaining and
+  provider-reported USD spend, with a clearly labelled model-price estimate
+  only when provider cost metadata is unavailable. Token counts remain an
+  internal accounting detail.
+- Credential-free backend tests cover the reported prompts, exact tool
+  selection, supplier-linked ingestion and analytics, recommendation
+  reconciliation, abstention boundaries, daily allowance state, and exact or
+  estimated cost accounting. Ruff, TypeScript, ESLint, and the production
+  Next.js build validate the complete response path.
+
+Exit gate:
+
+> With demo data loaded, the reported highest-footprint question returns the
+> leading mode and its largest supplier contributor. The Toronto-to-Vancouver
+> supplier question returns Northstar's exact-lane train option with matching
+> answer, metric, interactive chart, exact table, distance, and deterministic
+> calculation. A reviewer can see the remaining daily question allowance and
+> USD spend without token terminology.
+
+Promotion gate:
+
+- Publish `feature/agent-answer-accuracy` to `dev` and hold `main` for review.
+- Before production promotion, verify migration 009 on PostgreSQL and repeat
+  both exact prompts against the deployed Render API and Vercel client.
 
 ### Phase 11 — Authenticated JavaScript embed
 

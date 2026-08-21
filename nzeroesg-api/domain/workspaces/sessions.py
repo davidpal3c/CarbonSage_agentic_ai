@@ -17,6 +17,8 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+ASSISTANT_REQUESTS_PER_DAY = 15
+
 
 class SessionError(ValueError):
     """Raised when a signed workspace session is missing or invalid."""
@@ -105,7 +107,10 @@ class WorkspaceSession:
             quotas={
                 "evidence_documents": QuotaRecord(used=0, limit=3),
                 "analysis_runs_per_day": QuotaRecord(used=0, limit=10),
-                "assistant_requests_per_day": QuotaRecord(used=0, limit=3),
+                "assistant_requests_per_day": QuotaRecord(
+                    used=0,
+                    limit=ASSISTANT_REQUESTS_PER_DAY,
+                ),
             },
             retention=RetentionRecord(expires_at=expires_at),
         )

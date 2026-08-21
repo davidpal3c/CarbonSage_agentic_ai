@@ -2,11 +2,12 @@
 
 import csv
 import io
+from datetime import date
 from hashlib import sha256
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from pydantic import BaseModel
 
 from api.artifacts import (
@@ -19,12 +20,13 @@ from api.artifacts import (
 from api.workspaces import require_workspace_principal, workspace_repository
 from config import database_url_for_runtime
 from domain.artifacts.models import Artifact, ArtifactKind, ArtifactSourceType, create_artifact
-from domain.shipments.analysis import ShipmentAnalysis, analyze_shipments
+from domain.emissions.modes import normalize_mode
+from domain.shipments.analysis import AnalyticsGranularity, ShipmentAnalysis, analyze_shipments
 from domain.shipments.ingestion import (
     ALLOWED_CONTENT_TYPES,
     ALLOWED_EXTENSIONS,
+    EXPORT_HEADERS,
     MAX_FILE_BYTES,
-    REQUIRED_HEADERS,
     parse_shipments_document,
 )
 from domain.shipments.models import NormalizedShipment
@@ -44,6 +46,8 @@ class ShipmentErrorResponse(BaseModel):
 
 class ShipmentRowResponse(BaseModel):
     shipment_id: str
+    shipment_date: date | None
+    supplier_name: str | None
     origin: str
     destination: str
     weight_kg: float
@@ -52,27 +56,64 @@ class ShipmentRowResponse(BaseModel):
     source_row: int
 
 
+class SupplierContributionResponse(BaseModel):
+    supplier_name: str | None
+    shipment_count: int
+    emissions_kg: float
+
+
 class ModeBreakdownResponse(BaseModel):
     shipment_count: int
     weight_kg: float
     emissions_kg: float
+    suppliers: list[SupplierContributionResponse]
 
 
 class HotspotResponse(BaseModel):
     shipment_id: str
+    shipment_date: date | None
+    supplier_name: str | None
     origin: str
     destination: str
     transport_method: str
     emissions_kg: float
 
 
+class ShipmentPeriodResponse(BaseModel):
+    period: str
+    period_start: date | None
+    shipment_count: int
+    weight_kg: float
+    emissions_kg: float
+    mode_emissions_kg: dict[str, float]
+
+
+class ShipmentFiltersResponse(BaseModel):
+    granularity: Literal["month", "year"]
+    start_date: date | None
+    end_date: date | None
+    modes: list[str]
+
+
+class AvailableShipmentFiltersResponse(BaseModel):
+    start_date: date | None
+    end_date: date | None
+    modes: list[str]
+
+
 class ShipmentAnalysisResponse(BaseModel):
     shipment_count: int
+    workspace_shipment_count: int
+    filtered_out_count: int
+    undated_shipment_count: int
     total_weight_kg: float
     total_emissions_kg: float
     total_emissions_tonnes: float
     mode_breakdown: dict[str, ModeBreakdownResponse]
+    timeline: list[ShipmentPeriodResponse]
     hotspots: list[HotspotResponse]
+    filters: ShipmentFiltersResponse
+    available_filters: AvailableShipmentFiltersResponse
     warnings: list[str]
     factor_source: str
     factor_version: str
@@ -128,6 +169,21 @@ def _consume_analysis_run(workspace_id: str) -> None:
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="The daily analysis quota for this workspace has been reached.",
         ) from exc
+
+
+def _normalize_analytics_modes(values: list[str] | None) -> tuple[str, ...]:
+    normalized: list[str] = []
+    for value in values or []:
+        try:
+            mode = normalize_mode(value).value
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Unsupported transport mode: {value}.",
+            ) from exc
+        if mode not in normalized:
+            normalized.append(mode)
+    return tuple(normalized)
 
 
 @shipments_router.post("/upload", response_model=ShipmentUploadResponse)
@@ -242,6 +298,31 @@ async def list_shipments(
     return _response(rows, artifact=artifact)
 
 
+@shipments_router.get("/analytics", response_model=ShipmentAnalysisResponse)
+async def shipment_analytics(
+    principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
+    granularity: Annotated[AnalyticsGranularity, Query()] = "month",
+    start_date: Annotated[date | None, Query()] = None,
+    end_date: Annotated[date | None, Query()] = None,
+    mode: Annotated[list[str] | None, Query()] = None,
+) -> ShipmentAnalysisResponse:
+    """Return one deterministic analytics contract shared by every client surface."""
+
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="The analytics start date must not follow the end date.",
+        )
+    analysis = analyze_shipments(
+        shipment_repository.list_for_workspace(principal.workspace_id),
+        start_date=start_date,
+        end_date=end_date,
+        modes=_normalize_analytics_modes(mode),
+        granularity=granularity,
+    )
+    return _analysis_response(analysis)
+
+
 @shipments_router.get("/export")
 async def export_shipments(
     principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
@@ -251,11 +332,13 @@ async def export_shipments(
     rows = shipment_repository.list_for_workspace(principal.workspace_id)
     output = io.StringIO(newline="")
     writer = csv.writer(output)
-    writer.writerow(REQUIRED_HEADERS)
+    writer.writerow(EXPORT_HEADERS)
     for row in rows:
         writer.writerow(
             (
                 row.shipment_id,
+                row.shipment_date.isoformat() if row.shipment_date else "",
+                row.supplier_name or "",
                 row.origin,
                 row.destination,
                 row.weight_kg,
@@ -287,8 +370,21 @@ async def shipment_template(
     workbook = Workbook()
     worksheet = workbook.active
     worksheet.title = "Shipments"
-    worksheet.append(REQUIRED_HEADERS)
-    worksheet.append(("EXAMPLE-001", "Edmonton", "Calgary", 1, "mt", 300, "km", "truck"))
+    worksheet.append(EXPORT_HEADERS)
+    worksheet.append(
+        (
+            "EXAMPLE-001",
+            "2026-01-15",
+            "Example Supplier",
+            "Edmonton",
+            "Calgary",
+            1,
+            "mt",
+            300,
+            "km",
+            "truck",
+        )
+    )
     output = io.BytesIO()
     workbook.save(output)
     workbook.close()

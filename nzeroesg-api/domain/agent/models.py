@@ -165,6 +165,17 @@ class ActionBlock(StrictModel):
     artifact_id: str | None = None
 
 
+class SuggestedPrompt(StrictModel):
+    label: str = Field(min_length=1, max_length=120)
+    prompt: str = Field(min_length=1, max_length=500)
+
+
+class SuggestionsBlock(StrictModel):
+    type: Literal["suggestions"] = "suggestions"
+    title: str = Field(min_length=1, max_length=160)
+    options: list[SuggestedPrompt] = Field(min_length=1, max_length=4)
+
+
 ResponseBlock = Annotated[
     TextBlock
     | MetricBlock
@@ -173,7 +184,8 @@ ResponseBlock = Annotated[
     | CitationBlock
     | ArtifactReferenceBlock
     | WarningBlock
-    | ActionBlock,
+    | ActionBlock
+    | SuggestionsBlock,
     Field(discriminator="type"),
 ]
 

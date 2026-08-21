@@ -1,13 +1,14 @@
 import asyncio
 import os
 from contextlib import closing
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
 import psycopg
 import pytest
 from pydantic import ValidationError
 
+from agent.planner import _deterministic_plan
 from domain.agent.models import (
     AgentResponseEnvelope,
     ChartBlock,
@@ -25,12 +26,18 @@ from domain.agent.models import (
 from domain.agent.tools import (
     AgentPlan,
     AgentToolName,
+    AnalyzeShipmentEmissionsOutput,
     BuildDecisionReportOutput,
+    CompareTransportScenariosOutput,
     ListWorkspaceArtifactsOutput,
     PlannedToolCall,
+    RecommendShipmentSupplierOutput,
 )
 from domain.artifacts.models import ArtifactKind, ArtifactSourceType, create_artifact
+from domain.demo_data import DEMO_SHIPMENTS_CSV
 from domain.evidence.models import EvidenceMatch
+from domain.shipments.ingestion import parse_shipments_csv
+from domain.shipments.models import NormalizedShipment
 from domain.workspaces.principals import WorkspacePrincipal
 from domain.workspaces.sessions import SessionSigner, WorkspaceSession
 from persistence.agent import (
@@ -112,7 +119,46 @@ def test_agent_plan_schema_closes_every_tool_argument_object():
 
     assert not _contains_open_object_schema(schema)
     argument_schema = schema["$defs"]["PlannedToolCall"]["properties"]["arguments"]
-    assert len(argument_schema["anyOf"]) == 7
+    assert len(argument_schema["anyOf"]) == 9
+
+
+def test_reported_shipment_questions_use_one_current_question_specific_tool():
+    ranking = _deterministic_plan(
+        "Based on the current shipments made, indicate the transport mode with the "
+        "highest carbon footprint and the supplier involved in it."
+    )
+    recommendation = _deterministic_plan(
+        "Indicate the most recommended and carbon efficient supplier for a 1008 kg "
+        "shipment from Toronto to Vancouver."
+    )
+    trend = _deterministic_plan("Show the monthly emissions trend by transport mode.")
+    rail_comparison = _deterministic_plan("Compare the current freight baseline with rail.")
+    plane_trend = _deterministic_plan("Show the monthly emissions trend for plane shipments.")
+
+    assert ranking is not None
+    assert [call.tool_name for call in ranking.calls] == [AgentToolName.ANALYZE_SHIPMENT_EMISSIONS]
+    assert recommendation is not None
+    assert [call.tool_name for call in recommendation.calls] == [
+        AgentToolName.RECOMMEND_SHIPMENT_SUPPLIER
+    ]
+    assert recommendation.calls[0].arguments.model_dump() == {
+        "origin": "Toronto",
+        "destination": "Vancouver",
+        "weight_value": 1008.0,
+        "weight_unit": "kg",
+    }
+    assert trend is not None
+    assert [call.tool_name for call in trend.calls] == [AgentToolName.ANALYZE_SHIPMENT_EMISSIONS]
+    assert trend.calls[0].arguments.model_dump()["granularity"] == "month"
+    assert rail_comparison is not None
+    assert [call.tool_name for call in rail_comparison.calls] == [
+        AgentToolName.COMPARE_TRANSPORT_SCENARIOS
+    ]
+    assert rail_comparison.calls[0].arguments.model_dump() == {
+        "alternative_transport_method": "train"
+    }
+    assert plane_trend is not None
+    assert plane_trend.calls[0].arguments.model_dump()["transport_methods"] == ["plane"]
 
 
 def principal_for(workspace_id: str = "demo-agent") -> WorkspacePrincipal:
@@ -318,6 +364,229 @@ def test_typed_runtime_persists_validated_calculation_and_concise_tool_event():
     assert detail.tool_events[0].result_count == 1
     assert consumed == [principal.workspace_id]
     assert planner.questions == ["Estimate one tonne by rail for 100 km."]
+
+
+def test_typed_shipment_analytics_reconciles_metric_chart_table_and_tool_event():
+    workspace_id = "demo-agent-analytics"
+    shipment_repository = InMemoryShipmentRepository()
+    shipment_repository.replace_for_workspace(
+        workspace_id,
+        "00000000-0000-4000-8000-000000000030",
+        (
+            NormalizedShipment(
+                shipment_id="S-001",
+                shipment_date=date(2025, 12, 5),
+                origin="Edmonton",
+                destination="Calgary",
+                weight_kg=1_000,
+                distance_km=100,
+                transport_method="truck",
+                source_row=2,
+            ),
+            NormalizedShipment(
+                shipment_id="S-002",
+                shipment_date=date(2026, 1, 12),
+                origin="Calgary",
+                destination="Vancouver",
+                weight_kg=2_000,
+                distance_km=1_000,
+                transport_method="train",
+                source_row=3,
+            ),
+        ),
+    )
+    registry = AgentToolRegistry(
+        artifact_repository=InMemoryArtifactRepository(),
+        evidence_repository=InMemoryEvidenceRepository(),
+        shipment_repository=shipment_repository,
+        evidence_search=empty_search,
+    )
+    execution = asyncio.run(
+        registry.execute(
+            workspace_id,
+            PlannedToolCall(
+                call_id="analytics-1",
+                tool_name=AgentToolName.ANALYZE_SHIPMENT_EMISSIONS,
+                arguments={"granularity": "month"},
+            ),
+        )
+    )
+
+    assert execution.event.status is ToolEventStatus.SUCCEEDED
+    assert execution.event.result_count == 2
+    assert isinstance(execution.output, AnalyzeShipmentEmissionsOutput)
+    response, _ = compose_agent_response((execution,), processing_time_ms=2)
+    emissions_metric = next(
+        block for block in response.blocks if block.type == "metric" and block.unit == "kg CO2e"
+    )
+    chart = next(
+        block
+        for block in response.blocks
+        if block.type == "chart" and block.title == "Monthly emissions by transport mode"
+    )
+    chart_total = sum(float(row[series.key]) for row in chart.rows for series in chart.series)
+    assert round(chart_total, 6) == emissions_metric.value == 50.2
+    assert chart.table_fallback.rows == chart.rows
+    assert chart.table_fallback.columns[-1].key == "total_emissions_kg"
+
+
+def test_highest_footprint_prompt_names_the_mode_and_supplier_from_demo_rows():
+    workspace_id = "demo-agent-mode-supplier-ranking"
+    shipment_repository = InMemoryShipmentRepository()
+    parsed = parse_shipments_csv(DEMO_SHIPMENTS_CSV)
+    shipment_repository.replace_for_workspace(
+        workspace_id,
+        "00000000-0000-4000-8000-000000000033",
+        parsed.rows,
+    )
+    registry = AgentToolRegistry(
+        artifact_repository=InMemoryArtifactRepository(),
+        evidence_repository=InMemoryEvidenceRepository(),
+        shipment_repository=shipment_repository,
+        evidence_search=empty_search,
+    )
+    plan = _deterministic_plan(
+        "Based on the current shipments made, indicate the transport mode with the "
+        "highest carbon footprint and the supplier involved in it."
+    )
+    assert plan is not None
+
+    execution = asyncio.run(registry.execute(workspace_id, plan.calls[0]))
+
+    assert isinstance(execution.output, AnalyzeShipmentEmissionsOutput)
+    assert execution.output.mode_breakdown[0].transport_method == "plane"
+    assert execution.output.mode_breakdown[0].suppliers[0].supplier_name == ("Nimbus Controls")
+    question = (
+        "Based on the current shipments made, indicate the transport mode with the "
+        "highest carbon footprint and the supplier involved in it."
+    )
+    response, _ = compose_agent_response((execution,), processing_time_ms=1, question=question)
+    direct_answer = next(block for block in response.blocks if block.type == "text")
+    assert "Plane has the highest aggregate shipment footprint" in direct_answer.text
+    assert "Nimbus Controls" in direct_answer.text
+    assert any(
+        block.type == "chart" and block.title == "Emissions by transport mode"
+        for block in response.blocks
+    )
+    assert not any(block.type in {"metric", "table"} for block in response.blocks)
+    suggestions = next(block for block in response.blocks if block.type == "suggestions")
+    assert any("plane shipments" in option.prompt for option in suggestions.options)
+    assert not any(block.type == "artifact_reference" for block in response.blocks)
+
+
+def test_rail_baseline_prompt_returns_only_the_scenario_and_contextual_followups():
+    workspace_id = "demo-agent-rail-scenario"
+    shipment_repository = InMemoryShipmentRepository()
+    parsed = parse_shipments_csv(DEMO_SHIPMENTS_CSV)
+    shipment_repository.replace_for_workspace(
+        workspace_id,
+        "00000000-0000-4000-8000-000000000034",
+        parsed.rows,
+    )
+    registry = AgentToolRegistry(
+        artifact_repository=InMemoryArtifactRepository(),
+        evidence_repository=InMemoryEvidenceRepository(),
+        shipment_repository=shipment_repository,
+        evidence_search=empty_search,
+    )
+    question = "Compare the current freight baseline with rail."
+    plan = _deterministic_plan(question)
+    assert plan is not None
+
+    execution = asyncio.run(registry.execute(workspace_id, plan.calls[0]))
+
+    assert isinstance(execution.output, CompareTransportScenariosOutput)
+    assert execution.output.alternative_mode == "train"
+    response, _ = compose_agent_response((execution,), processing_time_ms=1, question=question)
+    text_blocks = [block for block in response.blocks if block.type == "text"]
+    charts = [block for block in response.blocks if block.type == "chart"]
+    metrics = [block for block in response.blocks if block.type == "metric"]
+    suggestions = next(block for block in response.blocks if block.type == "suggestions")
+
+    assert len(text_blocks) == len(charts) == len(metrics) == 1
+    assert "Using train for the current" in text_blocks[0].text
+    assert charts[0].title == "Baseline and alternative emissions"
+    assert metrics[0].label in {"Estimated reduction", "Estimated increase"}
+    assert not any(block.type == "artifact_reference" for block in response.blocks)
+    assert all(
+        "baseline" in option.prompt or "trend" in option.prompt for option in suggestions.options
+    )
+
+
+def test_supplier_recommendation_uses_exact_lane_data_and_renders_a_chart():
+    workspace_id = "demo-agent-supplier-recommendation"
+    shipment_repository = InMemoryShipmentRepository()
+    parsed = parse_shipments_csv(DEMO_SHIPMENTS_CSV)
+    assert parsed.errors == ()
+    shipment_repository.replace_for_workspace(
+        workspace_id,
+        "00000000-0000-4000-8000-000000000031",
+        parsed.rows,
+    )
+    registry = AgentToolRegistry(
+        artifact_repository=InMemoryArtifactRepository(),
+        evidence_repository=InMemoryEvidenceRepository(),
+        shipment_repository=shipment_repository,
+        evidence_search=empty_search,
+    )
+    plan = _deterministic_plan(
+        "Recommend the most carbon efficient supplier for a 1008 kg shipment from "
+        "Toronto to Vancouver."
+    )
+    assert plan is not None
+
+    execution = asyncio.run(registry.execute(workspace_id, plan.calls[0]))
+
+    assert isinstance(execution.output, RecommendShipmentSupplierOutput)
+    assert execution.output.recommended_supplier_name == "Northstar Logistics"
+    assert execution.output.recommended_transport_method == "train"
+    assert execution.output.recommended_emissions_kg == 97.5744
+    assert [candidate.supplier_name for candidate in execution.output.candidates] == [
+        "Northstar Logistics",
+        "Aurora Packaging",
+    ]
+    assert execution.output.candidates[0].distance_km == 4_400
+    response, _ = compose_agent_response((execution,), processing_time_ms=1)
+    direct_answer = next(block for block in response.blocks if block.type == "text")
+    chart = next(block for block in response.blocks if block.type == "chart")
+    assert "Northstar Logistics" in direct_answer.text
+    assert chart.title == "Supplier-linked lane options"
+    assert chart.rows == chart.table_fallback.rows
+    assert chart.rows[0]["emissions_kg"] == 97.5744
+
+
+def test_supplier_recommendation_abstains_without_an_exact_lane():
+    workspace_id = "demo-agent-supplier-abstention"
+    shipment_repository = InMemoryShipmentRepository()
+    parsed = parse_shipments_csv(DEMO_SHIPMENTS_CSV)
+    shipment_repository.replace_for_workspace(
+        workspace_id,
+        "00000000-0000-4000-8000-000000000032",
+        parsed.rows,
+    )
+    registry = AgentToolRegistry(
+        artifact_repository=InMemoryArtifactRepository(),
+        evidence_repository=InMemoryEvidenceRepository(),
+        shipment_repository=shipment_repository,
+        evidence_search=empty_search,
+    )
+    plan = _deterministic_plan(
+        "Recommend the most carbon efficient supplier for a 1008 kg shipment from "
+        "Yellowknife to Vancouver."
+    )
+    assert plan is not None
+
+    execution = asyncio.run(registry.execute(workspace_id, plan.calls[0]))
+
+    assert isinstance(execution.output, RecommendShipmentSupplierOutput)
+    assert execution.output.recommended_supplier_name is None
+    assert execution.output.candidates == []
+    assert "cannot recommend" in execution.output.warnings[0]
+    response, _ = compose_agent_response((execution,), processing_time_ms=1)
+    assert not any(block.type == "chart" for block in response.blocks)
+    assert any(
+        block.type == "warning" and "cannot recommend" in block.message for block in response.blocks
+    )
 
 
 def test_empty_plan_returns_a_valid_unsupported_request_warning():

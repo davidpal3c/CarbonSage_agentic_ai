@@ -18,6 +18,8 @@ class AgentToolName(StrEnum):
     SEARCH_SUPPLIER_EVIDENCE = "search_supplier_evidence"
     GET_CITATION_CONTEXT = "get_citation_context"
     CALCULATE_FREIGHT_EMISSIONS = "calculate_freight_emissions"
+    ANALYZE_SHIPMENT_EMISSIONS = "analyze_shipment_emissions"
+    RECOMMEND_SHIPMENT_SUPPLIER = "recommend_shipment_supplier"
     COMPARE_TRANSPORT_SCENARIOS = "compare_transport_scenarios"
     SUMMARIZE_DATA_QUALITY = "summarize_data_quality"
     BUILD_DECISION_REPORT = "build_decision_report"
@@ -57,6 +59,20 @@ class CompareTransportScenariosInput(StrictModel):
     alternative_transport_method: TransportMode
 
 
+class AnalyzeShipmentEmissionsInput(StrictModel):
+    granularity: Literal["month", "year"] = "month"
+    start_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    end_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    transport_methods: list[TransportMode] = Field(default_factory=list, max_length=4)
+
+
+class RecommendShipmentSupplierInput(StrictModel):
+    origin: str = Field(min_length=2, max_length=160)
+    destination: str = Field(min_length=2, max_length=160)
+    weight_value: float = Field(gt=0)
+    weight_unit: Literal["g", "kg", "lb", "mt"] = "kg"
+
+
 class SummarizeDataQualityInput(NoArguments):
     pass
 
@@ -70,6 +86,8 @@ ToolArguments = (
     | SearchSupplierEvidenceInput
     | GetCitationContextInput
     | CalculateFreightEmissionsInput
+    | AnalyzeShipmentEmissionsInput
+    | RecommendShipmentSupplierInput
     | CompareTransportScenariosInput
     | SummarizeDataQualityInput
     | BuildDecisionReportInput
@@ -154,6 +172,82 @@ class CompareTransportScenariosOutput(StrictModel):
     assumptions: list[str]
 
 
+class ShipmentAnalyticsPeriodOutput(StrictModel):
+    period: str
+    period_start: str | None
+    shipment_count: int
+    weight_kg: float
+    total_emissions_kg: float
+    plane_emissions_kg: float
+    truck_emissions_kg: float
+    train_emissions_kg: float
+    ship_emissions_kg: float
+
+
+class ShipmentAnalyticsHotspotOutput(StrictModel):
+    shipment_id: str
+    shipment_date: str | None
+    supplier_name: str | None
+    route: str
+    transport_method: str
+    emissions_kg: float
+
+
+class ShipmentAnalyticsSupplierOutput(StrictModel):
+    supplier_name: str | None
+    shipment_count: int
+    emissions_kg: float
+
+
+class ShipmentAnalyticsModeOutput(StrictModel):
+    transport_method: str
+    shipment_count: int
+    weight_kg: float
+    emissions_kg: float
+    suppliers: list[ShipmentAnalyticsSupplierOutput]
+
+
+class AnalyzeShipmentEmissionsOutput(StrictModel):
+    granularity: Literal["month", "year"]
+    start_date: str | None
+    end_date: str | None
+    modes: list[str]
+    shipment_count: int
+    workspace_shipment_count: int
+    filtered_out_count: int
+    undated_shipment_count: int
+    total_weight_kg: float
+    total_emissions_kg: float
+    mode_breakdown: list[ShipmentAnalyticsModeOutput]
+    periods: list[ShipmentAnalyticsPeriodOutput]
+    hotspots: list[ShipmentAnalyticsHotspotOutput]
+    factor_source: str
+    factor_version: str
+    warnings: list[str]
+
+
+class ShipmentSupplierCandidateOutput(StrictModel):
+    supplier_name: str
+    historical_shipment_id: str
+    transport_method: str
+    distance_km: float
+    estimated_emissions_kg: float
+
+
+class RecommendShipmentSupplierOutput(StrictModel):
+    origin: str
+    destination: str
+    weight_kg: float
+    recommended_supplier_name: str | None
+    recommended_transport_method: str | None
+    recommended_emissions_kg: float | None
+    candidates: list[ShipmentSupplierCandidateOutput]
+    basis: str
+    factor_source: str | None
+    factor_version: str | None
+    warnings: list[str]
+
+
 class DataQualityIssue(StrictModel):
     area: str
     severity: Literal["info", "warning"]
@@ -202,6 +296,8 @@ TOOL_INPUT_MODELS = {
     AgentToolName.SEARCH_SUPPLIER_EVIDENCE: SearchSupplierEvidenceInput,
     AgentToolName.GET_CITATION_CONTEXT: GetCitationContextInput,
     AgentToolName.CALCULATE_FREIGHT_EMISSIONS: CalculateFreightEmissionsInput,
+    AgentToolName.ANALYZE_SHIPMENT_EMISSIONS: AnalyzeShipmentEmissionsInput,
+    AgentToolName.RECOMMEND_SHIPMENT_SUPPLIER: RecommendShipmentSupplierInput,
     AgentToolName.COMPARE_TRANSPORT_SCENARIOS: CompareTransportScenariosInput,
     AgentToolName.SUMMARIZE_DATA_QUALITY: SummarizeDataQualityInput,
     AgentToolName.BUILD_DECISION_REPORT: BuildDecisionReportInput,

@@ -1,9 +1,9 @@
 import { expect, type Page, type Route, test } from "@playwright/test";
 
 const shipmentCsv = [
-  "shipment_id,origin,destination,weight_value,weight_unit,distance_value,distance_unit,transport_method",
-  "S-001,Edmonton,Calgary,1,mt,100,km,truck",
-  "S-002,Vancouver,Seattle,500,kg,200,km,train",
+  "shipment_id,shipment_date,origin,destination,weight_value,weight_unit,distance_value,distance_unit,transport_method",
+  "S-001,2026-01-12,Edmonton,Calgary,1,mt,100,km,truck",
+  "S-002,2026-02-18,Vancouver,Seattle,500,kg,200,km,train",
 ].join("\n");
 
 const supplierEvidence =
@@ -22,7 +22,9 @@ async function enterWorkspace(page: Page) {
     page.getByRole("heading", { name: "Enter the demo workspace" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Enter demo workspace" }).click();
-  await expect(page).toHaveURL(/\/dashboard\/agent$/);
+  await expect(page).toHaveURL(/\/dashboard\/agent$/, {
+    timeout: backendActionTimeout,
+  });
   await expect(
     page.getByRole("heading", { name: "Ask CarbonSage" }),
   ).toBeVisible();
@@ -77,7 +79,7 @@ test("completes the five-minute demo workflow and exports a report", async ({
   await expect(
     page.getByRole("table").last().getByRole("cell", { name: "S-001" }),
   ).toBeVisible();
-  await expect(page.getByText("Emissions by mode")).toBeVisible();
+  await expect(page.getByText("Emissions by mode over time")).toBeVisible();
   await expect(page.getByText("Top shipment hotspots")).toBeVisible();
   await openWorkspacePage(page, "Artifacts", "artifacts");
   await expect(page.getByText("Shipment dataset", { exact: true })).toBeVisible(
@@ -183,6 +185,13 @@ test("completes the five-minute demo workflow and exports a report", async ({
 test("loads the fictional demo dataset from the agent or integrations", async ({
   page,
 }) => {
+  let shipmentRequests = 0;
+  let analyticsRequests = 0;
+  page.on("request", (request) => {
+    const pathname = new URL(request.url()).pathname;
+    if (pathname === "/shipments") shipmentRequests += 1;
+    if (pathname === "/shipments/analytics") analyticsRequests += 1;
+  });
   await enterWorkspace(page);
   await expect(
     page.getByRole("button", { name: "Load demo data" }),
@@ -191,7 +200,7 @@ test("loads the fictional demo dataset from the agent or integrations", async ({
   await openWorkspacePage(page, "Integrations", "integrations");
   await page.getByRole("button", { name: "Load demo data" }).click();
   await expect(
-    page.getByText("24 suppliers · 6 shipments · 3 cited documents"),
+    page.getByText("24 suppliers · 36 shipments · 3 cited documents"),
   ).toBeVisible({ timeout: backendActionTimeout });
 
   await openWorkspacePage(page, "Artifacts", "artifacts");
@@ -222,7 +231,30 @@ test("loads the fictional demo dataset from the agent or integrations", async ({
   ).toBeVisible();
 
   await openWorkspacePage(page, "Shipments", "shipments");
-  await expect(page.getByText("6", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("36", { exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: /Stacked month freight emissions/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: "Top shipment emissions hotspots" }),
+  ).toBeVisible();
+  await page.getByLabel("Group by").selectOption("year");
+  await expect(
+    page.getByText("Stacked year totals; hover or focus the chart"),
+  ).toBeVisible({ timeout: backendActionTimeout });
+  await expect.poll(() => analyticsRequests).toBe(1);
+
+  await openWorkspacePage(page, "Overview", "overview");
+  await expect(
+    page.getByText("Total emissions", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("img", {
+      name: "Freight emissions trend by transport mode",
+    }),
+  ).toBeVisible();
+  await openWorkspacePage(page, "Shipments", "shipments");
+  expect(shipmentRequests).toBe(1);
   await openWorkspacePage(page, "Suppliers", "evidence");
   await expect(
     page.getByText("Boreal Components", { exact: true }),
@@ -240,6 +272,15 @@ test("loads the fictional demo dataset from the agent or integrations", async ({
   await expect(
     page.getByRole("button", { name: "Load demo data" }),
   ).toBeVisible({ timeout: backendActionTimeout });
+  await openWorkspacePage(page, "Report", "report");
+  await expect(
+    page.getByText(
+      "Upload at least one valid shipment before running a scenario.",
+    ),
+  ).toBeVisible({ timeout: backendActionTimeout });
+  await expect(
+    page.getByRole("button", { name: "Load demo data" }),
+  ).toBeVisible();
   await openWorkspacePage(page, "Artifacts", "artifacts");
   await expect(
     page.getByText(
@@ -344,7 +385,7 @@ test("explains when a supplier CSV is selected as shipment data", async ({
     timeout: backendActionTimeout,
   });
   await expect(page.getByText(/This looks like supplier data/)).toBeVisible();
-  await expect(page.getByText("Emissions by mode")).toHaveCount(0);
+  await expect(page.getByText("Emissions by mode over time")).toHaveCount(0);
 });
 
 test("keeps the deterministic workspace usable when the agent is disabled", async ({
@@ -362,6 +403,164 @@ test("keeps the deterministic workspace usable when the agent is disabled", asyn
   await expect(
     shipmentDialog.getByRole("button", { name: "Upload and analyze" }),
   ).toBeDisabled();
+});
+
+test("restores chat suggestions after loading demo data from an empty-workspace response", async ({
+  page,
+}) => {
+  const now = new Date().toISOString();
+  let conversationDetailRequests = 0;
+  const conversation = {
+    conversation_id: "00000000-0000-4000-8000-000000000031",
+    workspace_id: "demo-empty-action",
+    title: "Decision 1",
+    status: "active",
+    policy_version: "1.0",
+    created_by: "demo-session",
+    created_at: now,
+    updated_at: now,
+    expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+  };
+
+  await page.route("**/agent/health", (route) =>
+    route.fulfill({
+      json: {
+        status: "ok",
+        available: true,
+        policy_version: "1.0",
+        response_schema_version: "1.0",
+      },
+    }),
+  );
+  await page.route("**/agent/usage", (route) =>
+    route.fulfill({
+      json: {
+        questions_used: 0,
+        question_limit: 15,
+        questions_remaining: 15,
+        model_calls: 0,
+        spend_usd: 0,
+        spend_is_estimate: true,
+        currency: "USD",
+        resets_at: new Date(Date.now() + 3_600_000).toISOString(),
+      },
+    }),
+  );
+  await page.route("**/agent/conversations", (route) =>
+    route.fulfill({ json: { conversations: [conversation] } }),
+  );
+  await page.route("**/agent/conversations/*", async (route) => {
+    conversationDetailRequests += 1;
+    if (conversationDetailRequests > 1) {
+      await new Promise((resolve) => setTimeout(resolve, 5_000));
+    }
+    await route.fulfill({
+      json: {
+        conversation,
+        messages: [
+          {
+            message_id: "00000000-0000-4000-8000-000000000032",
+            conversation_id: conversation.conversation_id,
+            workspace_id: conversation.workspace_id,
+            role: "user",
+            content: "What can I review in this workspace?",
+            response: null,
+            created_at: now,
+          },
+          {
+            message_id: "00000000-0000-4000-8000-000000000033",
+            conversation_id: conversation.conversation_id,
+            workspace_id: conversation.workspace_id,
+            role: "assistant",
+            content: "This workspace does not have data yet.",
+            created_at: now,
+            response: {
+              schema_version: "1.0",
+              response_id: "00000000-0000-4000-8000-000000000034",
+              policy_version: "1.0",
+              evidence_status: "not_required",
+              processing_time_ms: 2,
+              generated_at: now,
+              blocks: [
+                {
+                  type: "text",
+                  text: "No supplier or shipment data is available yet.",
+                },
+                {
+                  type: "action",
+                  action_id: "workspace.load_demo_data",
+                  label: "Load demo data",
+                  requires_confirmation: false,
+                  artifact_id: null,
+                },
+              ],
+            },
+          },
+        ],
+        tool_events: [],
+      },
+    });
+  });
+  await page.route("**/agent/conversations/*/messages", (route) =>
+    route.fulfill({
+      json: {
+        user_message: {
+          message_id: "00000000-0000-4000-8000-000000000035",
+          conversation_id: conversation.conversation_id,
+          workspace_id: conversation.workspace_id,
+          role: "user",
+          content: "Compare the current freight baseline with rail.",
+          response: null,
+          created_at: now,
+        },
+        assistant_message: {
+          message_id: "00000000-0000-4000-8000-000000000036",
+          conversation_id: conversation.conversation_id,
+          workspace_id: conversation.workspace_id,
+          role: "assistant",
+          content: "The baseline comparison is ready.",
+          created_at: now,
+          response: {
+            schema_version: "1.0",
+            response_id: "00000000-0000-4000-8000-000000000037",
+            policy_version: "1.0",
+            evidence_status: "not_required",
+            processing_time_ms: 8,
+            generated_at: now,
+            blocks: [
+              {
+                type: "text",
+                text: "The baseline comparison is ready.",
+              },
+            ],
+          },
+        },
+      },
+    }),
+  );
+
+  await enterWorkspace(page);
+  const agent = page.getByRole("region", { name: "CarbonSage" });
+  await agent.getByRole("button", { name: "Load demo data" }).click();
+
+  await expect(agent.getByText(/Demo data is ready: 24 suppliers/)).toBeVisible(
+    { timeout: backendActionTimeout },
+  );
+  await expect(
+    agent.getByRole("button", { name: "Find the largest footprint" }),
+  ).toBeEnabled();
+  await expect(
+    agent.getByRole("button", { name: "Compare with rail" }),
+  ).toBeEnabled();
+  await expect(agent.getByLabel("Message CarbonSage")).toBeEnabled();
+
+  await agent.getByRole("button", { name: "Compare with rail" }).click();
+  await expect(
+    agent.getByText("The baseline comparison is ready."),
+  ).toBeVisible();
+  await expect(agent.getByLabel("Message CarbonSage")).toBeEnabled({
+    timeout: 2_000,
+  });
 });
 
 test("restores the latest workspace conversation before enabling input", async ({
@@ -575,6 +774,21 @@ test("renders a typed interactive response with keyboard-accessible chart data",
       },
     }),
   );
+  await page.route("**/agent/usage", (route) =>
+    route.fulfill({
+      headers: corsHeaders(route),
+      json: {
+        questions_used: 1,
+        question_limit: 15,
+        questions_remaining: 14,
+        model_calls: 1,
+        spend_usd: 0.0012,
+        spend_is_estimate: true,
+        currency: "USD",
+        resets_at: new Date(Date.now() + 3_600_000).toISOString(),
+      },
+    }),
+  );
   await page.route("**/agent/conversations", (route) => {
     if (route.request().method() === "GET") {
       return route.fulfill({
@@ -692,7 +906,7 @@ test("renders a typed interactive response with keyboard-accessible chart data",
                     { mode: "Rail", emissions_kg: 2.2 },
                     { mode: "Air", emissions_kg: 60.2 },
                   ],
-                  caption: "Table equivalent for the chart values.",
+                  caption: "Chart values in table form.",
                 },
               },
               {
@@ -724,6 +938,16 @@ test("renders a typed interactive response with keyboard-accessible chart data",
                 requires_confirmation: true,
                 artifact_id: null,
               },
+              {
+                type: "suggestions",
+                title: "Explore this result",
+                options: [
+                  {
+                    label: "Compare with Train",
+                    prompt: "Compare the current freight baseline with train.",
+                  },
+                ],
+              },
               { type: "future_decision_block", value: "safe fallback" },
             ],
           },
@@ -751,6 +975,10 @@ test("renders a typed interactive response with keyboard-accessible chart data",
   await page.keyboard.press("Enter");
 
   await expect(
+    agentDialog.getByText("Compare rail and air.", { exact: true }),
+  ).toBeVisible();
+
+  await expect(
     agentDialog.getByText("Rail emissions", { exact: true }),
   ).toBeVisible();
   await expect(
@@ -759,13 +987,14 @@ test("renders a typed interactive response with keyboard-accessible chart data",
   await expect(
     agentDialog.getByRole("img", { name: /Rail and air emissions/ }),
   ).toBeVisible();
-  const chartTableToggle = agentDialog.getByText("View exact chart data");
+  await expect(agentDialog.getByText("14 left · <1¢")).toBeVisible();
+  const chartTableToggle = agentDialog.getByText("View chart data");
   await chartTableToggle.focus();
   await expect(chartTableToggle).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(
     agentDialog.getByRole("table", {
-      name: "Table equivalent for the chart values.",
+      name: "Chart values in table form.",
     }),
   ).toBeVisible();
   await expect(
@@ -785,12 +1014,22 @@ test("renders a typed interactive response with keyboard-accessible chart data",
     ),
   ).toBeVisible();
   await agentDialog.getByText("Response details · 18 ms").click();
+  await expect(
+    agentDialog.getByText("14 questions remaining").first(),
+  ).toBeVisible();
+  await expect(agentDialog.getByText("<$0.01 USD").first()).toBeVisible();
   await expect(agentDialog.getByText("Sources verified").first()).toBeVisible();
   await expect(
     agentDialog.getByText("18 ms", { exact: true }).first(),
   ).toBeVisible();
   await expect(
     agentDialog.getByText("Calculated freight emissions").first(),
+  ).toBeVisible();
+  await agentDialog.getByRole("button", { name: "Compare with Train" }).click();
+  await expect(
+    agentDialog.getByText("Compare the current freight baseline with train.", {
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(
     agentDialog.getByRole("link", { name: "Supplier evidence" }).first(),
@@ -799,9 +1038,11 @@ test("renders a typed interactive response with keyboard-accessible chart data",
     "/dashboard/artifacts?artifact=00000000-0000-4000-8000-000000000006",
   );
 
-  const action = agentDialog.getByRole("button", {
-    name: "Save report snapshot",
-  });
+  const action = agentDialog
+    .getByRole("button", {
+      name: "Save report snapshot",
+    })
+    .first();
   page.once("dialog", (dialog) => dialog.dismiss());
   await action.focus();
   await page.keyboard.press("Enter");

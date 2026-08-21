@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import date
 from time import perf_counter
 
 from pydantic import BaseModel, ValidationError
@@ -12,6 +13,8 @@ from domain.agent.models import CitationRecord, ToolEvent, ToolEventStatus
 from domain.agent.tools import (
     TOOL_INPUT_MODELS,
     AgentToolName,
+    AnalyzeShipmentEmissionsInput,
+    AnalyzeShipmentEmissionsOutput,
     ArtifactToolItem,
     BuildDecisionReportInput,
     BuildDecisionReportOutput,
@@ -27,14 +30,23 @@ from domain.agent.tools import (
     ListWorkspaceArtifactsInput,
     ListWorkspaceArtifactsOutput,
     PlannedToolCall,
+    RecommendShipmentSupplierInput,
+    RecommendShipmentSupplierOutput,
     ScenarioShipmentOutput,
     SearchSupplierEvidenceInput,
     SearchSupplierEvidenceOutput,
+    ShipmentAnalyticsHotspotOutput,
+    ShipmentAnalyticsModeOutput,
+    ShipmentAnalyticsPeriodOutput,
+    ShipmentAnalyticsSupplierOutput,
+    ShipmentSupplierCandidateOutput,
     SummarizeDataQualityInput,
     SummarizeDataQualityOutput,
 )
 from domain.artifacts.models import ArtifactKind
 from domain.emissions.calculator import calculate_emissions
+from domain.emissions.modes import normalize_mode
+from domain.emissions.units import normalize_weight_kg
 from domain.evidence.models import EvidenceMatch
 from domain.evidence.retrieval import RetrievalMode
 from domain.scenarios.comparison import compare_shipment_modes
@@ -176,6 +188,16 @@ class AgentToolRegistry:
             return self._calculate(
                 CalculateFreightEmissionsInput.model_validate(payload),
             )
+        if tool_name is AgentToolName.ANALYZE_SHIPMENT_EMISSIONS:
+            return self._shipment_analytics(
+                workspace_id,
+                AnalyzeShipmentEmissionsInput.model_validate(payload),
+            )
+        if tool_name is AgentToolName.RECOMMEND_SHIPMENT_SUPPLIER:
+            return self._recommend_shipment_supplier(
+                workspace_id,
+                RecommendShipmentSupplierInput.model_validate(payload),
+            )
         if tool_name is AgentToolName.COMPARE_TRANSPORT_SCENARIOS:
             return self._compare_scenario(
                 workspace_id,
@@ -314,6 +336,203 @@ class AgentToolRegistry:
             if artifact.kind is ArtifactKind.SHIPMENT_DATASET
         )
         return output, (), artifact_ids, comparison.shipment_count
+
+    def _shipment_analytics(
+        self,
+        workspace_id: str,
+        payload: AnalyzeShipmentEmissionsInput,
+    ) -> tuple[BaseModel, tuple[CitationRecord, ...], tuple[str, ...], int]:
+        start_date = date.fromisoformat(payload.start_date) if payload.start_date else None
+        end_date = date.fromisoformat(payload.end_date) if payload.end_date else None
+        modes = tuple(
+            dict.fromkeys(normalize_mode(mode).value for mode in payload.transport_methods)
+        )
+        analysis = analyze_shipments(
+            self.shipment_repository.list_for_workspace(workspace_id),
+            start_date=start_date,
+            end_date=end_date,
+            modes=modes,
+            granularity=payload.granularity,
+        )
+        if len(analysis.timeline) > 20:
+            raise ValueError(
+                "The requested range has more than 20 chart periods. Narrow the date range "
+                "or use yearly granularity."
+            )
+        output = AnalyzeShipmentEmissionsOutput(
+            granularity=analysis.granularity,
+            start_date=start_date.isoformat() if start_date else None,
+            end_date=end_date.isoformat() if end_date else None,
+            modes=list(analysis.selected_modes or analysis.mode_breakdown),
+            shipment_count=analysis.shipment_count,
+            workspace_shipment_count=analysis.workspace_shipment_count,
+            filtered_out_count=analysis.filtered_out_count,
+            undated_shipment_count=analysis.undated_shipment_count,
+            total_weight_kg=analysis.total_weight_kg,
+            total_emissions_kg=analysis.total_emissions_kg,
+            mode_breakdown=[
+                ShipmentAnalyticsModeOutput(
+                    transport_method=mode,
+                    shipment_count=breakdown.shipment_count,
+                    weight_kg=breakdown.weight_kg,
+                    emissions_kg=breakdown.emissions_kg,
+                    suppliers=[
+                        ShipmentAnalyticsSupplierOutput(
+                            supplier_name=supplier.supplier_name,
+                            shipment_count=supplier.shipment_count,
+                            emissions_kg=supplier.emissions_kg,
+                        )
+                        for supplier in breakdown.suppliers
+                    ],
+                )
+                for mode, breakdown in sorted(
+                    analysis.mode_breakdown.items(),
+                    key=lambda item: (-item[1].emissions_kg, item[0]),
+                )
+            ],
+            periods=[
+                ShipmentAnalyticsPeriodOutput(
+                    period=period.period,
+                    period_start=(period.period_start.isoformat() if period.period_start else None),
+                    shipment_count=period.shipment_count,
+                    weight_kg=period.weight_kg,
+                    total_emissions_kg=period.emissions_kg,
+                    plane_emissions_kg=period.mode_emissions_kg.get("plane", 0.0),
+                    truck_emissions_kg=period.mode_emissions_kg.get("truck", 0.0),
+                    train_emissions_kg=period.mode_emissions_kg.get("train", 0.0),
+                    ship_emissions_kg=period.mode_emissions_kg.get("ship", 0.0),
+                )
+                for period in analysis.timeline
+            ],
+            hotspots=[
+                ShipmentAnalyticsHotspotOutput(
+                    shipment_id=hotspot.shipment_id,
+                    shipment_date=(
+                        hotspot.shipment_date.isoformat() if hotspot.shipment_date else None
+                    ),
+                    supplier_name=hotspot.supplier_name,
+                    route=f"{hotspot.origin} to {hotspot.destination}",
+                    transport_method=hotspot.transport_method,
+                    emissions_kg=hotspot.emissions_kg,
+                )
+                for hotspot in analysis.hotspots[:5]
+            ],
+            factor_source=analysis.factor_source,
+            factor_version=analysis.factor_version,
+            warnings=list(analysis.warnings),
+        )
+        artifact_ids = tuple(
+            artifact.artifact_id
+            for artifact in self.artifact_repository.list_for_workspace(workspace_id)
+            if artifact.kind is ArtifactKind.SHIPMENT_DATASET
+        )
+        return output, (), artifact_ids, analysis.shipment_count
+
+    def _recommend_shipment_supplier(
+        self,
+        workspace_id: str,
+        payload: RecommendShipmentSupplierInput,
+    ) -> tuple[BaseModel, tuple[CitationRecord, ...], tuple[str, ...], int]:
+        def location_key(value: str) -> str:
+            return " ".join(value.casefold().split())
+
+        origin_key = location_key(payload.origin)
+        destination_key = location_key(payload.destination)
+        weight_kg = normalize_weight_kg(payload.weight_value, payload.weight_unit)
+        route_shipments = [
+            shipment
+            for shipment in self.shipment_repository.list_for_workspace(workspace_id)
+            if location_key(shipment.origin) == origin_key
+            and location_key(shipment.destination) == destination_key
+        ]
+        linked_shipments = [
+            shipment for shipment in route_shipments if shipment.supplier_name is not None
+        ]
+        candidates_by_supplier: dict[str, ShipmentSupplierCandidateOutput] = {}
+        candidate_provenance: dict[str, tuple[str, str]] = {}
+        for shipment in linked_shipments:
+            assert shipment.supplier_name is not None
+            result = calculate_emissions(
+                weight_value=weight_kg,
+                weight_unit="kg",
+                distance_value=shipment.distance_km,
+                distance_unit="km",
+                mode=shipment.transport_method,
+                distance_method="route",
+                origin=payload.origin,
+                destination=payload.destination,
+            )
+            candidate = ShipmentSupplierCandidateOutput(
+                supplier_name=shipment.supplier_name,
+                historical_shipment_id=shipment.shipment_id,
+                transport_method=shipment.transport_method,
+                distance_km=shipment.distance_km,
+                estimated_emissions_kg=result.emissions_kg,
+            )
+            current = candidates_by_supplier.get(shipment.supplier_name)
+            if current is None or (
+                candidate.estimated_emissions_kg,
+                candidate.historical_shipment_id,
+            ) < (
+                current.estimated_emissions_kg,
+                current.historical_shipment_id,
+            ):
+                candidates_by_supplier[shipment.supplier_name] = candidate
+                candidate_provenance[shipment.supplier_name] = (
+                    result.factor.source,
+                    result.factor.version,
+                )
+
+        candidates = sorted(
+            candidates_by_supplier.values(),
+            key=lambda candidate: (
+                candidate.estimated_emissions_kg,
+                candidate.supplier_name.casefold(),
+            ),
+        )[:10]
+        recommended = candidates[0] if candidates else None
+        warnings: list[str] = []
+        if not route_shipments:
+            warnings.append(
+                "No historical shipment matches this exact origin and destination, so "
+                "CarbonSage cannot recommend a supplier without inventing route data."
+            )
+        elif not linked_shipments:
+            warnings.append(
+                "Matching shipments do not identify a supplier, so CarbonSage cannot make "
+                "a supplier recommendation from this workspace."
+            )
+        elif len(linked_shipments) != len(route_shipments):
+            warnings.append(
+                "Some matching shipments were excluded because they do not identify a supplier."
+            )
+
+        provenance = (
+            candidate_provenance[recommended.supplier_name] if recommended is not None else None
+        )
+        output = RecommendShipmentSupplierOutput(
+            origin=payload.origin,
+            destination=payload.destination,
+            weight_kg=weight_kg,
+            recommended_supplier_name=(recommended.supplier_name if recommended else None),
+            recommended_transport_method=(recommended.transport_method if recommended else None),
+            recommended_emissions_kg=(recommended.estimated_emissions_kg if recommended else None),
+            candidates=candidates,
+            basis=(
+                "Lowest recalculated freight emissions among supplier-linked historical "
+                "shipments on the exact requested lane. This is a carbon-efficiency "
+                "recommendation, not a price, capacity, or procurement approval."
+            ),
+            factor_source=provenance[0] if provenance else None,
+            factor_version=provenance[1] if provenance else None,
+            warnings=warnings,
+        )
+        artifact_ids = tuple(
+            artifact.artifact_id
+            for artifact in self.artifact_repository.list_for_workspace(workspace_id)
+            if artifact.kind is ArtifactKind.SHIPMENT_DATASET
+        )
+        return output, (), artifact_ids, len(candidates)
 
     @staticmethod
     def _scenario_output(payload: dict[str, object]) -> CompareTransportScenariosOutput:

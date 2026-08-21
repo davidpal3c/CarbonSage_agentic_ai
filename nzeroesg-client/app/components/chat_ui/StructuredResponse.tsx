@@ -2,9 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, BarChart3, FileText, Quote } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  BarChart3,
+  FileText,
+  Quote,
+} from "lucide-react";
 
 import { Spinner } from "@/app/components/Spinner";
+import { StructuredDataChart } from "@/app/components/charts/CarbonCharts";
 import type {
   ActionBlock,
   AgentResponseEnvelope,
@@ -14,6 +21,7 @@ import type {
   MetricBlock,
   ResponseBlock,
   ScalarValue,
+  SuggestionsBlock,
   TableBlock,
   TextBlock,
   WarningBlock,
@@ -22,6 +30,8 @@ import type {
 type StructuredResponseProps = {
   response: AgentResponseEnvelope;
   onAction?: (actionId: string, artifactId: string | null) => Promise<void>;
+  onPrompt?: (prompt: string) => void | Promise<void>;
+  promptDisabled?: boolean;
 };
 
 type UnknownBlock = Record<string, unknown>;
@@ -80,58 +90,24 @@ function DataTable({ table }: { table: TableBlock }) {
 }
 
 function Chart({ block }: { block: ChartBlock }) {
-  const values = block.rows.flatMap((row) =>
-    block.series.map((series) => {
-      const value = row[series.key];
-      return typeof value === "number" ? Math.abs(value) : 0;
-    }),
-  );
-  const maximum = Math.max(...values, 0.000001);
-
   return (
     <article className="rounded-xl border border-border bg-background p-4">
       <div className="mb-4 flex items-center gap-2">
         <BarChart3 aria-hidden="true" className="h-5 w-5 text-accent" />
         <h4 className="font-semibold text-primary">{block.title}</h4>
       </div>
-      <div
-        role="img"
-        aria-label={`${block.title}. A ${block.chart_kind} chart; the exact values follow in a table.`}
-        className="space-y-4"
-      >
-        {block.rows.map((row, rowIndex) => (
-          <div key={rowIndex}>
-            <p className="mb-1 text-xs font-semibold text-primary">
-              {formatValue(row[block.x_key] ?? null)}
-            </p>
-            <div className="space-y-2">
-              {block.series.map((series) => {
-                const rawValue = row[series.key];
-                const value = typeof rawValue === "number" ? rawValue : 0;
-                return (
-                  <div key={series.key}>
-                    <div className="mb-1 flex justify-between gap-3 text-xs text-muted-foreground">
-                      <span>{series.label}</span>
-                      <span>{formatValue(value, series.unit)}</span>
-                    </div>
-                    <div className="h-2.5 rounded-full bg-border">
-                      <div
-                        className="h-2.5 min-w-0 rounded-full bg-accent"
-                        style={{
-                          width: `${Math.max(0, Math.min(100, (Math.abs(value) / maximum) * 100))}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
+      <StructuredDataChart
+        title={block.title}
+        description={`${block.title}. Interactive ${block.chart_kind} chart. Values are also available in a table.`}
+        kind={block.chart_kind}
+        data={block.rows}
+        xKey={block.x_key}
+        series={block.series}
+        height={Math.max(220, Math.min(340, block.rows.length * 34))}
+      />
       <details className="mt-4 rounded-lg bg-muted px-3 py-2 text-primary">
         <summary className="cursor-pointer text-xs font-semibold">
-          View exact chart data
+          View chart data
         </summary>
         <div className="mt-3">
           <DataTable table={block.table_fallback} />
@@ -224,9 +200,13 @@ function isRecord(value: unknown): value is UnknownBlock {
 function Block({
   value,
   onAction,
+  onPrompt,
+  promptDisabled,
 }: {
   value: ResponseBlock | UnknownBlock;
   onAction?: StructuredResponseProps["onAction"];
+  onPrompt?: StructuredResponseProps["onPrompt"];
+  promptDisabled?: boolean;
 }) {
   if (!isRecord(value) || typeof value.type !== "string") {
     return (
@@ -312,6 +292,34 @@ function Block({
     }
     case "action":
       return <Action block={value as ActionBlock} onAction={onAction} />;
+    case "suggestions": {
+      const block = value as SuggestionsBlock;
+      return (
+        <section
+          aria-label={block.title}
+          className="rounded-xl border border-border bg-transparent p-4"
+        >
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {block.title}
+          </h4>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {block.options.map((option) => (
+              <button
+                key={`${option.label}-${option.prompt}`}
+                type="button"
+                onClick={() => void onPrompt?.(option.prompt)}
+                disabled={!onPrompt || promptDisabled}
+                title={option.prompt}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-chat-surface px-3 py-2 text-left text-xs font-semibold text-primary shadow-sm transition hover:border-accent hover:text-secondary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {option.label}
+                <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
+              </button>
+            ))}
+          </div>
+        </section>
+      );
+    }
     default:
       return (
         <p
@@ -327,6 +335,8 @@ function Block({
 export default function StructuredResponse({
   response,
   onAction,
+  onPrompt,
+  promptDisabled,
 }: StructuredResponseProps) {
   return (
     <div className="space-y-3">
@@ -338,6 +348,8 @@ export default function StructuredResponse({
           key={`${response.response_id}-${index}`}
           value={block}
           onAction={onAction}
+          onPrompt={onPrompt}
+          promptDisabled={promptDisabled}
         />
       ))}
     </div>

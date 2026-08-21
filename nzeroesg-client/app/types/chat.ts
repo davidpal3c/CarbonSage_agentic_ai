@@ -75,6 +75,17 @@ export type ActionBlock = {
   artifact_id: string | null;
 };
 
+export type SuggestedPrompt = {
+  label: string;
+  prompt: string;
+};
+
+export type SuggestionsBlock = {
+  type: "suggestions";
+  title: string;
+  options: SuggestedPrompt[];
+};
+
 export type ResponseBlock =
   | TextBlock
   | MetricBlock
@@ -83,7 +94,8 @@ export type ResponseBlock =
   | CitationBlock
   | ArtifactReferenceBlock
   | WarningBlock
-  | ActionBlock;
+  | ActionBlock
+  | SuggestionsBlock;
 
 export type AgentResponseEnvelope = {
   schema_version: "1.0";
@@ -147,6 +159,17 @@ export type AgentHealth = {
   available: boolean;
   policy_version: string;
   response_schema_version: string;
+};
+
+export type AgentUsage = {
+  questions_used: number;
+  question_limit: number;
+  questions_remaining: number;
+  model_calls: number;
+  spend_usd: number;
+  spend_is_estimate: boolean;
+  currency: "USD";
+  resets_at: string;
 };
 
 export type AgentAvailability =

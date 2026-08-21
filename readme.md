@@ -69,8 +69,8 @@ available independently.
 - Text and text-based PDF evidence ingestion with structured supplier records,
   recoverable page/chunk citations, and PostgreSQL full-text retrieval.
 - An explicit first-run choice between a checked-in fictional demo dataset and
-  user uploads. The seed includes 24 supplier profiles, six mixed-mode
-  shipments, and three cited disclosures. Demo sources, retained uploads,
+  user uploads. The seed includes 24 supplier profiles, 36 dated mixed-mode
+  supplier-linked shipments, and three cited disclosures. Demo sources, retained uploads,
   normalized shipments, and the supplier catalog are downloadable from the
   workspace, and the seeded records can be unloaded without deleting user
   uploads.
@@ -86,7 +86,8 @@ available independently.
   fixes tool selection, so the claim is evidence gating and citation safety—not
   general agent accuracy.
 - An authenticated v1 conversation API with bounded workspace state, a
-  checked-in policy, seven validated tools, assistant quotas, persisted
+  checked-in policy, nine validated tools, a visible daily question and
+  dollar-spend allowance, persisted
   citations, and concise tool events.
 - A fail-closed evidence-support gate: retrieved passages are not rendered or
   persisted as supporting citations until a constrained typed assessment

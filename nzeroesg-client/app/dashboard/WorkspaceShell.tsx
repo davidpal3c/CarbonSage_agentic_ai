@@ -58,12 +58,12 @@ type NavigationItem = {
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 const workspaceNavigation: NavigationItem[] = [
+  { label: "Overview", href: "/dashboard/overview", icon: LayoutDashboard },
   {
     label: "Ask CarbonSage",
     href: "/dashboard/agent",
     icon: MessageSquareText,
   },
-  { label: "Overview", href: "/dashboard/overview", icon: LayoutDashboard },
   { label: "Integrations", href: "/dashboard/integrations", icon: Plug },
   { label: "Artifacts", href: "/dashboard/artifacts", icon: Files },
   { label: "Report", href: "/dashboard/report", icon: ChartNoAxesCombined },
@@ -370,6 +370,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
           >
             <ChatInterface
               navigationKey={pathname}
+              onUsageChange={refreshSession}
               onAction={runWorkspaceAgentAction}
               presentation={
                 pathname === "/dashboard/agent" ? "panel" : "launcher"

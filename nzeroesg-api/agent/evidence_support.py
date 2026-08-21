@@ -3,15 +3,24 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from typing import Protocol
 
 from agent.llm import load_llm
 from agent.policy import load_agent_policy
+from agent.usage import EMPTY_MODEL_USAGE, ModelInvocationUsage, usage_from_ai_message
+from config import settings
 from domain.agent.models import CitationRecord, EvidenceSupportAssessment
 
 
 class EvidenceSupportError(RuntimeError):
     """Raised when support cannot be established through a valid typed result."""
+
+
+@dataclass(frozen=True)
+class AssessedEvidenceResult:
+    assessment: EvidenceSupportAssessment
+    usage: ModelInvocationUsage = EMPTY_MODEL_USAGE
 
 
 class EvidenceSupportAssessor(Protocol):
@@ -42,6 +51,15 @@ class LlmEvidenceSupportAssessor:
         question: str,
         candidates: tuple[CitationRecord, ...],
     ) -> EvidenceSupportAssessment:
+        result = await self.assess_with_usage(question=question, candidates=candidates)
+        return result.assessment
+
+    async def assess_with_usage(
+        self,
+        *,
+        question: str,
+        candidates: tuple[CitationRecord, ...],
+    ) -> AssessedEvidenceResult:
         candidate_ids = {candidate.citation_id for candidate in candidates}
         prompt = json.dumps(
             {
@@ -89,13 +107,19 @@ class LlmEvidenceSupportAssessor:
                 and isinstance(value, int | float)
             }
             assessment = EvidenceSupportAssessment.model_validate(result["parsed"])
+            configured_model = (
+                settings.openai_model
+                if settings.llm_provider == "openai"
+                else settings.openrouter_model
+            )
+            invocation_usage = usage_from_ai_message(raw, model=configured_model)
         except Exception as exc:
             raise EvidenceSupportError(
                 "The configured model could not validate evidence support."
             ) from exc
         if not set(assessment.citation_ids) <= candidate_ids:
             raise EvidenceSupportError("Evidence support referenced an unknown citation id.")
-        return assessment
+        return AssessedEvidenceResult(assessment=assessment, usage=invocation_usage)
 
 
 __all__ = [

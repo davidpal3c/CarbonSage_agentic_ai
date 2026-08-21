@@ -18,12 +18,16 @@ try:
 except ImportError:  # pragma: no cover - exercised only before optional local setup
     psycopg = None
 
-from domain.workspaces.sessions import QuotaRecord, WorkspaceSession
+from domain.workspaces.sessions import (
+    ASSISTANT_REQUESTS_PER_DAY,
+    QuotaRecord,
+    WorkspaceSession,
+)
 
 QUOTA_DEFAULTS = {
     "evidence_documents": 3,
     "analysis_runs_per_day": 10,
-    "assistant_requests_per_day": 3,
+    "assistant_requests_per_day": ASSISTANT_REQUESTS_PER_DAY,
 }
 DAILY_QUOTAS = {"analysis_runs_per_day", "assistant_requests_per_day"}
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
@@ -107,10 +111,31 @@ class InMemoryWorkspaceRepository:
 
     def get(self, workspace_id: str, *, now: int | None = None) -> WorkspaceSession | None:
         timestamp = _now_timestamp(now)
+        today = _date_for_timestamp(timestamp)
         with self._lock:
             session = self._sessions.get(workspace_id)
             if session is None or session.is_expired(now=timestamp):
                 return None
+            quotas = dict(session.quotas)
+            changed = False
+            for quota_key in DAILY_QUOTAS:
+                period_key = (workspace_id, quota_key)
+                if self._period_starts[period_key] < today:
+                    quotas[quota_key] = QuotaRecord(
+                        used=0,
+                        limit=quotas[quota_key].limit,
+                    )
+                    self._period_starts[period_key] = today
+                    changed = True
+            if changed:
+                session = WorkspaceSession(
+                    workspace_id=session.workspace_id,
+                    issued_at=session.issued_at,
+                    expires_at=session.expires_at,
+                    quotas=quotas,
+                    retention=session.retention,
+                )
+                self._sessions[workspace_id] = session
             return _clone(session)
 
     def revoke(self, workspace_id: str) -> None:
@@ -247,12 +272,22 @@ class PostgresWorkspaceRepository:
 
     def get(self, workspace_id: str, *, now: int | None = None) -> WorkspaceSession | None:
         timestamp = _now_timestamp(now)
+        today = _date_for_timestamp(timestamp)
         with closing(self._connect()) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
                     SELECT w.issued_at, w.expires_at, r.expires_at, r.policy,
-                           q.quota_key, q.used, q.quota_limit
+                           q.quota_key,
+                           CASE
+                               WHEN q.quota_key IN (
+                                   'analysis_runs_per_day',
+                                   'assistant_requests_per_day'
+                               ) AND q.period_start < %s
+                               THEN 0
+                               ELSE q.used
+                           END AS current_used,
+                           q.quota_limit
                     FROM workspaces AS w
                     JOIN workspace_retention AS r USING (workspace_id)
                     JOIN workspace_quotas AS q USING (workspace_id)
@@ -262,7 +297,12 @@ class PostgresWorkspaceRepository:
                       AND r.expires_at > %s
                     ORDER BY q.quota_key
                     """,
-                    (workspace_id, _utc_datetime(timestamp), _utc_datetime(timestamp)),
+                    (
+                        today,
+                        workspace_id,
+                        _utc_datetime(timestamp),
+                        _utc_datetime(timestamp),
+                    ),
                 )
                 rows = cursor.fetchall()
         if not rows:
