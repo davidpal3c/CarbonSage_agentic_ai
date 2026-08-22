@@ -209,6 +209,15 @@ test("loads the fictional demo dataset directly from overview", async ({
   });
   await enterWorkspace(page);
   await openWorkspacePage(page, "Overview", "overview");
+  await page.getByRole("button", { name: "Open CarbonSage" }).click();
+  const launcher = page.getByRole("dialog", { name: "CarbonSage" });
+  await expect(launcher).toBeVisible();
+  const initialLauncherBox = await launcher.boundingBox();
+  expect(initialLauncherBox).not.toBeNull();
+  expect(
+    initialLauncherBox?.height ?? Number.POSITIVE_INFINITY,
+  ).toBeLessThanOrEqual(560);
+  await launcher.getByRole("button", { name: "Close CarbonSage" }).click();
   await expect(
     page.getByRole("button", { name: "Load demo data" }),
   ).toBeVisible();
@@ -276,7 +285,7 @@ test("loads the fictional demo dataset directly from overview", async ({
   await expect(artifactPreview).toBeHidden();
 
   await openWorkspacePage(page, "Shipments", "shipments");
-  await expect(page.getByText("48", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("58", { exact: true }).first()).toBeVisible();
   await expect(
     page.getByRole("img", { name: /Stacked month freight emissions/ }),
   ).toBeVisible();
@@ -579,7 +588,7 @@ test("restores chat suggestions after loading demo data from an empty-workspace 
   const agent = page.getByRole("region", { name: "CarbonSage" });
   await agent.getByRole("button", { name: "Load demo data" }).click();
 
-  await expect(agent.getByText(/Demo data is ready: 30 suppliers/)).toBeVisible(
+  await expect(agent.getByText(/Demo data is ready: 38 suppliers/)).toBeVisible(
     { timeout: backendActionTimeout },
   );
   await expect(

@@ -39,7 +39,7 @@ The current CarbonSage demo is live at:
 The intended path is short:
 
 1. Enter an isolated, expiring demo workspace.
-2. Start with the guided fictional demo dataset—30 suppliers, 48 dated shipments,
+2. Start with the guided fictional demo dataset—38 suppliers, 58 dated shipments,
    and five cited disclosures—or upload your own CSV/XLSX shipment data and
    PDF/TXT supplier evidence.
 3. Ask CarbonSage to review emissions, data quality, supplier claims, or an
@@ -69,12 +69,12 @@ available independently.
 - Text and text-based PDF evidence ingestion with structured supplier records,
   recoverable page/chunk citations, and PostgreSQL full-text retrieval.
 - An explicit first-run choice between a checked-in fictional demo dataset and
-  user uploads. The seed includes 30 supplier profiles, 48 dated mixed-mode
+  user uploads. The seed includes 38 supplier profiles, 58 dated mixed-mode
   supplier-linked shipments, and five cited disclosures across Canadian,
-  transatlantic, European, and Asian lanes. Demo sources, retained uploads,
-  normalized shipments, and the supplier catalog are downloadable from the
-  workspace, and the seeded records can be unloaded without deleting user
-  uploads.
+  transatlantic, European, Chinese, Japanese, Emirati, and Indian lanes. Demo
+  sources, retained uploads, normalized shipments, and the supplier catalog
+  are downloadable from the workspace, and the seeded records can be unloaded
+  without deleting user uploads.
 - Explicit lexical, pgvector semantic, and deterministic hybrid retrieval
   modes with workspace filtering, versioned embedding metadata, and a safe
   lexical fallback when no embedding provider is configured.

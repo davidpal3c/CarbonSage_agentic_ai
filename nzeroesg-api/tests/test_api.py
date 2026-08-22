@@ -291,8 +291,8 @@ def test_demo_data_is_explicit_idempotent_and_downloadable():
         "loaded": True,
         "has_artifacts": True,
         "artifact_count": 6,
-        "shipment_count": 48,
-        "supplier_count": 30,
+        "shipment_count": 58,
+        "supplier_count": 38,
         "evidence_document_count": 5,
     }
     assert repeated.status_code == 200

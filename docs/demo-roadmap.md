@@ -1076,13 +1076,13 @@ Promotion gate:
 
 ### Phase 10.6 — Global lane and cost-aware demo coverage
 
-Implementation evidence (completed on the feature branch 2026-08-21):
+Implementation evidence (completed on the feature branch 2026-08-22):
 
 - Migration `010_shipment_costs.sql` adds optional positive historical freight
   cost and ISO currency fields. Existing CSV and XLSX files remain valid, while
   imports, normalized exports, templates, in-memory records, and PostgreSQL
   round trips preserve supplied cost context.
-- The fictional seed now contains 30 suppliers, 48 dated shipments, and five
+- The fictional seed now contains 38 suppliers, 58 dated shipments, and five
   cited disclosures. Its Canadian, transatlantic, European, and Asian lanes
   include Toronto-to-Madrid ocean and air options plus London-to-Madrid rail
   and road options.
@@ -1099,13 +1099,22 @@ Implementation evidence (completed on the feature branch 2026-08-21):
   London-to-Madrid questions, including tool selection, country normalization,
   supplier ranking, emissions, historical cost, and structured-response
   reconciliation.
+- Additional paired ocean/air histories cover supported lanes from China,
+  Japan, the United Arab Emirates, and India. A bounded location catalog
+  transparently resolves the reported `Chuangzhou` spelling to Changzhou and,
+  only when explicitly requested, can select the nearest known historical
+  origin in the same country while excluding the transfer leg from its estimate.
+- The compact launcher uses a reduced first-question height until a structured
+  answer is available, avoiding the large empty conversation surface that
+  previously appeared during the initial response.
 
 Exit gate:
 
 > With demo data loaded, CarbonSage can compare supported Canadian,
-> transatlantic, European, and Asian shipment lanes, answer both reported
-> Madrid requests without inventing route data, and distinguish deterministic
-> carbon results from historical cost screening.
+> transatlantic, European, Chinese, Japanese, Emirati, and Indian shipment
+> lanes, answer the reported Madrid and China requests without inventing route
+> data, and distinguish deterministic carbon results from historical cost
+> screening.
 
 ### Phase 11 — Authenticated JavaScript embed
 
