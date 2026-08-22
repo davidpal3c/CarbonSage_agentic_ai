@@ -52,6 +52,11 @@ from domain.evidence.models import EvidenceMatch
 from domain.evidence.retrieval import RetrievalMode
 from domain.scenarios.comparison import compare_shipment_modes
 from domain.shipments.analysis import analyze_shipments
+from domain.shipments.locations import (
+    canonical_location_label,
+    location_key,
+    nearest_supported_origin,
+)
 from persistence.artifacts import ArtifactRepository
 from persistence.evidence import EvidenceRepository
 from persistence.shipments import ShipmentRepository
@@ -434,35 +439,52 @@ class AgentToolRegistry:
         workspace_id: str,
         payload: RecommendShipmentSupplierInput,
     ) -> tuple[BaseModel, tuple[CitationRecord, ...], tuple[str, ...], int]:
-        def location_key(value: str) -> str:
-            normalized = re.sub(r"[^a-z0-9]+", " ", value.casefold()).strip()
-            country_suffixes = (
-                "south korea",
-                "united kingdom",
-                "united states",
-                "netherlands",
-                "germany",
-                "france",
-                "canada",
-                "spain",
-                "china",
-                "japan",
-                "uk",
-            )
-            for suffix in country_suffixes:
-                if normalized.endswith(f" {suffix}"):
-                    return normalized[: -(len(suffix) + 1)].strip()
-            return normalized
-
         origin_key = location_key(payload.origin)
         destination_key = location_key(payload.destination)
         weight_kg = normalize_weight_kg(payload.weight_value, payload.weight_unit)
+        workspace_shipments = list(self.shipment_repository.list_for_workspace(workspace_id))
         route_shipments = [
             shipment
-            for shipment in self.shipment_repository.list_for_workspace(workspace_id)
+            for shipment in workspace_shipments
             if location_key(shipment.origin) == origin_key
             and location_key(shipment.destination) == destination_key
         ]
+        matched_origin = route_shipments[0].origin if route_shipments else None
+        origin_distance_km: float | None = None
+        canonical_origin = canonical_location_label(payload.origin)
+        requested_words = re.sub(r"[^a-z0-9]+", " ", payload.origin.casefold()).strip()
+        canonical_words = (
+            re.sub(r"[^a-z0-9]+", " ", canonical_origin.casefold()).strip()
+            if canonical_origin
+            else None
+        )
+        origin_match = (
+            "interpreted"
+            if route_shipments
+            and canonical_origin is not None
+            and requested_words not in {origin_key, canonical_words}
+            else "exact"
+            if route_shipments
+            else "none"
+        )
+        if not route_shipments and payload.allow_nearest_origin:
+            supported_origins = [
+                shipment.origin
+                for shipment in workspace_shipments
+                if shipment.supplier_name is not None
+                and location_key(shipment.destination) == destination_key
+            ]
+            nearest = nearest_supported_origin(payload.origin, supported_origins)
+            if nearest is not None:
+                matched_origin, origin_distance_km = nearest
+                matched_origin_key = location_key(matched_origin)
+                route_shipments = [
+                    shipment
+                    for shipment in workspace_shipments
+                    if location_key(shipment.origin) == matched_origin_key
+                    and location_key(shipment.destination) == destination_key
+                ]
+                origin_match = "nearest_supported"
         linked_shipments = [
             shipment for shipment in route_shipments if shipment.supplier_name is not None
         ]
@@ -589,6 +611,11 @@ class AgentToolRegistry:
             warnings.append(
                 "Some matching shipments were excluded because they do not identify a supplier."
             )
+        if origin_match == "nearest_supported" and matched_origin is not None:
+            warnings.append(
+                "The recommendation uses the nearest supported historical origin. Any transfer "
+                "from the requested city to that origin is outside this estimate."
+            )
 
         provenance = (
             candidate_provenance[(recommended.supplier_name, recommended.historical_shipment_id)]
@@ -598,6 +625,9 @@ class AgentToolRegistry:
         output = RecommendShipmentSupplierOutput(
             origin=payload.origin,
             destination=payload.destination,
+            matched_origin=matched_origin,
+            origin_match=origin_match,
+            origin_distance_km=origin_distance_km,
             weight_kg=weight_kg,
             recommended_supplier_name=(recommended.supplier_name if recommended else None),
             recommended_transport_method=(recommended.transport_method if recommended else None),

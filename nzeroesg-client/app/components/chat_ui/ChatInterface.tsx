@@ -567,6 +567,9 @@ export default function ChatInterface({
         ?.response ?? null,
     [messages],
   );
+  const hasAssistantMessage = messages.some(
+    (message) => message.role === "assistant",
+  );
   const inputDisabled =
     isLoading ||
     isSwitchingConversation ||
@@ -598,7 +601,13 @@ export default function ChatInterface({
           className={
             isPanel
               ? "flex h-[min(50rem,calc(100vh-11rem))] min-h-[38rem] w-full flex-col overflow-hidden rounded-2xl border border-border bg-chat-surface shadow-sm"
-              : "fixed inset-x-3 bottom-3 z-50 flex h-[min(46rem,calc(100vh-1.5rem))] flex-col overflow-hidden rounded-2xl border border-border bg-chat-surface shadow-2xl sm:left-auto sm:right-4 sm:w-[min(48rem,calc(100vw-2rem))]"
+              : `fixed inset-x-3 bottom-3 z-50 flex ${
+                  hasAssistantMessage
+                    ? "h-[min(46rem,calc(100vh-1.5rem))]"
+                    : messages.length || isLoading
+                      ? "h-[min(30rem,calc(100vh-1.5rem))]"
+                      : "h-[min(34rem,calc(100vh-1.5rem))]"
+                } flex-col overflow-hidden rounded-2xl border border-border bg-chat-surface shadow-2xl transition-[height] duration-200 sm:left-auto sm:right-4 sm:w-[min(48rem,calc(100vw-2rem))]`
           }
         >
           <header className="flex items-start justify-between gap-4 border-b border-border bg-chat-surface px-5 py-4">
@@ -755,7 +764,7 @@ export default function ChatInterface({
                     </h3>
                     <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
                       {demoData && !demoData.has_artifacts
-                        ? "This workspace is empty. Load 30 fictional suppliers, cited disclosures, and a global shipment baseline, or upload CSV, XLSX, PDF, or TXT files."
+                        ? "This workspace is empty. Load 38 fictional suppliers, cited disclosures, and a global shipment baseline, or upload CSV, XLSX, PDF, or TXT files."
                         : "Ask about workspace files, supplier evidence, emissions, scenarios, or report data."}
                     </p>
                     {demoData && !demoData.has_artifacts ? (

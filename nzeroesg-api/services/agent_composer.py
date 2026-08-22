@@ -493,13 +493,31 @@ def compose_agent_response(
                 recommendation_label = (
                     "strongest balanced carbon-and-cost" if balanced_cost else "lowest-emissions"
                 )
+                matched_origin = output.matched_origin or output.origin
+                if output.origin_match == "interpreted":
+                    route_context = (
+                        f'CarbonSage interpreted "{output.origin}" as {matched_origin} using '
+                        "its bounded location catalog. "
+                    )
+                elif output.origin_match == "nearest_supported":
+                    distance_context = (
+                        f", approximately {output.origin_distance_km:g} km away"
+                        if output.origin_distance_km is not None
+                        else ""
+                    )
+                    route_context = (
+                        f"{matched_origin} is the nearest supported historical origin to "
+                        f"{output.origin}{distance_context} for this destination. "
+                    )
+                else:
+                    route_context = ""
                 blocks.extend(
                     (
                         TextBlock(
                             text=(
-                                f"{output.recommended_supplier_name} is the "
+                                route_context + f"{output.recommended_supplier_name} is the "
                                 f"{recommendation_label} "
-                                f"supplier-linked option in this workspace for {output.origin} "
+                                f"supplier-linked option in this workspace for {matched_origin} "
                                 f"to {output.destination}. The comparison uses "
                                 f"{recommended.transport_method} history from shipment "
                                 f"{recommended.historical_shipment_id}, not an invented route."

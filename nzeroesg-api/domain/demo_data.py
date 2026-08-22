@@ -11,7 +11,8 @@ DEMO_SHIPMENTS_CSV = (
     b"freight_cost_currency\n"
     b"CS-1001,2025-09-04,Boreal Components,Edmonton,Calgary,12,mt,300,km,truck\n"
     b"CS-1002,2025-09-13,Northstar Logistics,Vancouver,Toronto,8,mt,4400,km,train\n"
-    b"CS-1003,2025-09-25,Pacific Circuitry,Shanghai,Vancouver,24,mt,10200,km,ocean container\n"
+    b"CS-1003,2025-09-25,Pacific Circuitry,Shanghai,Vancouver,24,mt,10200,km,"
+    b"ocean container,31200,CAD\n"
     b"CS-1004,2025-10-06,Aurora Packaging,Toronto,Montreal,4.5,mt,540,km,truck\n"
     b"CS-1005,2025-10-17,Bluewater Motors,Frankfurt,Toronto,1.2,mt,6350,km,plane\n"
     b"CS-1006,2025-10-28,Prairie Steelworks,Calgary,Seattle,6,mt,1100,km,train\n"
@@ -68,6 +69,26 @@ DEMO_SHIPMENTS_CSV = (
     b'"Berlin, Germany",11,mt,700,km,train,10450,EUR\n'
     b'CS-1048,2026-08-20,Silk Route Freight,"Busan, South Korea","Madrid, Spain",'
     b"20,mt,18600,km,ship,25000,EUR\n"
+    b'CS-1049,2025-09-20,Pearl River Ocean Freight,"Changzhou, China",'
+    b'"Vancouver, Canada",18,mt,9200,km,ship,24600,CAD\n'
+    b'CS-1050,2025-10-22,Dragon Air Cargo,"Changzhou, China","Vancouver, Canada",'
+    b"1.4,mt,9200,km,plane,19600,CAD\n"
+    b'CS-1051,2025-11-26,Pearl River Ocean Freight,"Guangzhou, China",'
+    b'"Vancouver, Canada",20,mt,11300,km,ship,28500,CAD\n'
+    b'CS-1052,2025-12-29,Dragon Air Cargo,"Guangzhou, China","Vancouver, Canada",'
+    b"1.2,mt,10200,km,plane,18000,CAD\n"
+    b'CS-1053,2026-01-27,Nippon Ocean Freight,"Tokyo, Japan","Vancouver, Canada",'
+    b"15,mt,7600,km,ship,21500,CAD\n"
+    b'CS-1054,2026-02-23,Sakura Air Cargo,"Tokyo, Japan","Vancouver, Canada",'
+    b"1.1,mt,7600,km,plane,16500,CAD\n"
+    b'CS-1055,2026-03-29,Desert Gate Shipping,"Dubai, UAE","Madrid, Spain",'
+    b"12,mt,8200,km,ship,13200,EUR\n"
+    b'CS-1056,2026-04-25,Gulf Horizon Air Cargo,"Dubai, UAE","Madrid, Spain",'
+    b"1.4,mt,5650,km,plane,10500,EUR\n"
+    b'CS-1057,2026-05-30,Bharat Ocean Logistics,"Mumbai, India","London, UK",'
+    b"16,mt,9500,km,ship,17600,GBP\n"
+    b'CS-1058,2026-06-26,India Sky Freight,"Mumbai, India","London, UK",'
+    b"1.3,mt,7200,km,plane,12350,GBP\n"
 )
 
 
@@ -115,6 +136,14 @@ DEMO_SUPPLIERS = (
     DemoSupplier("Iberia Road Logistics", "Spain", "ISO 14001", "truck"),
     DemoSupplier("Silk Route Freight", "Asia and European Union", "ISO 14001", "ship, train"),
     DemoSupplier("Nordic Ocean Lines", "European Union", "Clean Cargo", "ship"),
+    DemoSupplier("Pearl River Ocean Freight", "China", "ISO 14001", "ship"),
+    DemoSupplier("Dragon Air Cargo", "China", "IATA CEIV", "plane"),
+    DemoSupplier("Nippon Ocean Freight", "Japan", "ISO 14001", "ship"),
+    DemoSupplier("Sakura Air Cargo", "Japan", "IATA CEIV", "plane"),
+    DemoSupplier("Desert Gate Shipping", "United Arab Emirates", "ISO 14001", "ship"),
+    DemoSupplier("Gulf Horizon Air Cargo", "United Arab Emirates", "IATA CEIV", "plane"),
+    DemoSupplier("Bharat Ocean Logistics", "India", "ISO 14001", "ship"),
+    DemoSupplier("India Sky Freight", "India", "IATA CEIV", "plane"),
 )
 
 

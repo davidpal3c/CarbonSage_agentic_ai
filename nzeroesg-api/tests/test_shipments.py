@@ -36,7 +36,7 @@ def test_demo_seed_uses_plausible_modal_profiles_and_intensity_ordering():
     assert all(row.shipment_date is not None and row.supplier_name for row in parsed.rows)
     assert all(rows_by_mode.values())
     assert factors["plane"] > factors["truck"] > factors["train"] > factors["ship"]
-    assert len(parsed.rows) == 48
+    assert len(parsed.rows) == 58
     assert max(row.weight_kg for row in rows_by_mode["plane"]) <= 2_400
     assert min(row.weight_kg for row in rows_by_mode["ship"]) >= 6_000
     assert analysis.mode_breakdown["plane"].emissions_kg == max(

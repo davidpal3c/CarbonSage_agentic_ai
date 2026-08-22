@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from agent.planner import _deterministic_plan
 from domain.agent.models import (
+    AgentMessage,
     AgentResponseEnvelope,
     ChartBlock,
     ChartKind,
@@ -17,6 +18,7 @@ from domain.agent.models import (
     CitationRecord,
     EvidenceStatus,
     EvidenceSupportAssessment,
+    MessageRole,
     TableBlock,
     TableColumn,
     TextBlock,
@@ -147,6 +149,7 @@ def test_reported_shipment_questions_use_one_current_question_specific_tool():
         "weight_value": 1008.0,
         "weight_unit": "kg",
         "objective": "carbon",
+        "allow_nearest_origin": False,
     }
     assert trend is not None
     assert [call.tool_name for call in trend.calls] == [AgentToolName.ANALYZE_SHIPMENT_EMISSIONS]
@@ -583,6 +586,7 @@ def test_transatlantic_supplier_recommendation_uses_demo_lane_without_invention(
         "weight_value": 2214.0,
         "weight_unit": "kg",
         "objective": "carbon",
+        "allow_nearest_origin": False,
     }
 
     execution = asyncio.run(registry.execute(workspace_id, plan.calls[0]))
@@ -626,6 +630,7 @@ def test_european_supplier_recommendation_balances_carbon_and_historical_cost():
         "weight_value": 2214.0,
         "weight_unit": "kg",
         "objective": "carbon_and_cost",
+        "allow_nearest_origin": False,
     }
 
     execution = asyncio.run(registry.execute(workspace_id, plan.calls[0]))
@@ -646,6 +651,180 @@ def test_european_supplier_recommendation_balances_carbon_and_historical_cost():
     assert chart.rows == chart.table_fallback.rows
     assert chart.rows[0]["estimated_cost"] == 2656.8
     assert "live quote" in execution.output.basis
+
+
+def test_chinese_location_alias_uses_supported_lane_transparently():
+    workspace_id = "demo-agent-china-alias-recommendation"
+    shipment_repository = InMemoryShipmentRepository()
+    parsed = parse_shipments_csv(DEMO_SHIPMENTS_CSV)
+    assert parsed.errors == ()
+    shipment_repository.replace_for_workspace(
+        workspace_id,
+        "00000000-0000-4000-8000-000000000037",
+        parsed.rows,
+    )
+    registry = AgentToolRegistry(
+        artifact_repository=InMemoryArtifactRepository(),
+        evidence_repository=InMemoryEvidenceRepository(),
+        shipment_repository=shipment_repository,
+        evidence_search=empty_search,
+    )
+    question = (
+        "What would be the best supplier for a 2345 kg shipment from Chuangzhou, "
+        "China to Vancouver, Canada?"
+    )
+    plan = _deterministic_plan(question)
+    assert plan is not None
+
+    execution = asyncio.run(registry.execute(workspace_id, plan.calls[0]))
+
+    assert isinstance(execution.output, RecommendShipmentSupplierOutput)
+    assert execution.output.origin_match == "interpreted"
+    assert execution.output.matched_origin == "Changzhou, China"
+    assert execution.output.recommended_supplier_name == "Pearl River Ocean Freight"
+    assert execution.output.recommended_transport_method == "ship"
+    assert execution.output.recommended_emissions_kg == 172.592
+    assert [candidate.supplier_name for candidate in execution.output.candidates] == [
+        "Pearl River Ocean Freight",
+        "Dragon Air Cargo",
+    ]
+    response, _ = compose_agent_response((execution,), processing_time_ms=1)
+    direct_answer = next(block for block in response.blocks if block.type == "text")
+    assert 'interpreted "Chuangzhou, China" as Changzhou, China' in direct_answer.text
+
+
+@pytest.mark.parametrize(
+    ("origin", "destination", "expected_supplier"),
+    (
+        ("Changzhou, China", "Vancouver, Canada", "Pearl River Ocean Freight"),
+        ("Tokyo, Japan", "Vancouver, Canada", "Nippon Ocean Freight"),
+        ("Dubai, UAE", "Madrid, Spain", "Desert Gate Shipping"),
+        ("Mumbai, India", "London, UK", "Bharat Ocean Logistics"),
+    ),
+)
+def test_global_demo_lanes_support_balanced_carbon_and_cost_recommendations(
+    origin: str,
+    destination: str,
+    expected_supplier: str,
+):
+    workspace_id = f"demo-agent-global-{origin.split(',')[0].casefold()}"
+    shipment_repository = InMemoryShipmentRepository()
+    parsed = parse_shipments_csv(DEMO_SHIPMENTS_CSV)
+    shipment_repository.replace_for_workspace(
+        workspace_id,
+        "00000000-0000-4000-8000-000000000040",
+        parsed.rows,
+    )
+    registry = AgentToolRegistry(
+        artifact_repository=InMemoryArtifactRepository(),
+        evidence_repository=InMemoryEvidenceRepository(),
+        shipment_repository=shipment_repository,
+        evidence_search=empty_search,
+    )
+    plan = _deterministic_plan(
+        f"Recommend the best carbon and cost efficient supplier for a 1026 kg "
+        f"shipment from {origin} to {destination}."
+    )
+    assert plan is not None
+
+    execution = asyncio.run(registry.execute(workspace_id, plan.calls[0]))
+
+    assert isinstance(execution.output, RecommendShipmentSupplierOutput)
+    assert execution.output.origin_match == "exact"
+    assert execution.output.matched_origin == origin
+    assert execution.output.recommended_supplier_name == expected_supplier
+    assert execution.output.recommended_transport_method == "ship"
+    assert execution.output.objective == "carbon_and_cost"
+    assert len(execution.output.candidates) == 2
+
+
+def test_closest_city_followup_reuses_the_previous_route_and_weight():
+    history = (
+        AgentMessage(
+            conversation_id="00000000-0000-4000-8000-000000000038",
+            workspace_id="demo-agent-nearest-origin",
+            role=MessageRole.USER,
+            content=(
+                "What would be the best supplier for a 2345 kg shipment from Chuangzhou, "
+                "China to Vancouver, Canada?"
+            ),
+        ),
+    )
+
+    plan = _deterministic_plan(
+        "What's the closest city in China that you can recommend to ship from?",
+        history,
+    )
+
+    assert plan is not None
+    assert plan.calls[0].arguments.model_dump() == {
+        "origin": "Chuangzhou, China",
+        "destination": "Vancouver, Canada",
+        "weight_value": 2345.0,
+        "weight_unit": "kg",
+        "objective": "carbon",
+        "allow_nearest_origin": True,
+    }
+
+    shipment_repository = InMemoryShipmentRepository()
+    parsed = parse_shipments_csv(DEMO_SHIPMENTS_CSV)
+    shipment_repository.replace_for_workspace(
+        "demo-agent-nearest-origin",
+        "00000000-0000-4000-8000-000000000041",
+        parsed.rows,
+    )
+    registry = AgentToolRegistry(
+        artifact_repository=InMemoryArtifactRepository(),
+        evidence_repository=InMemoryEvidenceRepository(),
+        shipment_repository=shipment_repository,
+        evidence_search=empty_search,
+    )
+
+    execution = asyncio.run(registry.execute("demo-agent-nearest-origin", plan.calls[0]))
+
+    assert isinstance(execution.output, RecommendShipmentSupplierOutput)
+    assert execution.output.matched_origin == "Changzhou, China"
+    assert execution.output.origin_match == "interpreted"
+    assert execution.output.recommended_supplier_name == "Pearl River Ocean Freight"
+
+
+def test_explicit_nearest_origin_uses_same_country_supported_history():
+    workspace_id = "demo-agent-nearest-origin"
+    shipment_repository = InMemoryShipmentRepository()
+    parsed = parse_shipments_csv(DEMO_SHIPMENTS_CSV)
+    shipment_repository.replace_for_workspace(
+        workspace_id,
+        "00000000-0000-4000-8000-000000000039",
+        parsed.rows,
+    )
+    registry = AgentToolRegistry(
+        artifact_repository=InMemoryArtifactRepository(),
+        evidence_repository=InMemoryEvidenceRepository(),
+        shipment_repository=shipment_repository,
+        evidence_search=empty_search,
+    )
+    call = PlannedToolCall(
+        call_id="nearest-supported-origin",
+        tool_name=AgentToolName.RECOMMEND_SHIPMENT_SUPPLIER,
+        arguments={
+            "origin": "Shenzhen, China",
+            "destination": "Vancouver, Canada",
+            "weight_value": 2345,
+            "weight_unit": "kg",
+            "objective": "carbon",
+            "allow_nearest_origin": True,
+        },
+    )
+
+    execution = asyncio.run(registry.execute(workspace_id, call))
+
+    assert isinstance(execution.output, RecommendShipmentSupplierOutput)
+    assert execution.output.origin_match == "nearest_supported"
+    assert execution.output.matched_origin == "Guangzhou, China"
+    assert execution.output.origin_distance_km is not None
+    assert execution.output.origin_distance_km < 150
+    assert execution.output.recommended_supplier_name == "Pearl River Ocean Freight"
+    assert any("outside this estimate" in warning for warning in execution.output.warnings)
 
 
 def test_supplier_recommendation_abstains_without_an_exact_lane():

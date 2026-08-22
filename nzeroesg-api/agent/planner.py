@@ -68,7 +68,7 @@ class LlmAgentPlanner:
         history: tuple[AgentMessage, ...],
         tool_schemas: dict[str, dict[str, object]],
     ) -> PlannedAgentResult:
-        deterministic_plan = _deterministic_plan(question)
+        deterministic_plan = _deterministic_plan(question, history)
         if deterministic_plan is not None:
             return PlannedAgentResult(plan=deterministic_plan)
         recent_history = [
@@ -153,6 +153,10 @@ def _question_references_history(question: str) -> bool:
             "instead",
             "those suppliers",
             "it compared",
+            "closest city",
+            "nearest city",
+            "closest origin",
+            "nearest origin",
         )
     )
 
@@ -165,7 +169,36 @@ def _requested_transport_mode(question: str) -> str | None:
     return None
 
 
-def _deterministic_plan(question: str) -> AgentPlan | None:
+def _previous_supplier_route(
+    history: tuple[AgentMessage, ...],
+) -> tuple[str, str, float, str, str] | None:
+    for message in reversed(history):
+        if message.role.value != "user":
+            continue
+        weight_match = _WEIGHT_PATTERN.search(message.content)
+        route_match = _ROUTE_PATTERN.search(message.content)
+        if weight_match is None or route_match is None:
+            continue
+        normalized = " ".join(message.content.casefold().split())
+        objective = (
+            "carbon_and_cost"
+            if any(term in normalized for term in ("cost", "price", "cheapest", "affordable"))
+            else "carbon"
+        )
+        return (
+            route_match.group("origin").strip(),
+            route_match.group("destination").strip(),
+            float(weight_match.group("value")),
+            _weight_unit(weight_match.group("unit")),
+            objective,
+        )
+    return None
+
+
+def _deterministic_plan(
+    question: str,
+    history: tuple[AgentMessage, ...] = (),
+) -> AgentPlan | None:
     normalized = " ".join(question.casefold().split())
     requested_mode = _requested_transport_mode(question)
     scenario_comparison = (
@@ -183,6 +216,31 @@ def _deterministic_plan(question: str) -> AgentPlan | None:
                 )
             ]
         )
+
+    nearest_origin_request = any(
+        phrase in normalized
+        for phrase in ("closest city", "nearest city", "closest origin", "nearest origin")
+    ) and any(term in normalized for term in ("recommend", "ship", "supplier", "send"))
+    if nearest_origin_request:
+        previous_route = _previous_supplier_route(history)
+        if previous_route is not None:
+            origin, destination, weight_value, weight_unit, objective = previous_route
+            return AgentPlan(
+                calls=[
+                    PlannedToolCall(
+                        call_id="nearest-supported-origin-recommendation",
+                        tool_name=AgentToolName.RECOMMEND_SHIPMENT_SUPPLIER,
+                        arguments={
+                            "origin": origin,
+                            "destination": destination,
+                            "weight_value": weight_value,
+                            "weight_unit": weight_unit,
+                            "objective": objective,
+                            "allow_nearest_origin": True,
+                        },
+                    )
+                ]
+            )
 
     supplier_recommendation = "supplier" in normalized and any(
         term in normalized for term in ("recommend", "efficient", "lowest", "best")
@@ -229,6 +287,7 @@ def _deterministic_plan(question: str) -> AgentPlan | None:
                         "weight_value": float(weight_match.group("value")),
                         "weight_unit": _weight_unit(weight_match.group("unit")),
                         "objective": "carbon_and_cost" if cost_requested else "carbon",
+                        "allow_nearest_origin": False,
                     },
                 )
             ]

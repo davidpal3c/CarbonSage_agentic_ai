@@ -72,6 +72,7 @@ class RecommendShipmentSupplierInput(StrictModel):
     weight_value: float = Field(gt=0)
     weight_unit: Literal["g", "kg", "lb", "mt"] = "kg"
     objective: Literal["carbon", "carbon_and_cost"] = "carbon"
+    allow_nearest_origin: bool = False
 
 
 class SummarizeDataQualityInput(NoArguments):
@@ -241,6 +242,9 @@ class ShipmentSupplierCandidateOutput(StrictModel):
 class RecommendShipmentSupplierOutput(StrictModel):
     origin: str
     destination: str
+    matched_origin: str | None = None
+    origin_match: Literal["exact", "interpreted", "nearest_supported", "none"] = "none"
+    origin_distance_km: float | None = None
     weight_kg: float
     recommended_supplier_name: str | None
     recommended_transport_method: str | None
