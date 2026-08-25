@@ -287,7 +287,9 @@ def test_demo_data_is_explicit_idempotent_and_downloadable():
     assert empty.status_code == 200
     assert empty.json()["has_artifacts"] is False
     assert loaded.status_code == 200
-    assert loaded.json() == {
+    loaded_payload = loaded.json()
+    performance = loaded_payload.pop("performance")
+    assert loaded_payload == {
         "loaded": True,
         "has_artifacts": True,
         "artifact_count": 6,
@@ -295,9 +297,22 @@ def test_demo_data_is_explicit_idempotent_and_downloadable():
         "supplier_count": 38,
         "evidence_document_count": 5,
     }
+    assert performance["outcome"] == "loaded"
+    assert performance["total_ms"] >= 0
+    assert set(performance["stages_ms"]) == {
+        "status",
+        "parse",
+        "prepare",
+        "relational",
+        "embeddings",
+        "finalize",
+    }
+    assert "total;dur=" in loaded.headers["server-timing"]
+    assert loaded.headers["x-carbonsage-demo-load-outcome"] == "loaded"
     assert repeated.status_code == 200
     assert repeated.json()["loaded"] is True
     assert repeated.json()["artifact_count"] == 6
+    assert repeated.json()["performance"]["outcome"] == "already_available"
 
     artifacts = demo_client.get("/artifacts").json()["artifacts"]
     for artifact in artifacts:

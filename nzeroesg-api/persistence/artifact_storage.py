@@ -21,6 +21,7 @@ from domain.artifacts.storage import (
     ArtifactStoragePolicy,
     ArtifactStorageUsage,
 )
+from persistence.database import pooled_connect
 
 
 def _period_start(now: datetime) -> date:
@@ -336,7 +337,7 @@ class PostgresArtifactStorageRepository:
         self.database_url = database_url
 
     def _connect(self):
-        return psycopg.connect(self.database_url)
+        return pooled_connect(self.database_url)
 
     @staticmethod
     def _lock_state(cursor) -> tuple[int, int]:

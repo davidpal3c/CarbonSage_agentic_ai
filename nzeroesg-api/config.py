@@ -43,6 +43,10 @@ class Settings:
     demo_session_secret: str = _demo_session_secret()
     demo_workspace_ttl_hours: int = int(os.getenv("DEMO_WORKSPACE_TTL_HOURS", "24"))
     database_url: str | None = _optional_value(os.getenv("DATABASE_URL"))
+    database_pool_min_size: int = int(os.getenv("DATABASE_POOL_MIN_SIZE", "0"))
+    database_pool_max_size: int = int(os.getenv("DATABASE_POOL_MAX_SIZE", "4"))
+    database_pool_timeout_seconds: float = float(os.getenv("DATABASE_POOL_TIMEOUT_SECONDS", "15"))
+    database_pool_max_idle_seconds: float = float(os.getenv("DATABASE_POOL_MAX_IDLE_SECONDS", "60"))
     session_cookie_secure: bool = os.getenv("APP_ENV", "development") == "production"
     session_cookie_samesite: str = "none" if session_cookie_secure else "lax"
     llm_provider: str = os.getenv("LLM_PROVIDER", "").strip().lower()
@@ -76,6 +80,18 @@ class Settings:
         os.getenv("CORS_ORIGINS"),
         default=("http://localhost:3000", "http://127.0.0.1:3000"),
     )
+
+    def __post_init__(self) -> None:
+        if self.database_pool_min_size < 0:
+            raise ValueError("DATABASE_POOL_MIN_SIZE cannot be negative.")
+        if self.database_pool_max_size < 1:
+            raise ValueError("DATABASE_POOL_MAX_SIZE must be positive.")
+        if self.database_pool_min_size > self.database_pool_max_size:
+            raise ValueError("DATABASE_POOL_MIN_SIZE cannot exceed DATABASE_POOL_MAX_SIZE.")
+        if self.database_pool_timeout_seconds <= 0:
+            raise ValueError("DATABASE_POOL_TIMEOUT_SECONDS must be positive.")
+        if self.database_pool_max_idle_seconds <= 0:
+            raise ValueError("DATABASE_POOL_MAX_IDLE_SECONDS must be positive.")
 
 
 settings = Settings()

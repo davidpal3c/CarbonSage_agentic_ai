@@ -126,8 +126,8 @@ The new objective is complete when a reviewer can:
 
 The workspace demo should take roughly five minutes:
 
-1. Open the site and choose **Enter demo workspace**.
-2. Land in **Ask CarbonSage** and choose the fictional demo dataset or upload
+1. Open the site and choose **Try CarbonSage**.
+2. Land in **Overview** and choose the fictional demo dataset or upload
    CSV/XLSX shipment data plus PDF/TXT supplier evidence.
 3. Ask a workspace question about emissions, data quality, supplier claims, or
    a freight alternative.
@@ -1115,6 +1115,67 @@ Exit gate:
 > lanes, answer the reported Madrid and China requests without inventing route
 > data, and distinguish deterministic carbon results from historical cost
 > screening.
+
+### Phase 10.7 — Supplier availability and measured demo-load optimization
+
+Implementation evidence (completed on the feature branch 2026-08-24):
+
+- Migration `011_supplier_service_availability.sql` introduces normalized,
+  workspace-scoped supplier service lanes with directionality, transport mode,
+  representative distance, supported weight, cost basis, currency, source,
+  and validity metadata. The fictional seed covers supported Canadian,
+  transatlantic, European, Chinese, Japanese, Emirati, and Indian lanes.
+- Supplier-declared service availability is now the primary candidate source
+  for freight recommendations. Bidirectional declarations support the reverse
+  direction without requiring a duplicate historical shipment; exact
+  historical shipment matching remains a bounded fallback and optional
+  calibration source rather than the definition of supplier availability.
+- Carbon estimates continue to use deterministic mode, weight, and distance
+  calculations. Cost estimates use the supplier service declaration and remain
+  screening estimates rather than live quotes, capacity commitments, or
+  procurement approvals.
+- Nearby supported origins remain an explicit follow-up path. CarbonSage may
+  identify a nearby declared origin when requested, but transfer-leg distance,
+  mode, emissions, cost, and assumptions are excluded until a separate
+  multimodal routing design can preserve transparent provenance.
+- The compact launcher uses a taller bounded working surface and anchors its
+  initial, loading, and response content to the composer, removing the unused
+  space that previously appeared below the first question.
+- Demo-load optimization slice 1 adds server-side stage timings, `Server-Timing`
+  response metadata, outcome headers, structured completion logs, and client
+  request/hydration/total performance measures. The measurement design,
+  warm-process and cold-ish `recent_start` cohorts, and p50/p95 targets are
+  recorded in
+  [`decisions/002-demo-load-observability.md`](decisions/002-demo-load-observability.md).
+- Demo-load optimization slice 2 replaces independent seed writes with one
+  advisory-locked relational transaction and one generated supplier-ID map.
+  It adds a small lazy PostgreSQL connection pool suitable for Neon's pooled
+  endpoint, keeps embedding-provider calls outside database leases, and
+  guarantees rollback of incomplete relational seeds. The architecture and
+  operational settings are recorded in
+  [`decisions/003-transactional-demo-seed-and-neon-pooling.md`](decisions/003-transactional-demo-seed-and-neon-pooling.md).
+- Backend, migration, rollback-injection, pool-lifecycle, API, agent, Ruff,
+  frontend formatting/type/lint/build, and eleven Playwright workflows pass.
+  PostgreSQL-path checks use a disposable pgvector-enabled PostgreSQL instance.
+
+Exit gate:
+
+> A Vancouver-to-Guangzhou request can select Pearl River Ocean Freight from
+> its bidirectional supplier service declaration even without a shipment in
+> that exact direction. Demo relational data seeds atomically and idempotently,
+> and production timing telemetry can separate database work, provider
+> embeddings, and client hydration before another optimization is approved.
+
+Next performance gate:
+
+- Deploy slices 1 and 2, collect representative warm and cold-ish production
+  samples, and compare p50/p95 stage timing against the recorded targets.
+- Do not introduce background jobs, asynchronous readiness, precomputed vector
+  snapshots, or a queue until production measurements show that embedding work
+  remains the dominant reviewer-visible delay.
+- If transfer-leg recommendations are implemented later, model them as a
+  separately itemized multimodal leg with explicit distance source, emissions,
+  cost, and uncertainty rather than silently folding them into a supplier lane.
 
 ### Phase 11 — Authenticated JavaScript embed
 

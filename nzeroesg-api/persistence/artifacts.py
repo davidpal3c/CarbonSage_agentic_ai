@@ -23,6 +23,7 @@ from domain.artifacts.models import (
     ReportSnapshot,
     normalize_artifact_title,
 )
+from persistence.database import pooled_connect
 
 
 class ArtifactNotFoundError(LookupError):
@@ -190,7 +191,7 @@ class PostgresArtifactRepository:
         self.database_url = database_url
 
     def _connect(self):
-        return psycopg.connect(self.database_url)
+        return pooled_connect(self.database_url)
 
     def create(self, artifact: Artifact) -> Artifact:
         with closing(self._connect()) as connection:
@@ -358,7 +359,7 @@ class PostgresReportSnapshotRepository:
         self.database_url = database_url
 
     def _connect(self):
-        return psycopg.connect(self.database_url)
+        return pooled_connect(self.database_url)
 
     def store(self, snapshot: ReportSnapshot) -> None:
         with closing(self._connect()) as connection:

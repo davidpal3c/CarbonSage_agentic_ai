@@ -12,6 +12,7 @@ except ImportError:  # pragma: no cover - exercised only before optional local s
     psycopg = None
 
 from domain.shipments.models import NormalizedShipment
+from persistence.database import pooled_connect
 
 
 class ShipmentRepository(Protocol):
@@ -84,7 +85,7 @@ class PostgresShipmentRepository:
         self.database_url = database_url
 
     def _connect(self):
-        return psycopg.connect(self.database_url)
+        return pooled_connect(self.database_url)
 
     def replace_for_workspace(
         self,

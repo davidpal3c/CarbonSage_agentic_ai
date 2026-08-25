@@ -50,10 +50,14 @@ from domain.evidence.models import (
 from domain.evidence.retrieval import RetrievalMode, reciprocal_rank_fusion
 from domain.workspaces.principals import WorkspacePrincipal
 from persistence.evidence import build_evidence_repository
+from persistence.supplier_availability import build_supplier_availability_repository
 from persistence.workspaces import QuotaExceededError, WorkspaceNotFoundError
 
 evidence_router = APIRouter(tags=["evidence"])
 evidence_repository = build_evidence_repository(database_url_for_runtime())
+supplier_availability_repository = build_supplier_availability_repository(
+    database_url_for_runtime()
+)
 embedding_adapter = build_embedding_adapter(
     provider=settings.embedding_provider,
     model=settings.embedding_model,

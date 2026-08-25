@@ -13,6 +13,20 @@ export type DemoDataStatus = {
   shipment_count: number;
   supplier_count: number;
   evidence_document_count: number;
+  performance?: {
+    outcome: string;
+    process_state: string;
+    process_age_ms: number;
+    total_ms: number;
+    stages_ms: Record<string, number>;
+  } | null;
+};
+
+export type DemoLoadMetrics = {
+  request_ms: number;
+  hydration_ms: number;
+  total_ms: number;
+  server?: DemoDataStatus["performance"];
 };
 
 export type ShipmentRow = {
@@ -358,6 +372,7 @@ export const useWorkspaceDataStore = create<WorkspaceDataStore>((set, get) => ({
     clearRequests();
     const epoch = requestEpoch;
     set({ demoStatus: "loading", demoError: null });
+    const clientStartedAt = performance.now();
     try {
       const response = await fetch(`${getBackendUrl()}/demo/data`, {
         method: "POST",
@@ -369,6 +384,7 @@ export const useWorkspaceDataStore = create<WorkspaceDataStore>((set, get) => ({
         );
       }
       const payload = (await response.json()) as DemoDataStatus;
+      const requestFinishedAt = performance.now();
       if (get().workspaceId === workspaceId && requestEpoch === epoch) {
         set({
           demoData: payload,
@@ -389,6 +405,17 @@ export const useWorkspaceDataStore = create<WorkspaceDataStore>((set, get) => ({
           get().ensureSuppliers(true),
           get().ensureArtifacts(true),
         ]);
+        const clientFinishedAt = performance.now();
+        performance.measure("carbonsage:demo-data-load", {
+          start: clientStartedAt,
+          end: clientFinishedAt,
+          detail: {
+            request_ms: Math.round(requestFinishedAt - clientStartedAt),
+            hydration_ms: Math.round(clientFinishedAt - requestFinishedAt),
+            total_ms: Math.round(clientFinishedAt - clientStartedAt),
+            server: payload.performance,
+          } satisfies DemoLoadMetrics,
+        });
       }
       return payload;
     } catch (error) {

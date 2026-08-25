@@ -36,7 +36,7 @@ from domain.agent.tools import (
     RecommendShipmentSupplierOutput,
 )
 from domain.artifacts.models import ArtifactKind, ArtifactSourceType, create_artifact
-from domain.demo_data import DEMO_SHIPMENTS_CSV
+from domain.demo_data import DEMO_SHIPMENTS_CSV, DEMO_SUPPLIER_SERVICE_LANES
 from domain.evidence.models import EvidenceMatch
 from domain.shipments.ingestion import parse_shipments_csv
 from domain.shipments.models import NormalizedShipment
@@ -51,6 +51,7 @@ from persistence.agent import (
 from persistence.artifacts import InMemoryArtifactRepository, PostgresArtifactRepository
 from persistence.evidence import InMemoryEvidenceRepository
 from persistence.shipments import InMemoryShipmentRepository
+from persistence.supplier_availability import InMemorySupplierAvailabilityRepository
 from persistence.workspaces import build_workspace_repository
 from services.agent_composer import compose_agent_response
 from services.agent_runtime import AgentRuntimeService, AgentRuntimeUnavailableError
@@ -736,6 +737,47 @@ def test_global_demo_lanes_support_balanced_carbon_and_cost_recommendations(
     assert execution.output.recommended_transport_method == "ship"
     assert execution.output.objective == "carbon_and_cost"
     assert len(execution.output.candidates) == 2
+
+
+def test_supplier_availability_supports_a_declared_bidirectional_lane():
+    workspace_id = "demo-agent-reverse-service-lane"
+    shipment_repository = InMemoryShipmentRepository()
+    parsed = parse_shipments_csv(DEMO_SHIPMENTS_CSV)
+    shipment_repository.replace_for_workspace(
+        workspace_id,
+        "00000000-0000-4000-8000-000000000042",
+        parsed.rows,
+    )
+    availability_repository = InMemorySupplierAvailabilityRepository()
+    availability_repository.upsert_many(
+        workspace_id,
+        DEMO_SUPPLIER_SERVICE_LANES,
+    )
+    registry = AgentToolRegistry(
+        artifact_repository=InMemoryArtifactRepository(),
+        evidence_repository=InMemoryEvidenceRepository(),
+        shipment_repository=shipment_repository,
+        supplier_availability_repository=availability_repository,
+        evidence_search=empty_search,
+    )
+    plan = _deterministic_plan(
+        "Recommend the most cost and carbon-efficient supplier for a 2016 kg "
+        "shipment from Vancouver to Guangzhou, China."
+    )
+    assert plan is not None
+
+    execution = asyncio.run(registry.execute(workspace_id, plan.calls[0]))
+
+    assert isinstance(execution.output, RecommendShipmentSupplierOutput)
+    assert execution.output.recommended_supplier_name == "Pearl River Ocean Freight"
+    assert execution.output.origin_match == "exact"
+    assert execution.output.objective == "carbon_and_cost"
+    assert execution.output.candidates[0].availability_basis == "supplier_service"
+    assert execution.output.candidates[0].historical_shipment_id == "CS-1051"
+    assert not any("No historical shipment" in warning for warning in execution.output.warnings)
+    response, _ = compose_agent_response((execution,), processing_time_ms=1)
+    direct_answer = next(block for block in response.blocks if block.type == "text")
+    assert "Availability comes from fictional supplier service profile" in direct_answer.text
 
 
 def test_closest_city_followup_reuses_the_previous_route_and_weight():

@@ -5,7 +5,7 @@ const config = [
   {
     ignores: [
       ".next/**",
-      ".next-playwright/**",
+      ".next-playwright*/**",
       "node_modules/**",
       "next-env.d.ts",
     ],

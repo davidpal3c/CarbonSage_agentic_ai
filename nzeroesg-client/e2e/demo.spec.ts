@@ -214,9 +214,10 @@ test("loads the fictional demo dataset directly from overview", async ({
   await expect(launcher).toBeVisible();
   const initialLauncherBox = await launcher.boundingBox();
   expect(initialLauncherBox).not.toBeNull();
+  expect(initialLauncherBox?.height ?? 0).toBeGreaterThanOrEqual(540);
   expect(
     initialLauncherBox?.height ?? Number.POSITIVE_INFINITY,
-  ).toBeLessThanOrEqual(560);
+  ).toBeLessThanOrEqual(600);
   await launcher.getByRole("button", { name: "Close CarbonSage" }).click();
   await expect(
     page.getByRole("button", { name: "Load demo data" }),

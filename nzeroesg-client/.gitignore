@@ -16,7 +16,7 @@
 
 # next.js
 /.next/
-/.next-playwright/
+/.next-playwright*/
 /out/
 
 # production

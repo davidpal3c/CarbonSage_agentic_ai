@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -11,11 +13,20 @@ from api.scenarios import scenarios_router
 from api.shipments import shipments_router
 from api.workspaces import workspace_router
 from config import settings
+from persistence.database import close_database_pools
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    yield
+    close_database_pools()
+
 
 app = FastAPI(
     title="CarbonSage API",
     description="Evidence-grounded Scope 3 intelligence and deterministic decision tools.",
     version="0.4.0-dev",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
