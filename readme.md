@@ -1,4 +1,4 @@
-# 🌱 CarbonSage 
+# CarbonSage 
 (formerly NZeroESG)
 
 ### Evidence-grounded Scope 3 intelligence, wherever decisions happen.
@@ -6,6 +6,8 @@
 CarbonSage is an embeddable ESG decision agent for freight and supplier
 workflows. It brings shipment data, supplier evidence, deterministic emissions
 tools, and conversational analysis into one traceable experience.
+
+[http://carbonsage.ca](http://carbonsage.ca)
 
 The initial thesis is deliberately specific:
 
