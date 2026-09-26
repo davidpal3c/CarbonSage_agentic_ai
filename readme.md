@@ -7,7 +7,9 @@ CarbonSage is an embeddable ESG decision agent for freight and supplier
 workflows. It brings shipment data, supplier evidence, deterministic emissions
 tools, and conversational analysis into one traceable experience.
 
+
 [https://carbonsage.ca](https://carbonsage.ca)
+
 
 The initial thesis is deliberately specific:
 
