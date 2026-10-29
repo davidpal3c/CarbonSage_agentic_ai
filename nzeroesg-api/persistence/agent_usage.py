@@ -14,6 +14,7 @@ except ImportError:  # pragma: no cover
     psycopg = None
 
 from agent.usage import ModelInvocationUsage
+from persistence.database import pooled_connect
 
 
 @dataclass(frozen=True)
@@ -80,7 +81,7 @@ class PostgresAgentUsageRepository:
         self.database_url = database_url
 
     def _connect(self):
-        return psycopg.connect(self.database_url)
+        return pooled_connect(self.database_url)
 
     def record(self, workspace_id: str, usage: ModelInvocationUsage) -> None:
         if not usage.has_usage:

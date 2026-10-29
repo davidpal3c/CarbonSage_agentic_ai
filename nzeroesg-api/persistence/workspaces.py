@@ -23,6 +23,7 @@ from domain.workspaces.sessions import (
     QuotaRecord,
     WorkspaceSession,
 )
+from persistence.database import pooled_connect
 
 QUOTA_DEFAULTS = {
     "evidence_documents": 3,
@@ -193,7 +194,7 @@ class PostgresWorkspaceRepository:
         self.migrate()
 
     def _connect(self):
-        return psycopg.connect(self.database_url)
+        return pooled_connect(self.database_url)
 
     def migrate(self) -> None:
         migration_files = sorted(MIGRATIONS_DIR.glob("*.sql"))

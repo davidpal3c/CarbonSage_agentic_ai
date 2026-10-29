@@ -45,7 +45,7 @@ export default function HomePage() {
               onClick={() => router.push("/login")}
               className="text-primary transition hover:text-accent"
             >
-              Enter demo workspace
+              Try CarbonSage
             </button>
             <ThemeToggle />
           </div>

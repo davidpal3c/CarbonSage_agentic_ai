@@ -12,6 +12,22 @@ class SupplierMetadata:
 
 
 @dataclass(frozen=True)
+class SupplierServiceLane:
+    """A supplier-declared freight service used for bounded recommendations."""
+
+    supplier_name: str
+    origin: str
+    destination: str
+    transport_method: str
+    distance_km: float
+    estimated_cost_per_kg: float | None = None
+    cost_currency: str | None = None
+    bidirectional: bool = False
+    source_label: str = "supplier service availability"
+    reference_shipment_id: str | None = None
+
+
+@dataclass(frozen=True)
 class EvidenceChunk:
     chunk_index: int
     content: str

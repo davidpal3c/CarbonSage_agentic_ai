@@ -1,7 +1,10 @@
+from dataclasses import replace
+
 import pytest
 from fastapi.testclient import TestClient
 
 import api.agent as agent_api
+import api.demo_data as demo_data_api
 import api.evidence as evidence_api
 from domain.agent.tools import AgentPlan, AgentToolName, PlannedToolCall
 from domain.evidence.embeddings import (
@@ -281,13 +284,26 @@ def test_demo_data_is_explicit_idempotent_and_downloadable():
     demo_client = authenticated_client()
 
     empty = demo_client.get("/demo/data")
+    empty_bootstrap = demo_client.get("/demo/data/bootstrap")
     loaded = demo_client.post("/demo/data")
     repeated = demo_client.post("/demo/data")
 
     assert empty.status_code == 200
     assert empty.json()["has_artifacts"] is False
+    assert empty_bootstrap.status_code == 200
+    assert empty_bootstrap.headers["cache-control"] == "private, no-store"
+    assert empty_bootstrap.headers["x-carbonsage-bootstrap-version"] == "1.0"
+    assert "bootstrap;dur=" in empty_bootstrap.headers["server-timing"]
+    assert empty_bootstrap.json()["schema_version"] == "1.0"
+    assert empty_bootstrap.json()["demo_data"]["has_artifacts"] is False
+    assert empty_bootstrap.json()["shipments"]["accepted_rows"] == 0
+    assert empty_bootstrap.json()["suppliers"] == []
+    assert empty_bootstrap.json()["artifacts"] == []
     assert loaded.status_code == 200
-    assert loaded.json() == {
+    loaded_payload = loaded.json()
+    performance = loaded_payload.pop("performance")
+    bootstrap = loaded_payload.pop("bootstrap")
+    assert loaded_payload == {
         "loaded": True,
         "has_artifacts": True,
         "artifact_count": 6,
@@ -295,9 +311,47 @@ def test_demo_data_is_explicit_idempotent_and_downloadable():
         "supplier_count": 38,
         "evidence_document_count": 5,
     }
+    assert bootstrap["schema_version"] == "1.0"
+    assert bootstrap["shipments"]["accepted_rows"] == 58
+    assert bootstrap["shipments"]["analysis"]["shipment_count"] == 58
+    assert len(bootstrap["suppliers"]) == 38
+    assert len(bootstrap["artifacts"]) == 6
+    assert performance["outcome"] == "loaded"
+    assert performance["total_ms"] >= 0
+    assert set(performance["stages_ms"]) == {
+        "status",
+        "parse",
+        "prepare",
+        "relational",
+        "embeddings",
+        "finalize",
+        "bootstrap",
+    }
+    assert loaded.headers["cache-control"] == "private, no-store"
+    assert loaded.headers["x-carbonsage-bootstrap-version"] == "1.0"
+    assert "total;dur=" in loaded.headers["server-timing"]
+    assert loaded.headers["x-carbonsage-demo-load-outcome"] == "loaded"
     assert repeated.status_code == 200
     assert repeated.json()["loaded"] is True
     assert repeated.json()["artifact_count"] == 6
+    assert repeated.json()["performance"]["outcome"] == "already_available"
+    assert repeated.json()["bootstrap"]["shipments"] == bootstrap["shipments"]
+
+    hydrated = demo_client.get("/demo/data/bootstrap")
+    assert hydrated.status_code == 200
+    hydrated_payload = hydrated.json()
+    assert hydrated_payload["demo_data"] == {
+        "loaded": True,
+        "has_artifacts": True,
+        "artifact_count": 6,
+        "shipment_count": 58,
+        "supplier_count": 38,
+        "evidence_document_count": 5,
+        "performance": None,
+    }
+    assert hydrated_payload["shipments"] == bootstrap["shipments"]
+    assert hydrated_payload["suppliers"] == bootstrap["suppliers"]
+    assert hydrated_payload["artifacts"] == bootstrap["artifacts"]
 
     artifacts = demo_client.get("/artifacts").json()["artifacts"]
     for artifact in artifacts:
@@ -338,6 +392,47 @@ def test_demo_data_is_explicit_idempotent_and_downloadable():
     assert [period["period"] for period in yearly.json()["timeline"]] == ["2025", "2026"]
     assert filtered.json()["filters"]["modes"] == ["train"]
     assert filtered.json()["shipment_count"] == 3
+
+
+def test_demo_load_defers_embeddings_until_semantic_search(monkeypatch):
+    class CountingEmbeddingAdapter(FixtureEmbeddingAdapter):
+        def __init__(self):
+            self.document_calls = 0
+
+        def embed_documents(self, texts):
+            self.document_calls += 1
+            return super().embed_documents(texts)
+
+    adapter = CountingEmbeddingAdapter()
+    monkeypatch.setattr(evidence_api, "embedding_adapter", adapter)
+    monkeypatch.setattr(
+        demo_data_api,
+        "settings",
+        replace(demo_data_api.settings, embedding_provider="fixture"),
+    )
+    demo_client = authenticated_client()
+
+    loaded = demo_client.post("/demo/data")
+
+    assert loaded.status_code == 200
+    assert loaded.json()["performance"]["stages_ms"]["embeddings"] == 0
+    assert adapter.document_calls == 0
+    evidence_artifacts = [
+        artifact
+        for artifact in loaded.json()["bootstrap"]["artifacts"]
+        if artifact["kind"] == "evidence_document"
+    ]
+    assert len(evidence_artifacts) == 5
+    assert all(
+        artifact["metadata"]["embedding_status"] == "pending" for artifact in evidence_artifacts
+    )
+
+    semantic = demo_client.get("/evidence/search", params={"query": "rail", "mode": "semantic"})
+
+    assert semantic.status_code == 200
+    assert semantic.json()["mode"] == "semantic"
+    assert semantic.json()["matches"]
+    assert adapter.document_calls == 5
 
 
 def test_demo_data_can_be_unloaded_without_removing_user_uploads():

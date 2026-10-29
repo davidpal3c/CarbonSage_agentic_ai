@@ -60,6 +60,10 @@ from domain.shipments.locations import (
 from persistence.artifacts import ArtifactRepository
 from persistence.evidence import EvidenceRepository
 from persistence.shipments import ShipmentRepository
+from persistence.supplier_availability import (
+    InMemorySupplierAvailabilityRepository,
+    SupplierAvailabilityRepository,
+)
 
 EvidenceSearch = Callable[
     [str, str, RetrievalMode],
@@ -103,10 +107,14 @@ class AgentToolRegistry:
         evidence_repository: EvidenceRepository,
         shipment_repository: ShipmentRepository,
         evidence_search: EvidenceSearch,
+        supplier_availability_repository: SupplierAvailabilityRepository | None = None,
     ) -> None:
         self.artifact_repository = artifact_repository
         self.evidence_repository = evidence_repository
         self.shipment_repository = shipment_repository
+        self.supplier_availability_repository = (
+            supplier_availability_repository or InMemorySupplierAvailabilityRepository()
+        )
         self.evidence_search = evidence_search
 
     def input_schemas(self) -> dict[str, dict[str, object]]:
@@ -443,13 +451,43 @@ class AgentToolRegistry:
         destination_key = location_key(payload.destination)
         weight_kg = normalize_weight_kg(payload.weight_value, payload.weight_unit)
         workspace_shipments = list(self.shipment_repository.list_for_workspace(workspace_id))
+        service_lanes = list(self.supplier_availability_repository.list_for_workspace(workspace_id))
+
+        def lane_direction(lane_origin: str, lane_destination: str, bidirectional: bool):
+            if (
+                location_key(lane_origin) == origin_key
+                and location_key(lane_destination) == destination_key
+            ):
+                return "direct"
+            if (
+                bidirectional
+                and location_key(lane_destination) == origin_key
+                and location_key(lane_origin) == destination_key
+            ):
+                return "reverse"
+            return None
+
+        matched_service_lanes = [
+            lane
+            for lane in service_lanes
+            if lane_direction(lane.origin, lane.destination, lane.bidirectional) is not None
+        ]
         route_shipments = [
             shipment
             for shipment in workspace_shipments
             if location_key(shipment.origin) == origin_key
             and location_key(shipment.destination) == destination_key
         ]
-        matched_origin = route_shipments[0].origin if route_shipments else None
+        matched_origin = None
+        if matched_service_lanes:
+            first_lane = matched_service_lanes[0]
+            matched_origin = (
+                first_lane.origin
+                if location_key(first_lane.origin) == origin_key
+                else first_lane.destination
+            )
+        elif route_shipments:
+            matched_origin = route_shipments[0].origin
         origin_distance_km: float | None = None
         canonical_origin = canonical_location_label(payload.origin)
         requested_words = re.sub(r"[^a-z0-9]+", " ", payload.origin.casefold()).strip()
@@ -460,73 +498,132 @@ class AgentToolRegistry:
         )
         origin_match = (
             "interpreted"
-            if route_shipments
+            if (matched_service_lanes or route_shipments)
             and canonical_origin is not None
             and requested_words not in {origin_key, canonical_words}
             else "exact"
-            if route_shipments
+            if matched_service_lanes or route_shipments
             else "none"
         )
-        if not route_shipments and payload.allow_nearest_origin:
-            supported_origins = [
-                shipment.origin
-                for shipment in workspace_shipments
-                if shipment.supplier_name is not None
-                and location_key(shipment.destination) == destination_key
-            ]
+        if not matched_service_lanes and not route_shipments and payload.allow_nearest_origin:
+            supported_origins: list[str] = []
+            for lane in service_lanes:
+                if location_key(lane.destination) == destination_key:
+                    supported_origins.append(lane.origin)
+                elif lane.bidirectional and location_key(lane.origin) == destination_key:
+                    supported_origins.append(lane.destination)
+            if not supported_origins:
+                supported_origins = [
+                    shipment.origin
+                    for shipment in workspace_shipments
+                    if shipment.supplier_name is not None
+                    and location_key(shipment.destination) == destination_key
+                ]
             nearest = nearest_supported_origin(payload.origin, supported_origins)
             if nearest is not None:
                 matched_origin, origin_distance_km = nearest
                 matched_origin_key = location_key(matched_origin)
-                route_shipments = [
-                    shipment
-                    for shipment in workspace_shipments
-                    if location_key(shipment.origin) == matched_origin_key
-                    and location_key(shipment.destination) == destination_key
+                matched_service_lanes = [
+                    lane
+                    for lane in service_lanes
+                    if (
+                        location_key(lane.origin) == matched_origin_key
+                        and location_key(lane.destination) == destination_key
+                    )
+                    or (
+                        lane.bidirectional
+                        and location_key(lane.destination) == matched_origin_key
+                        and location_key(lane.origin) == destination_key
+                    )
                 ]
+                if not matched_service_lanes:
+                    route_shipments = [
+                        shipment
+                        for shipment in workspace_shipments
+                        if location_key(shipment.origin) == matched_origin_key
+                        and location_key(shipment.destination) == destination_key
+                    ]
                 origin_match = "nearest_supported"
         linked_shipments = [
             shipment for shipment in route_shipments if shipment.supplier_name is not None
         ]
         candidate_options: list[ShipmentSupplierCandidateOutput] = []
-        candidate_provenance: dict[tuple[str, str], tuple[str, str]] = {}
-        for shipment in linked_shipments:
-            assert shipment.supplier_name is not None
+        factor_provenance: tuple[str, str] | None = None
+        for lane in matched_service_lanes:
             result = calculate_emissions(
                 weight_value=weight_kg,
                 weight_unit="kg",
-                distance_value=shipment.distance_km,
+                distance_value=lane.distance_km,
                 distance_unit="km",
-                mode=shipment.transport_method,
+                mode=lane.transport_method,
                 distance_method="route",
                 origin=payload.origin,
                 destination=payload.destination,
             )
-            candidate = ShipmentSupplierCandidateOutput(
-                supplier_name=shipment.supplier_name,
-                historical_shipment_id=shipment.shipment_id,
-                transport_method=shipment.transport_method,
-                distance_km=shipment.distance_km,
-                estimated_emissions_kg=result.emissions_kg,
-                estimated_cost_value=(
-                    round(
-                        shipment.freight_cost_value * weight_kg / shipment.weight_kg,
-                        2,
-                    )
-                    if shipment.freight_cost_value is not None
-                    and shipment.freight_cost_currency is not None
-                    else None
-                ),
-                cost_currency=shipment.freight_cost_currency,
+            candidate_options.append(
+                ShipmentSupplierCandidateOutput(
+                    supplier_name=lane.supplier_name,
+                    historical_shipment_id=lane.reference_shipment_id,
+                    transport_method=lane.transport_method,
+                    distance_km=lane.distance_km,
+                    estimated_emissions_kg=result.emissions_kg,
+                    estimated_cost_value=(
+                        round(lane.estimated_cost_per_kg * weight_kg, 2)
+                        if lane.estimated_cost_per_kg is not None and lane.cost_currency is not None
+                        else None
+                    ),
+                    cost_currency=lane.cost_currency,
+                    availability_basis="supplier_service",
+                    availability_source=lane.source_label,
+                )
             )
-            candidate_options.append(candidate)
-            candidate_provenance[(shipment.supplier_name, shipment.shipment_id)] = (
+            factor_provenance = factor_provenance or (
                 result.factor.source,
                 result.factor.version,
             )
 
+        if not matched_service_lanes:
+            for shipment in linked_shipments:
+                assert shipment.supplier_name is not None
+                result = calculate_emissions(
+                    weight_value=weight_kg,
+                    weight_unit="kg",
+                    distance_value=shipment.distance_km,
+                    distance_unit="km",
+                    mode=shipment.transport_method,
+                    distance_method="route",
+                    origin=payload.origin,
+                    destination=payload.destination,
+                )
+                candidate_options.append(
+                    ShipmentSupplierCandidateOutput(
+                        supplier_name=shipment.supplier_name,
+                        historical_shipment_id=shipment.shipment_id,
+                        transport_method=shipment.transport_method,
+                        distance_km=shipment.distance_km,
+                        estimated_emissions_kg=result.emissions_kg,
+                        estimated_cost_value=(
+                            round(
+                                shipment.freight_cost_value * weight_kg / shipment.weight_kg,
+                                2,
+                            )
+                            if shipment.freight_cost_value is not None
+                            and shipment.freight_cost_currency is not None
+                            else None
+                        ),
+                        cost_currency=shipment.freight_cost_currency,
+                        availability_basis="historical_shipment",
+                        availability_source="workspace shipment history",
+                    )
+                )
+                factor_provenance = factor_provenance or (
+                    result.factor.source,
+                    result.factor.version,
+                )
+
         warnings: list[str] = []
         cost_ranked = False
+        pre_cost_candidate_count = len(candidate_options)
         if payload.objective == "carbon_and_cost" and candidate_options:
             priced_options = [
                 candidate
@@ -564,14 +661,14 @@ class AgentToolRegistry:
                     candidate.model_copy(update={"efficiency_score": efficiency_score(candidate)})
                     for candidate in priced_options
                 ]
-                if len(priced_options) != len(linked_shipments):
+                if len(priced_options) != pre_cost_candidate_count:
                     warnings.append(
-                        "Some matching shipment options were excluded because comparable "
-                        "historical freight cost was unavailable."
+                        "Some available supplier options were excluded because comparable "
+                        "screening cost was unavailable."
                     )
             else:
                 warnings.append(
-                    "Comparable historical freight cost is unavailable in one currency, so "
+                    "Comparable supplier screening cost is unavailable in one currency, so "
                     "CarbonSage ranked this lane by emissions only."
                 )
 
@@ -597,31 +694,55 @@ class AgentToolRegistry:
             candidates_by_supplier.setdefault(candidate.supplier_name, candidate)
         candidates = list(candidates_by_supplier.values())[:10]
         recommended = candidates[0] if candidates else None
-        if not route_shipments:
+        if not matched_service_lanes and not route_shipments:
             warnings.append(
-                "No historical shipment matches this exact origin and destination, so "
-                "CarbonSage cannot recommend a supplier without inventing route data."
+                "No supplier service availability or exact historical shipment supports this "
+                "origin and destination, so CarbonSage cannot recommend a supplier within its "
+                "current bounded data."
             )
-        elif not linked_shipments:
+        elif not matched_service_lanes and not linked_shipments:
             warnings.append(
                 "Matching shipments do not identify a supplier, so CarbonSage cannot make "
                 "a supplier recommendation from this workspace."
             )
-        elif len(linked_shipments) != len(route_shipments):
+        elif not matched_service_lanes and len(linked_shipments) != len(route_shipments):
             warnings.append(
                 "Some matching shipments were excluded because they do not identify a supplier."
             )
+        elif not matched_service_lanes:
+            warnings.append(
+                "No supplier service declaration is available for this lane; the result falls "
+                "back to exact workspace shipment history."
+            )
         if origin_match == "nearest_supported" and matched_origin is not None:
             warnings.append(
-                "The recommendation uses the nearest supported historical origin. Any transfer "
-                "from the requested city to that origin is outside this estimate."
+                "The recommendation uses the nearest supported service origin. Any transfer "
+                "from the requested city to that origin is outside this estimate for now."
             )
 
-        provenance = (
-            candidate_provenance[(recommended.supplier_name, recommended.historical_shipment_id)]
-            if recommended is not None
-            else None
+        if matched_service_lanes:
+            basis = (
+                "Equal-weight carbon-and-cost screening score among suppliers declaring "
+                "service on the requested lane. Supplier screening cost is scaled linearly "
+                "to the requested weight."
+                if cost_ranked
+                else "Lowest calculated freight emissions among suppliers declaring service "
+                "on the requested lane."
+            )
+        else:
+            basis = (
+                "Equal-weight carbon-and-cost screening score among supplier-linked exact "
+                "shipment history. Historical freight cost is scaled linearly to the "
+                "requested weight."
+                if cost_ranked
+                else "Lowest recalculated freight emissions among supplier-linked exact "
+                "shipment history."
+            )
+        basis += (
+            " This is a screening comparison, not a live quote, capacity commitment, "
+            "or procurement approval."
         )
+
         output = RecommendShipmentSupplierOutput(
             origin=payload.origin,
             destination=payload.destination,
@@ -636,20 +757,9 @@ class AgentToolRegistry:
             cost_currency=(recommended.cost_currency if recommended else None),
             objective="carbon_and_cost" if cost_ranked else "carbon",
             candidates=candidates,
-            basis=(
-                (
-                    "Equal-weight carbon-and-cost screening score among supplier-linked "
-                    "historical shipments on the requested lane. Historical freight cost is "
-                    "scaled linearly to the requested weight."
-                    if cost_ranked
-                    else "Lowest recalculated freight emissions among supplier-linked "
-                    "historical shipments on the requested lane."
-                )
-                + " This is a screening comparison, not a live quote, capacity commitment, "
-                "or procurement approval."
-            ),
-            factor_source=provenance[0] if provenance else None,
-            factor_version=provenance[1] if provenance else None,
+            basis=basis,
+            factor_source=factor_provenance[0] if factor_provenance else None,
+            factor_version=factor_provenance[1] if factor_provenance else None,
             warnings=warnings,
         )
         artifact_ids = tuple(

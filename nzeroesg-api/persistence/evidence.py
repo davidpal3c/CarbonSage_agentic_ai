@@ -27,6 +27,7 @@ from domain.evidence.models import (
     SupplierMetadata,
 )
 from domain.evidence.retrieval import RetrievalMode, rank_matches
+from persistence.database import pooled_connect
 
 
 class EvidenceRepository(Protocol):
@@ -437,7 +438,7 @@ class PostgresEvidenceRepository:
         self.database_url = database_url
 
     def _connect(self):
-        return psycopg.connect(self.database_url)
+        return pooled_connect(self.database_url)
 
     def upsert_supplier(
         self,

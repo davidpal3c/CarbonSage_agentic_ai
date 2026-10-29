@@ -230,13 +230,15 @@ class AnalyzeShipmentEmissionsOutput(StrictModel):
 
 class ShipmentSupplierCandidateOutput(StrictModel):
     supplier_name: str
-    historical_shipment_id: str
+    historical_shipment_id: str | None = None
     transport_method: str
     distance_km: float
     estimated_emissions_kg: float
     estimated_cost_value: float | None = None
     cost_currency: str | None = None
     efficiency_score: float | None = None
+    availability_basis: Literal["supplier_service", "historical_shipment"] = "historical_shipment"
+    availability_source: str | None = None
 
 
 class RecommendShipmentSupplierOutput(StrictModel):

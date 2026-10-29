@@ -13,7 +13,11 @@ from agent.evidence_support import LlmEvidenceSupportAssessor
 from agent.planner import LlmAgentPlanner
 from agent.usage import ModelInvocationUsage
 from api.artifacts import artifact_repository
-from api.evidence import _search_with_mode, evidence_repository
+from api.evidence import (
+    _search_with_mode,
+    evidence_repository,
+    supplier_availability_repository,
+)
 from api.shipments import shipment_repository
 from api.workspaces import require_workspace_principal, workspace_repository
 from config import database_url_for_runtime, settings
@@ -83,6 +87,7 @@ agent_tools = AgentToolRegistry(
     artifact_repository=artifact_repository,
     evidence_repository=evidence_repository,
     shipment_repository=shipment_repository,
+    supplier_availability_repository=supplier_availability_repository,
     evidence_search=_agent_evidence_search,
 )
 agent_planner, agent_evidence_assessor = _configured_model_components()

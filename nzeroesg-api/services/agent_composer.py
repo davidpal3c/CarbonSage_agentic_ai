@@ -511,6 +511,26 @@ def compose_agent_response(
                     )
                 else:
                     route_context = ""
+                if recommended.availability_basis == "supplier_service":
+                    reference_context = (
+                        f" The screening rate is calibrated to reference shipment "
+                        f"{recommended.historical_shipment_id}."
+                        if recommended.historical_shipment_id
+                        else ""
+                    )
+                    source_context = (
+                        f" Availability comes from {recommended.availability_source}."
+                        if recommended.availability_source
+                        else ""
+                    )
+                    recommendation_context = source_context + reference_context
+                else:
+                    recommendation_context = (
+                        f" The fallback comparison uses exact-lane history from shipment "
+                        f"{recommended.historical_shipment_id}."
+                        if recommended.historical_shipment_id
+                        else ""
+                    )
                 blocks.extend(
                     (
                         TextBlock(
@@ -518,9 +538,8 @@ def compose_agent_response(
                                 route_context + f"{output.recommended_supplier_name} is the "
                                 f"{recommendation_label} "
                                 f"supplier-linked option in this workspace for {matched_origin} "
-                                f"to {output.destination}. The comparison uses "
-                                f"{recommended.transport_method} history from shipment "
-                                f"{recommended.historical_shipment_id}, not an invented route."
+                                f"to {output.destination} using {recommended.transport_method}."
+                                f"{recommendation_context}"
                             )
                         ),
                         MetricBlock(
@@ -541,7 +560,11 @@ def compose_agent_response(
                             label="Estimated historical freight cost",
                             value=output.recommended_cost_value or 0.0,
                             unit=output.cost_currency or "",
-                            context="Scaled linearly from the historical shipment cost",
+                            context=(
+                                "Supplier service screening rate applied to the requested weight"
+                                if recommended.availability_basis == "supplier_service"
+                                else "Scaled linearly from the historical shipment cost"
+                            ),
                         )
                     )
                 comparable_costs = (
@@ -560,6 +583,11 @@ def compose_agent_response(
                         "distance_km": candidate.distance_km,
                         "emissions_kg": candidate.estimated_emissions_kg,
                         "historical_shipment": candidate.historical_shipment_id,
+                        "availability": (
+                            "Supplier service"
+                            if candidate.availability_basis == "supplier_service"
+                            else "Exact shipment history"
+                        ),
                         **(
                             {
                                 "estimated_cost": candidate.estimated_cost_value or 0.0,
@@ -578,6 +606,7 @@ def compose_agent_response(
                 ]
                 candidate_columns = [
                     TableColumn(key="supplier", label="Supplier"),
+                    TableColumn(key="availability", label="Availability basis"),
                     TableColumn(key="transport_method", label="Mode"),
                     TableColumn(key="distance_km", label="Distance", unit="km"),
                     TableColumn(
@@ -601,12 +630,13 @@ def compose_agent_response(
                                 unit="/100",
                             )
                         )
-                candidate_columns.append(
-                    TableColumn(
-                        key="historical_shipment",
-                        label="Historical shipment",
+                if any(row["historical_shipment"] for row in candidate_rows):
+                    candidate_columns.append(
+                        TableColumn(
+                            key="historical_shipment",
+                            label="Reference shipment",
+                        )
                     )
-                )
                 blocks.append(
                     _chart(
                         title="Supplier-linked lane options",
@@ -628,7 +658,8 @@ def compose_agent_response(
                     TextBlock(
                         text=(
                             f"CarbonSage cannot recommend a supplier for {output.origin} to "
-                            f"{output.destination} from the current shipment data."
+                            f"{output.destination} from the current supplier availability "
+                            "or shipment data."
                         )
                     )
                 )

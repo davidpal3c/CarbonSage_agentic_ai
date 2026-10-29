@@ -26,6 +26,7 @@ from domain.agent.models import (
     ToolEvent,
     ToolEventStatus,
 )
+from persistence.database import pooled_connect
 
 MAX_ACTIVE_CONVERSATIONS_PER_WORKSPACE = 3
 MAX_MESSAGES_PER_CONVERSATION = 20
@@ -334,7 +335,7 @@ class PostgresAgentRepository:
         self.database_url = database_url
 
     def _connect(self):
-        return psycopg.connect(self.database_url)
+        return pooled_connect(self.database_url)
 
     def create_conversation(
         self,

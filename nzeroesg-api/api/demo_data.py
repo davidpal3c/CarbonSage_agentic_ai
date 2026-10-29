@@ -2,17 +2,38 @@
 
 from __future__ import annotations
 
+import logging
+from dataclasses import dataclass
 from hashlib import sha256
-from typing import Annotated
+from time import perf_counter
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
 
-from api.artifacts import artifact_repository, schedule_artifact_source_delete
-from api.evidence import _index_document, evidence_repository
-from api.shipments import shipment_repository
+from api.artifacts import (
+    ArtifactResponse,
+    artifact_repository,
+    artifact_response,
+    schedule_artifact_source_delete,
+)
+from api.evidence import (
+    SupplierResponse,
+    _supplier_response,
+    evidence_repository,
+    supplier_availability_repository,
+)
+from api.shipments import (
+    ShipmentUploadResponse,
+    shipment_repository,
+)
+from api.shipments import (
+    _response as shipment_list_response,
+)
 from api.workspaces import require_workspace_principal
+from config import database_url_for_runtime, settings
 from domain.artifacts.models import (
+    Artifact,
     ArtifactKind,
     ArtifactSourceType,
     ArtifactStatus,
@@ -23,19 +44,33 @@ from domain.demo_data import (
     DEMO_EVIDENCE_SOURCES,
     DEMO_SHIPMENTS_CSV,
     DEMO_SHIPMENTS_FILENAME,
+    DEMO_SUPPLIER_SERVICE_LANES,
     DEMO_SUPPLIERS,
 )
 from domain.evidence.ingestion import extract_evidence, normalize_supplier_metadata
-from domain.evidence.models import SupplierMetadata
+from domain.evidence.models import SupplierCard, SupplierMetadata
 from domain.shipments.ingestion import parse_shipments_csv
+from domain.shipments.models import NormalizedShipment
 from domain.workspaces.principals import WorkspacePrincipal
+from persistence.demo_seed import PreparedEvidenceSeed, build_demo_data_seeder
 
 demo_data_router = APIRouter(prefix="/demo/data", tags=["workspace"])
+logger = logging.getLogger(__name__)
+process_started_at = perf_counter()
 generated_source_retention = SourceRetention(status="ephemeral").to_dict()
 DEMO_ASSET_KEYS = {
     "shipment-baseline",
     *(source.key for source in DEMO_EVIDENCE_SOURCES),
 }
+demo_data_seeder = build_demo_data_seeder(database_url_for_runtime())
+
+
+class DemoLoadPerformance(BaseModel):
+    outcome: str
+    process_state: str
+    process_age_ms: int
+    total_ms: int
+    stages_ms: dict[str, int]
 
 
 class DemoDataResponse(BaseModel):
@@ -45,40 +80,202 @@ class DemoDataResponse(BaseModel):
     shipment_count: int
     supplier_count: int
     evidence_document_count: int
+    performance: DemoLoadPerformance | None = None
 
 
-def _workspace_state(workspace_id: str) -> DemoDataResponse:
-    artifacts = artifact_repository.list_for_workspace(workspace_id)
-    shipments = shipment_repository.list_for_workspace(workspace_id)
-    suppliers = evidence_repository.list_suppliers(workspace_id)
-    loaded = any(artifact.metadata.get("demo_asset") in DEMO_ASSET_KEYS for artifact in artifacts)
-    return DemoDataResponse(
-        loaded=loaded,
-        has_artifacts=bool(artifacts),
-        artifact_count=len(artifacts),
-        shipment_count=len(shipments),
-        supplier_count=len(suppliers),
-        evidence_document_count=sum(supplier.document_count for supplier in suppliers),
+class WorkspaceBootstrapData(BaseModel):
+    schema_version: Literal["1.0"] = "1.0"
+    shipments: ShipmentUploadResponse
+    suppliers: list[SupplierResponse]
+    artifacts: list[ArtifactResponse]
+
+
+class WorkspaceBootstrapResponse(WorkspaceBootstrapData):
+    demo_data: DemoDataResponse
+
+
+class DemoDataLoadResponse(DemoDataResponse):
+    bootstrap: WorkspaceBootstrapData
+
+
+@dataclass(frozen=True)
+class _WorkspaceSnapshot:
+    artifacts: tuple[Artifact, ...]
+    shipments: tuple[NormalizedShipment, ...]
+    suppliers: tuple[SupplierCard, ...]
+
+
+def _elapsed_ms(started_at: float) -> int:
+    return max(0, round((perf_counter() - started_at) * 1_000))
+
+
+def _record_load_performance(
+    *,
+    response: Response,
+    workspace_id: str,
+    outcome: str,
+    request_started_at: float,
+    stages_ms: dict[str, int],
+    state: DemoDataResponse,
+) -> DemoDataResponse:
+    process_age_ms = _elapsed_ms(process_started_at)
+    performance = DemoLoadPerformance(
+        outcome=outcome,
+        process_state=("recent_start" if process_age_ms < 120_000 else "warm_process"),
+        process_age_ms=process_age_ms,
+        total_ms=_elapsed_ms(request_started_at),
+        stages_ms=stages_ms,
+    )
+    response.headers["Server-Timing"] = ", ".join(
+        [f"{name};dur={duration}" for name, duration in stages_ms.items()]
+        + [f"total;dur={performance.total_ms}"]
+    )
+    response.headers["X-CarbonSage-Demo-Load-Outcome"] = outcome
+    logger.info(
+        "demo_data_load_completed workspace_id=%s outcome=%s process_state=%s "
+        "process_age_ms=%s total_ms=%s stages_ms=%s",
+        workspace_id,
+        outcome,
+        performance.process_state,
+        performance.process_age_ms,
+        performance.total_ms,
+        performance.stages_ms,
+    )
+    return state.model_copy(update={"performance": performance})
+
+
+def _workspace_snapshot(workspace_id: str) -> _WorkspaceSnapshot:
+    return _WorkspaceSnapshot(
+        artifacts=artifact_repository.list_for_workspace(workspace_id),
+        shipments=shipment_repository.list_for_workspace(workspace_id),
+        suppliers=evidence_repository.list_suppliers(workspace_id),
     )
 
 
-@demo_data_router.get("", response_model=DemoDataResponse)
-async def demo_data_status(
+def _workspace_state_from_snapshot(snapshot: _WorkspaceSnapshot) -> DemoDataResponse:
+    loaded = any(
+        artifact.metadata.get("demo_asset") in DEMO_ASSET_KEYS for artifact in snapshot.artifacts
+    )
+    return DemoDataResponse(
+        loaded=loaded,
+        has_artifacts=bool(snapshot.artifacts),
+        artifact_count=len(snapshot.artifacts),
+        shipment_count=len(snapshot.shipments),
+        supplier_count=len(snapshot.suppliers),
+        evidence_document_count=sum(supplier.document_count for supplier in snapshot.suppliers),
+    )
+
+
+def _workspace_state(workspace_id: str) -> DemoDataResponse:
+    return _workspace_state_from_snapshot(_workspace_snapshot(workspace_id))
+
+
+def _bootstrap_from_snapshot(snapshot: _WorkspaceSnapshot) -> WorkspaceBootstrapData:
+    shipment_artifact = next(
+        (
+            artifact
+            for artifact in snapshot.artifacts
+            if artifact.kind is ArtifactKind.SHIPMENT_DATASET
+        ),
+        None,
+    )
+    return WorkspaceBootstrapData(
+        shipments=shipment_list_response(
+            snapshot.shipments,
+            artifact=shipment_artifact,
+        ),
+        suppliers=[_supplier_response(supplier) for supplier in snapshot.suppliers],
+        artifacts=[artifact_response(artifact) for artifact in snapshot.artifacts],
+    )
+
+
+def _record_bootstrapped_load(
+    *,
+    response: Response,
+    workspace_id: str,
+    outcome: str,
+    request_started_at: float,
+    stages_ms: dict[str, int],
+    state: DemoDataResponse,
+    snapshot: _WorkspaceSnapshot,
+) -> DemoDataLoadResponse:
+    stage_started_at = perf_counter()
+    bootstrap = _bootstrap_from_snapshot(snapshot)
+    stages_ms["bootstrap"] = _elapsed_ms(stage_started_at)
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["X-CarbonSage-Bootstrap-Version"] = bootstrap.schema_version
+    measured_state = _record_load_performance(
+        response=response,
+        workspace_id=workspace_id,
+        outcome=outcome,
+        request_started_at=request_started_at,
+        stages_ms=stages_ms,
+        state=state,
+    )
+    return DemoDataLoadResponse(
+        **measured_state.model_dump(),
+        bootstrap=bootstrap,
+    )
+
+
+@demo_data_router.get(
+    "",
+    response_model=DemoDataResponse,
+    response_model_exclude_none=True,
+)
+def demo_data_status(
     principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
 ) -> DemoDataResponse:
     return _workspace_state(principal.workspace_id)
 
 
-@demo_data_router.post("", response_model=DemoDataResponse)
-async def load_demo_data(
+@demo_data_router.get(
+    "/bootstrap",
+    response_model=WorkspaceBootstrapResponse,
+)
+def workspace_bootstrap(
     principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
-) -> DemoDataResponse:
+    response: Response,
+) -> WorkspaceBootstrapResponse:
+    """Return one versioned snapshot for initial client-side workspace hydration."""
+
+    started_at = perf_counter()
+    snapshot = _workspace_snapshot(principal.workspace_id)
+    bootstrap = _bootstrap_from_snapshot(snapshot)
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["X-CarbonSage-Bootstrap-Version"] = bootstrap.schema_version
+    response.headers["Server-Timing"] = f"bootstrap;dur={_elapsed_ms(started_at)}"
+    return WorkspaceBootstrapResponse(
+        **bootstrap.model_dump(),
+        demo_data=_workspace_state_from_snapshot(snapshot),
+    )
+
+
+@demo_data_router.post("", response_model=DemoDataLoadResponse)
+def load_demo_data(
+    principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
+    response: Response,
+) -> DemoDataLoadResponse:
     """Load one bounded, fictional dataset into an otherwise empty workspace."""
 
-    existing = _workspace_state(principal.workspace_id)
+    request_started_at = perf_counter()
+    stages_ms: dict[str, int] = {}
+    stage_started_at = perf_counter()
+    existing_snapshot = _workspace_snapshot(principal.workspace_id)
+    existing = _workspace_state_from_snapshot(existing_snapshot)
+    stages_ms["status"] = _elapsed_ms(stage_started_at)
     if existing.has_artifacts or existing.supplier_count:
-        return existing
+        return _record_bootstrapped_load(
+            response=response,
+            workspace_id=principal.workspace_id,
+            outcome="already_available",
+            request_started_at=request_started_at,
+            stages_ms=stages_ms,
+            state=existing,
+            snapshot=existing_snapshot,
+        )
 
+    stage_started_at = perf_counter()
     parsed = parse_shipments_csv(
         DEMO_SHIPMENTS_CSV,
         content_type="text/csv",
@@ -86,7 +283,9 @@ async def load_demo_data(
     )
     if not parsed.rows:
         raise RuntimeError("The checked-in demo shipment data is invalid.")
+    stages_ms["parse"] = _elapsed_ms(stage_started_at)
 
+    stage_started_at = perf_counter()
     shipment_artifact = create_artifact(
         workspace_id=principal.workspace_id,
         kind=ArtifactKind.SHIPMENT_DATASET,
@@ -98,17 +297,7 @@ async def load_demo_data(
         created_by=principal.subject,
         metadata={"demo_asset": "shipment-baseline"},
     )
-    artifact_repository.create(shipment_artifact)
-    shipment_repository.replace_for_workspace(
-        principal.workspace_id,
-        shipment_artifact.artifact_id,
-        parsed.rows,
-    )
-    existing_supplier_ids = {
-        supplier.supplier_id
-        for supplier in evidence_repository.list_suppliers(principal.workspace_id)
-    }
-    demo_supplier_ids: list[str] = []
+    suppliers: list[SupplierMetadata] = []
     for demo_supplier in DEMO_SUPPLIERS:
         normalized = normalize_supplier_metadata(
             name=demo_supplier.name,
@@ -116,32 +305,16 @@ async def load_demo_data(
             certifications=demo_supplier.certifications,
             transport_modes=demo_supplier.transport_modes,
         )
-        stored_supplier = evidence_repository.upsert_supplier(
-            principal.workspace_id,
+        suppliers.append(
             SupplierMetadata(
                 name=normalized[0],
                 region=normalized[1],
                 certifications=normalized[2],
                 transport_modes=normalized[3],
-            ),
+            )
         )
-        if stored_supplier.supplier_id not in existing_supplier_ids:
-            demo_supplier_ids.append(stored_supplier.supplier_id)
 
-    demo_supplier_metadata = sorted(set(demo_supplier_ids))
-    artifact_repository.mark_ready(
-        principal.workspace_id,
-        shipment_artifact.artifact_id,
-        {
-            "accepted_rows": len(parsed.rows),
-            "validation_error_count": 0,
-            "warning_count": len(parsed.warnings),
-            "demo_asset": "shipment-baseline",
-            "demo_supplier_ids": demo_supplier_metadata,
-            "source_retention": generated_source_retention,
-        },
-    )
-
+    prepared_evidence: list[PreparedEvidenceSeed] = []
     for source in DEMO_EVIDENCE_SOURCES:
         normalized = normalize_supplier_metadata(
             name=source.supplier_name,
@@ -165,47 +338,132 @@ async def load_demo_data(
             created_by=principal.subject,
             metadata={"demo_asset": source.key},
         )
-        artifact_repository.create(artifact)
-        supplier = SupplierMetadata(
-            name=normalized[0],
-            region=normalized[1],
-            certifications=normalized[2],
-            transport_modes=normalized[3],
+        prepared_evidence.append(
+            PreparedEvidenceSeed(
+                artifact=artifact,
+                supplier=SupplierMetadata(
+                    name=normalized[0],
+                    region=normalized[1],
+                    certifications=normalized[2],
+                    transport_modes=normalized[3],
+                ),
+                document=extraction.document,
+                demo_asset=source.key,
+            )
         )
-        stored_supplier = evidence_repository.store(
+    stages_ms["prepare"] = _elapsed_ms(stage_started_at)
+
+    shipment_metadata = {
+        "accepted_rows": len(parsed.rows),
+        "validation_error_count": 0,
+        "warning_count": len(parsed.warnings),
+        "demo_asset": "shipment-baseline",
+        "source_retention": generated_source_retention,
+    }
+    supplier_ids_by_name: dict[str, str] = {}
+    stage_started_at = perf_counter()
+    if demo_data_seeder is not None:
+        seed_result = demo_data_seeder.seed(
+            workspace_id=principal.workspace_id,
+            shipment_artifact=shipment_artifact,
+            shipments=parsed.rows,
+            suppliers=tuple(suppliers),
+            service_lanes=DEMO_SUPPLIER_SERVICE_LANES,
+            evidence=tuple(prepared_evidence),
+            shipment_metadata=shipment_metadata,
+        )
+        stages_ms["relational"] = _elapsed_ms(stage_started_at)
+        if not seed_result.seeded:
+            snapshot = _workspace_snapshot(principal.workspace_id)
+            return _record_bootstrapped_load(
+                response=response,
+                workspace_id=principal.workspace_id,
+                outcome="already_available",
+                request_started_at=request_started_at,
+                stages_ms=stages_ms,
+                state=_workspace_state_from_snapshot(snapshot),
+                snapshot=snapshot,
+            )
+        supplier_ids_by_name = seed_result.supplier_ids_by_name
+    else:
+        artifact_repository.create(shipment_artifact)
+        shipment_repository.replace_for_workspace(
             principal.workspace_id,
-            artifact.artifact_id,
-            supplier,
-            extraction.document,
+            shipment_artifact.artifact_id,
+            parsed.rows,
         )
-        embedding_status = await _index_document(
+        for supplier in suppliers:
+            stored_supplier = evidence_repository.upsert_supplier(
+                principal.workspace_id,
+                supplier,
+            )
+            supplier_ids_by_name[supplier.name] = stored_supplier.supplier_id
+        supplier_availability_repository.upsert_many(
             principal.workspace_id,
-            extraction.document,
+            DEMO_SUPPLIER_SERVICE_LANES,
         )
+        demo_supplier_ids = sorted(supplier_ids_by_name.values())
         artifact_repository.mark_ready(
             principal.workspace_id,
-            artifact.artifact_id,
+            shipment_artifact.artifact_id,
+            {**shipment_metadata, "demo_supplier_ids": demo_supplier_ids},
+        )
+        for item in prepared_evidence:
+            artifact_repository.create(item.artifact)
+            stored_supplier = evidence_repository.store(
+                principal.workspace_id,
+                item.artifact.artifact_id,
+                item.supplier,
+                item.document,
+            )
+            supplier_ids_by_name[item.supplier.name] = stored_supplier.supplier_id
+        stages_ms["relational"] = _elapsed_ms(stage_started_at)
+
+    demo_supplier_metadata = sorted(supplier_ids_by_name.values())
+    relational_finalize_ms = 0
+    embedding_status = "pending" if settings.embedding_provider else "not_configured"
+    for item in prepared_evidence:
+        stage_started_at = perf_counter()
+        artifact_repository.mark_ready(
+            principal.workspace_id,
+            item.artifact.artifact_id,
             {
-                "supplier_id": stored_supplier.supplier_id,
-                "supplier_name": stored_supplier.name,
-                "page_count": extraction.document.page_count,
-                "chunk_count": len(extraction.document.chunks),
+                "supplier_id": supplier_ids_by_name[item.supplier.name],
+                "supplier_name": item.supplier.name,
+                "page_count": item.document.page_count,
+                "chunk_count": len(item.document.chunks),
                 "embedding_status": embedding_status,
-                "demo_asset": source.key,
+                "demo_asset": item.demo_asset,
                 "demo_supplier_ids": demo_supplier_metadata,
                 "source_retention": generated_source_retention,
             },
         )
+        relational_finalize_ms += _elapsed_ms(stage_started_at)
 
-    state = _workspace_state(principal.workspace_id)
-    assert all(
-        artifact.status is ArtifactStatus.READY
-        for artifact in artifact_repository.list_for_workspace(principal.workspace_id)
+    stages_ms["relational"] += relational_finalize_ms
+    # Semantic and hybrid search index pending documents on demand.
+    stages_ms["embeddings"] = 0
+    stage_started_at = perf_counter()
+    snapshot = _workspace_snapshot(principal.workspace_id)
+    state = _workspace_state_from_snapshot(snapshot)
+    assert all(artifact.status is ArtifactStatus.READY for artifact in snapshot.artifacts)
+    stages_ms["finalize"] = _elapsed_ms(stage_started_at)
+    return _record_bootstrapped_load(
+        response=response,
+        workspace_id=principal.workspace_id,
+        outcome="loaded",
+        request_started_at=request_started_at,
+        stages_ms=stages_ms,
+        state=state,
+        snapshot=snapshot,
     )
-    return state
 
 
-@demo_data_router.delete("", response_model=DemoDataResponse)
+@demo_data_router.delete(
+    "",
+    response_model=DemoDataResponse,
+    response_model_exclude_none=True,
+)
 async def unload_demo_data(
     principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
 ) -> DemoDataResponse:
@@ -215,6 +473,11 @@ async def unload_demo_data(
     demo_artifacts = tuple(
         artifact for artifact in artifacts if artifact.metadata.get("demo_asset") in DEMO_ASSET_KEYS
     )
+    if demo_artifacts:
+        supplier_availability_repository.delete_for_suppliers(
+            principal.workspace_id,
+            tuple(supplier.name for supplier in DEMO_SUPPLIERS),
+        )
     supplier_ids: set[str] = set()
     for artifact in demo_artifacts:
         artifact_supplier_ids = artifact.metadata.get("demo_supplier_ids")

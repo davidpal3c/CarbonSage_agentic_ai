@@ -603,10 +603,8 @@ export default function ChatInterface({
               ? "flex h-[min(50rem,calc(100vh-11rem))] min-h-[38rem] w-full flex-col overflow-hidden rounded-2xl border border-border bg-chat-surface shadow-sm"
               : `fixed inset-x-3 bottom-3 z-50 flex ${
                   hasAssistantMessage
-                    ? "h-[min(46rem,calc(100vh-1.5rem))]"
-                    : messages.length || isLoading
-                      ? "h-[min(30rem,calc(100vh-1.5rem))]"
-                      : "h-[min(34rem,calc(100vh-1.5rem))]"
+                    ? "h-[min(48rem,calc(100vh-1.5rem))]"
+                    : "h-[min(36rem,calc(100vh-1.5rem))]"
                 } flex-col overflow-hidden rounded-2xl border border-border bg-chat-surface shadow-2xl transition-[height] duration-200 sm:left-auto sm:right-4 sm:w-[min(48rem,calc(100vw-2rem))]`
           }
         >
@@ -749,111 +747,125 @@ export default function ChatInterface({
             }`}
           >
             <div className="flex min-h-0 flex-col">
-              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-chat-surface px-4 py-5 sm:px-5">
-                {isSwitchingConversation ? (
-                  <LoadingState label="Loading conversation" />
-                ) : !messages.length && !isLoading ? (
-                  <div className="mx-auto flex h-full max-w-xl flex-col items-center justify-center py-8 text-center">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-accent">
-                      <Leaf aria-hidden="true" className="h-5 w-5" />
-                    </div>
-                    <h3 className="mt-4 text-lg font-semibold text-primary">
-                      {demoData && !demoData.has_artifacts
-                        ? "Start with demo data or bring your own"
-                        : "What would you like to review?"}
-                    </h3>
-                    <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-                      {demoData && !demoData.has_artifacts
-                        ? "This workspace is empty. Load 38 fictional suppliers, cited disclosures, and a global shipment baseline, or upload CSV, XLSX, PDF, or TXT files."
-                        : "Ask about workspace files, supplier evidence, emissions, scenarios, or report data."}
-                    </p>
-                    {demoData && !demoData.has_artifacts ? (
-                      <div className="mt-5 flex flex-wrap justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => void handleLoadDemoData()}
-                          disabled={!onAction || isLoadingDemoData}
-                          className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-secondary/85 disabled:opacity-50"
-                        >
-                          {isLoadingDemoData ? (
-                            <Spinner />
-                          ) : (
-                            <Database aria-hidden="true" className="h-4 w-4" />
-                          )}
-                          Load demo data
-                        </button>
-                        <Link
-                          href="/dashboard/shipments"
-                          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3.5 py-2 text-xs font-semibold text-primary transition hover:border-accent"
-                        >
-                          <Upload aria-hidden="true" className="h-4 w-4" />
-                          Upload your own
-                        </Link>
+              <div className="min-h-0 flex-1 overflow-y-auto bg-chat-surface px-4 py-5 sm:px-5">
+                <div
+                  className={
+                    isPanel
+                      ? "space-y-4"
+                      : "flex min-h-full flex-col justify-end gap-4"
+                  }
+                >
+                  {isSwitchingConversation ? (
+                    <LoadingState label="Loading conversation" />
+                  ) : !messages.length && !isLoading ? (
+                    <div className="mx-auto flex h-full max-w-xl flex-col items-center justify-center py-8 text-center">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-accent">
+                        <Leaf aria-hidden="true" className="h-5 w-5" />
                       </div>
-                    ) : assistantStatus === "available" && conversationReady ? (
-                      <div className="mt-5 flex flex-wrap justify-center gap-2">
-                        {suggestedPrompts.map((prompt) => (
+                      <h3 className="mt-4 text-lg font-semibold text-primary">
+                        {demoData && !demoData.has_artifacts
+                          ? "Start with demo data or bring your own"
+                          : "What would you like to review?"}
+                      </h3>
+                      <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+                        {demoData && !demoData.has_artifacts
+                          ? "This workspace is empty. Load 38 fictional suppliers, cited disclosures, and a global shipment baseline, or upload CSV, XLSX, PDF, or TXT files."
+                          : "Ask about workspace files, supplier evidence, emissions, scenarios, or report data."}
+                      </p>
+                      {demoData && !demoData.has_artifacts ? (
+                        <div className="mt-5 flex flex-wrap justify-center gap-2">
                           <button
-                            key={prompt}
                             type="button"
-                            onClick={() => void handleSendMessage(prompt)}
-                            className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-primary transition hover:border-accent"
+                            onClick={() => void handleLoadDemoData()}
+                            disabled={!onAction || isLoadingDemoData}
+                            className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-secondary/85 disabled:opacity-50"
                           >
-                            {prompt}
+                            {isLoadingDemoData ? (
+                              <Spinner />
+                            ) : (
+                              <Database
+                                aria-hidden="true"
+                                className="h-4 w-4"
+                              />
+                            )}
+                            Load demo data
                           </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
+                          <Link
+                            href="/dashboard/shipments"
+                            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3.5 py-2 text-xs font-semibold text-primary transition hover:border-accent"
+                          >
+                            <Upload aria-hidden="true" className="h-4 w-4" />
+                            Upload your own
+                          </Link>
+                        </div>
+                      ) : assistantStatus === "available" &&
+                        conversationReady ? (
+                        <div className="mt-5 flex flex-wrap justify-center gap-2">
+                          {suggestedPrompts.map((prompt) => (
+                            <button
+                              key={prompt}
+                              type="button"
+                              onClick={() => void handleSendMessage(prompt)}
+                              className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-primary transition hover:border-accent"
+                            >
+                              {prompt}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
 
-                {messages.map((message) => (
-                  <article
-                    key={message.id}
-                    ref={(element) => {
-                      if (element)
-                        messageElements.current.set(message.id, element);
-                      else messageElements.current.delete(message.id);
-                    }}
-                    data-message-id={message.id}
-                    className={`flex ${
-                      message.role === "user" ? "justify-end" : "justify-start"
-                    }`}
-                  >
-                    <div
-                      className={`min-w-0 max-w-[94%] rounded-2xl px-4 py-3 sm:max-w-[88%] ${
+                  {messages.map((message) => (
+                    <article
+                      key={message.id}
+                      ref={(element) => {
+                        if (element)
+                          messageElements.current.set(message.id, element);
+                        else messageElements.current.delete(message.id);
+                      }}
+                      data-message-id={message.id}
+                      className={`flex ${
                         message.role === "user"
-                          ? "bg-user-message text-primary"
-                          : message.isError
-                            ? "border border-red-300 bg-red-50 text-red-900"
-                            : "border border-border bg-transparent text-primary shadow-[0_8px_24px_rgba(27,26,29,0.10)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.32)]"
+                          ? "justify-end"
+                          : "justify-start"
                       }`}
                     >
-                      <p className="mb-2 text-xs font-semibold">
-                        {message.role === "user" ? "You" : "CarbonSage"}
-                      </p>
-                      {message.response ? (
-                        <StructuredResponse
-                          response={message.response}
-                          onAction={onAction ? handleAgentAction : undefined}
-                          onPrompt={handleSendMessage}
-                          promptDisabled={interactionDisabled}
-                        />
-                      ) : (
-                        <p className="whitespace-pre-wrap text-sm leading-6">
-                          {message.content}
+                      <div
+                        className={`min-w-0 max-w-[94%] rounded-2xl px-4 py-3 sm:max-w-[88%] ${
+                          message.role === "user"
+                            ? "bg-user-message text-primary"
+                            : message.isError
+                              ? "border border-red-300 bg-red-50 text-red-900"
+                              : "border border-border bg-transparent text-primary shadow-[0_8px_24px_rgba(27,26,29,0.10)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.32)]"
+                        }`}
+                      >
+                        <p className="mb-2 text-xs font-semibold">
+                          {message.role === "user" ? "You" : "CarbonSage"}
                         </p>
-                      )}
-                      <p className="mt-3 text-[11px] opacity-60">
-                        {message.timestamp.toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </p>
-                    </div>
-                  </article>
-                ))}
-                {isLoading ? <LoadingIndicator /> : null}
+                        {message.response ? (
+                          <StructuredResponse
+                            response={message.response}
+                            onAction={onAction ? handleAgentAction : undefined}
+                            onPrompt={handleSendMessage}
+                            promptDisabled={interactionDisabled}
+                          />
+                        ) : (
+                          <p className="whitespace-pre-wrap text-sm leading-6">
+                            {message.content}
+                          </p>
+                        )}
+                        <p className="mt-3 text-[11px] opacity-60">
+                          {message.timestamp.toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                    </article>
+                  ))}
+                  {isLoading ? <LoadingIndicator /> : null}
+                </div>
               </div>
 
               <ChatInput

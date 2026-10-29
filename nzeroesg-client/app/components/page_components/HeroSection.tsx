@@ -39,7 +39,7 @@ export default function HeroSection({ onTry }: HeroSectionProps) {
           onClick={onTry}
           className="mt-10 rounded-lg bg-secondary px-6 py-3 font-semibold text-white shadow transition hover:bg-secondary/85"
         >
-          Enter the demo workspace
+          Try CarbonSage
         </button>
         <p className="mt-3 text-xs text-muted-foreground">
           Manage artifacts and test the workspace-scoped decision agent.

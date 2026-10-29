@@ -13,6 +13,35 @@ export type DemoDataStatus = {
   shipment_count: number;
   supplier_count: number;
   evidence_document_count: number;
+  performance?: {
+    outcome: string;
+    process_state: string;
+    process_age_ms: number;
+    total_ms: number;
+    stages_ms: Record<string, number>;
+  } | null;
+};
+
+export type DemoLoadMetrics = {
+  request_ms: number;
+  hydration_ms: number;
+  total_ms: number;
+  server?: DemoDataStatus["performance"];
+};
+
+export type WorkspaceBootstrapData = {
+  schema_version: "1.0";
+  shipments: ShipmentData;
+  suppliers: SupplierCard[];
+  artifacts: Artifact[];
+};
+
+type WorkspaceBootstrapResponse = WorkspaceBootstrapData & {
+  demo_data: DemoDataStatus;
+};
+
+type DemoDataLoadResponse = DemoDataStatus & {
+  bootstrap: WorkspaceBootstrapData;
 };
 
 export type ShipmentRow = {
@@ -206,6 +235,9 @@ type WorkspaceData = {
 type WorkspaceDataActions = {
   setWorkspace: (workspaceId: string) => void;
   resetWorkspace: () => void;
+  ensureWorkspaceBootstrap: (
+    force?: boolean,
+  ) => Promise<WorkspaceBootstrapResponse>;
   ensureDemoData: (force?: boolean) => Promise<DemoDataStatus>;
   loadDemoData: () => Promise<DemoDataStatus>;
   unloadDemoData: () => Promise<DemoDataStatus>;
@@ -250,7 +282,12 @@ function emptyWorkspaceData(workspaceId: string | null = null): WorkspaceData {
   };
 }
 
-type RequestKey = "demo" | "shipments" | "suppliers" | "artifacts";
+type RequestKey =
+  | "bootstrap"
+  | "demo"
+  | "shipments"
+  | "suppliers"
+  | "artifacts";
 
 const inFlight = new Map<string, Promise<unknown>>();
 let requestEpoch = 0;
@@ -270,6 +307,32 @@ export function shipmentAnalyticsKey(query: ShipmentAnalyticsQuery = {}) {
     query.endDate ?? "",
     modes.join(","),
   ].join("|");
+}
+
+function hydratedBootstrapState(
+  demoData: DemoDataStatus,
+  bootstrap: WorkspaceBootstrapData,
+): Partial<WorkspaceData> {
+  const analyticsKey = shipmentAnalyticsKey();
+  return {
+    demoData,
+    demoStatus: "ready",
+    demoError: null,
+    shipments: bootstrap.shipments,
+    shipmentsStatus: "ready",
+    shipmentsError: null,
+    shipmentAnalytics: {
+      [analyticsKey]: bootstrap.shipments.analysis,
+    },
+    shipmentAnalyticsStatuses: { [analyticsKey]: "ready" },
+    shipmentAnalyticsErrors: { [analyticsKey]: null },
+    suppliers: bootstrap.suppliers,
+    suppliersStatus: "ready",
+    suppliersError: null,
+    artifacts: bootstrap.artifacts,
+    artifactsStatus: "ready",
+    artifactsError: null,
+  };
 }
 
 function clearRequests() {
@@ -301,6 +364,88 @@ export const useWorkspaceDataStore = create<WorkspaceDataStore>((set, get) => ({
   resetWorkspace() {
     clearRequests();
     set(emptyWorkspaceData());
+  },
+
+  async ensureWorkspaceBootstrap(force = false) {
+    const workspaceId = requireWorkspace(get().workspaceId);
+    if (
+      !force &&
+      get().demoStatus === "ready" &&
+      get().demoData &&
+      get().shipmentsStatus === "ready" &&
+      get().shipments &&
+      get().suppliersStatus === "ready" &&
+      get().artifactsStatus === "ready"
+    ) {
+      return {
+        schema_version: "1.0",
+        demo_data: get().demoData as DemoDataStatus,
+        shipments: get().shipments as ShipmentData,
+        suppliers: get().suppliers,
+        artifacts: get().artifacts,
+      };
+    }
+    const key = requestKey(workspaceId, "bootstrap");
+    const existing = inFlight.get(key) as
+      | Promise<WorkspaceBootstrapResponse>
+      | undefined;
+    if (existing) return existing;
+
+    const epoch = requestEpoch;
+    set({
+      demoStatus: "loading",
+      demoError: null,
+      shipmentsStatus: "loading",
+      shipmentsError: null,
+      suppliersStatus: "loading",
+      suppliersError: null,
+      artifactsStatus: "loading",
+      artifactsError: null,
+    });
+    const request = fetch(`${getBackendUrl()}/demo/data/bootstrap`, {
+      credentials: "include",
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(
+            await responseDetail(
+              response,
+              "The workspace snapshot could not be loaded.",
+            ),
+          );
+        }
+        return (await response.json()) as WorkspaceBootstrapResponse;
+      })
+      .then((payload) => {
+        if (get().workspaceId === workspaceId && requestEpoch === epoch) {
+          set(hydratedBootstrapState(payload.demo_data, payload));
+        }
+        return payload;
+      })
+      .catch((error: unknown) => {
+        if (get().workspaceId === workspaceId && requestEpoch === epoch) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "The workspace snapshot could not be loaded.";
+          set({
+            demoStatus: "error",
+            demoError: message,
+            shipmentsStatus: "error",
+            shipmentsError: message,
+            suppliersStatus: "error",
+            suppliersError: message,
+            artifactsStatus: "error",
+            artifactsError: message,
+          });
+        }
+        throw error;
+      })
+      .finally(() => {
+        if (inFlight.get(key) === request) inFlight.delete(key);
+      });
+    inFlight.set(key, request);
+    return request;
   },
 
   async ensureDemoData(force = false) {
@@ -358,6 +503,7 @@ export const useWorkspaceDataStore = create<WorkspaceDataStore>((set, get) => ({
     clearRequests();
     const epoch = requestEpoch;
     set({ demoStatus: "loading", demoError: null });
+    const clientStartedAt = performance.now();
     try {
       const response = await fetch(`${getBackendUrl()}/demo/data`, {
         method: "POST",
@@ -368,27 +514,35 @@ export const useWorkspaceDataStore = create<WorkspaceDataStore>((set, get) => ({
           await responseDetail(response, "Demo data could not be loaded."),
         );
       }
-      const payload = (await response.json()) as DemoDataStatus;
+      const payload = (await response.json()) as DemoDataLoadResponse;
+      const requestFinishedAt = performance.now();
       if (get().workspaceId === workspaceId && requestEpoch === epoch) {
+        const demoData: DemoDataStatus = {
+          loaded: payload.loaded,
+          has_artifacts: payload.has_artifacts,
+          artifact_count: payload.artifact_count,
+          shipment_count: payload.shipment_count,
+          supplier_count: payload.supplier_count,
+          evidence_document_count: payload.evidence_document_count,
+          performance: payload.performance,
+        };
         set({
-          demoData: payload,
-          demoStatus: "ready",
-          demoError: null,
-          shipmentsStatus: "idle",
-          shipmentAnalytics: {},
-          shipmentAnalyticsStatuses: {},
-          shipmentAnalyticsErrors: {},
-          suppliersStatus: "idle",
-          artifactsStatus: "idle",
+          ...hydratedBootstrapState(demoData, payload.bootstrap),
           reports: {},
           reportStatuses: {},
           reportErrors: {},
         });
-        await Promise.all([
-          get().ensureShipments(true),
-          get().ensureSuppliers(true),
-          get().ensureArtifacts(true),
-        ]);
+        const clientFinishedAt = performance.now();
+        performance.measure("carbonsage:demo-data-load", {
+          start: clientStartedAt,
+          end: clientFinishedAt,
+          detail: {
+            request_ms: Math.round(requestFinishedAt - clientStartedAt),
+            hydration_ms: Math.round(clientFinishedAt - requestFinishedAt),
+            total_ms: Math.round(clientFinishedAt - clientStartedAt),
+            server: demoData.performance,
+          } satisfies DemoLoadMetrics,
+        });
       }
       return payload;
     } catch (error) {
@@ -437,11 +591,7 @@ export const useWorkspaceDataStore = create<WorkspaceDataStore>((set, get) => ({
           reportStatuses: {},
           reportErrors: {},
         });
-        await Promise.allSettled([
-          get().ensureShipments(true),
-          get().ensureSuppliers(true),
-          get().ensureArtifacts(true),
-        ]);
+        await get().ensureWorkspaceBootstrap(true);
       }
       return payload;
     } catch (error) {
@@ -840,11 +990,7 @@ export const useWorkspaceDataStore = create<WorkspaceDataStore>((set, get) => ({
       reportStatuses: {},
       reportErrors: {},
     });
-    await Promise.allSettled([
-      get().ensureSuppliers(true),
-      get().ensureArtifacts(true),
-      get().ensureDemoData(true),
-    ]);
+    await get().ensureWorkspaceBootstrap(true);
   },
 
   async refreshAfterReportSnapshot() {
