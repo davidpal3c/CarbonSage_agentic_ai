@@ -166,15 +166,12 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
         }
         return (await response.json()) as WorkspaceSession;
       })
-      .then((workspace) => {
+      .then(async (workspace) => {
         if (workspace && isCurrent) {
           const workspaceData = useWorkspaceDataStore.getState();
           workspaceData.setWorkspace(workspace.workspace_id);
-          setSession(workspace);
-          void useWorkspaceDataStore
-            .getState()
-            .ensureDemoData()
-            .catch(() => undefined);
+          await workspaceData.ensureWorkspaceBootstrap().catch(() => undefined);
+          if (isCurrent) setSession(workspace);
         }
       })
       .catch((requestError) => {

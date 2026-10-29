@@ -200,11 +200,17 @@ test("loads the fictional demo dataset directly from overview", async ({
   page,
 }) => {
   test.setTimeout(120_000);
+  let bootstrapRequests = 0;
   let shipmentRequests = 0;
+  let supplierRequests = 0;
+  let artifactRequests = 0;
   let analyticsRequests = 0;
   page.on("request", (request) => {
     const pathname = new URL(request.url()).pathname;
+    if (pathname === "/demo/data/bootstrap") bootstrapRequests += 1;
     if (pathname === "/shipments") shipmentRequests += 1;
+    if (pathname === "/suppliers") supplierRequests += 1;
+    if (pathname === "/artifacts") artifactRequests += 1;
     if (pathname === "/shipments/analytics") analyticsRequests += 1;
   });
   await enterWorkspace(page);
@@ -242,6 +248,10 @@ test("loads the fictional demo dataset directly from overview", async ({
   await expect(
     page.getByRole("button", { name: "Load demo data" }),
   ).toBeHidden();
+  expect(bootstrapRequests).toBe(1);
+  expect(shipmentRequests).toBe(0);
+  expect(supplierRequests).toBe(0);
+  expect(artifactRequests).toBe(0);
   await expect(
     page.locator(".recharts-cartesian-axis-tick-value").first(),
   ).toHaveCSS("font-size", "10px");
