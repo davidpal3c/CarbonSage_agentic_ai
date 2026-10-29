@@ -3,23 +3,37 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from hashlib import sha256
 from time import perf_counter
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
 
-from api.artifacts import artifact_repository, schedule_artifact_source_delete
+from api.artifacts import (
+    ArtifactResponse,
+    artifact_repository,
+    artifact_response,
+    schedule_artifact_source_delete,
+)
 from api.evidence import (
-    _index_document,
+    SupplierResponse,
+    _supplier_response,
     evidence_repository,
     supplier_availability_repository,
 )
-from api.shipments import shipment_repository
+from api.shipments import (
+    ShipmentUploadResponse,
+    shipment_repository,
+)
+from api.shipments import (
+    _response as shipment_list_response,
+)
 from api.workspaces import require_workspace_principal
-from config import database_url_for_runtime
+from config import database_url_for_runtime, settings
 from domain.artifacts.models import (
+    Artifact,
     ArtifactKind,
     ArtifactSourceType,
     ArtifactStatus,
@@ -34,8 +48,9 @@ from domain.demo_data import (
     DEMO_SUPPLIERS,
 )
 from domain.evidence.ingestion import extract_evidence, normalize_supplier_metadata
-from domain.evidence.models import SupplierMetadata
+from domain.evidence.models import SupplierCard, SupplierMetadata
 from domain.shipments.ingestion import parse_shipments_csv
+from domain.shipments.models import NormalizedShipment
 from domain.workspaces.principals import WorkspacePrincipal
 from persistence.demo_seed import PreparedEvidenceSeed, build_demo_data_seeder
 
@@ -66,6 +81,28 @@ class DemoDataResponse(BaseModel):
     supplier_count: int
     evidence_document_count: int
     performance: DemoLoadPerformance | None = None
+
+
+class WorkspaceBootstrapData(BaseModel):
+    schema_version: Literal["1.0"] = "1.0"
+    shipments: ShipmentUploadResponse
+    suppliers: list[SupplierResponse]
+    artifacts: list[ArtifactResponse]
+
+
+class WorkspaceBootstrapResponse(WorkspaceBootstrapData):
+    demo_data: DemoDataResponse
+
+
+class DemoDataLoadResponse(DemoDataResponse):
+    bootstrap: WorkspaceBootstrapData
+
+
+@dataclass(frozen=True)
+class _WorkspaceSnapshot:
+    artifacts: tuple[Artifact, ...]
+    shipments: tuple[NormalizedShipment, ...]
+    suppliers: tuple[SupplierCard, ...]
 
 
 def _elapsed_ms(started_at: float) -> int:
@@ -107,18 +144,77 @@ def _record_load_performance(
     return state.model_copy(update={"performance": performance})
 
 
-def _workspace_state(workspace_id: str) -> DemoDataResponse:
-    artifacts = artifact_repository.list_for_workspace(workspace_id)
-    shipments = shipment_repository.list_for_workspace(workspace_id)
-    suppliers = evidence_repository.list_suppliers(workspace_id)
-    loaded = any(artifact.metadata.get("demo_asset") in DEMO_ASSET_KEYS for artifact in artifacts)
+def _workspace_snapshot(workspace_id: str) -> _WorkspaceSnapshot:
+    return _WorkspaceSnapshot(
+        artifacts=artifact_repository.list_for_workspace(workspace_id),
+        shipments=shipment_repository.list_for_workspace(workspace_id),
+        suppliers=evidence_repository.list_suppliers(workspace_id),
+    )
+
+
+def _workspace_state_from_snapshot(snapshot: _WorkspaceSnapshot) -> DemoDataResponse:
+    loaded = any(
+        artifact.metadata.get("demo_asset") in DEMO_ASSET_KEYS for artifact in snapshot.artifacts
+    )
     return DemoDataResponse(
         loaded=loaded,
-        has_artifacts=bool(artifacts),
-        artifact_count=len(artifacts),
-        shipment_count=len(shipments),
-        supplier_count=len(suppliers),
-        evidence_document_count=sum(supplier.document_count for supplier in suppliers),
+        has_artifacts=bool(snapshot.artifacts),
+        artifact_count=len(snapshot.artifacts),
+        shipment_count=len(snapshot.shipments),
+        supplier_count=len(snapshot.suppliers),
+        evidence_document_count=sum(supplier.document_count for supplier in snapshot.suppliers),
+    )
+
+
+def _workspace_state(workspace_id: str) -> DemoDataResponse:
+    return _workspace_state_from_snapshot(_workspace_snapshot(workspace_id))
+
+
+def _bootstrap_from_snapshot(snapshot: _WorkspaceSnapshot) -> WorkspaceBootstrapData:
+    shipment_artifact = next(
+        (
+            artifact
+            for artifact in snapshot.artifacts
+            if artifact.kind is ArtifactKind.SHIPMENT_DATASET
+        ),
+        None,
+    )
+    return WorkspaceBootstrapData(
+        shipments=shipment_list_response(
+            snapshot.shipments,
+            artifact=shipment_artifact,
+        ),
+        suppliers=[_supplier_response(supplier) for supplier in snapshot.suppliers],
+        artifacts=[artifact_response(artifact) for artifact in snapshot.artifacts],
+    )
+
+
+def _record_bootstrapped_load(
+    *,
+    response: Response,
+    workspace_id: str,
+    outcome: str,
+    request_started_at: float,
+    stages_ms: dict[str, int],
+    state: DemoDataResponse,
+    snapshot: _WorkspaceSnapshot,
+) -> DemoDataLoadResponse:
+    stage_started_at = perf_counter()
+    bootstrap = _bootstrap_from_snapshot(snapshot)
+    stages_ms["bootstrap"] = _elapsed_ms(stage_started_at)
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["X-CarbonSage-Bootstrap-Version"] = bootstrap.schema_version
+    measured_state = _record_load_performance(
+        response=response,
+        workspace_id=workspace_id,
+        outcome=outcome,
+        request_started_at=request_started_at,
+        stages_ms=stages_ms,
+        state=state,
+    )
+    return DemoDataLoadResponse(
+        **measured_state.model_dump(),
+        bootstrap=bootstrap,
     )
 
 
@@ -127,32 +223,56 @@ def _workspace_state(workspace_id: str) -> DemoDataResponse:
     response_model=DemoDataResponse,
     response_model_exclude_none=True,
 )
-async def demo_data_status(
+def demo_data_status(
     principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
 ) -> DemoDataResponse:
     return _workspace_state(principal.workspace_id)
 
 
-@demo_data_router.post("", response_model=DemoDataResponse)
-async def load_demo_data(
+@demo_data_router.get(
+    "/bootstrap",
+    response_model=WorkspaceBootstrapResponse,
+)
+def workspace_bootstrap(
     principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
     response: Response,
-) -> DemoDataResponse:
+) -> WorkspaceBootstrapResponse:
+    """Return one versioned snapshot for initial client-side workspace hydration."""
+
+    started_at = perf_counter()
+    snapshot = _workspace_snapshot(principal.workspace_id)
+    bootstrap = _bootstrap_from_snapshot(snapshot)
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["X-CarbonSage-Bootstrap-Version"] = bootstrap.schema_version
+    response.headers["Server-Timing"] = f"bootstrap;dur={_elapsed_ms(started_at)}"
+    return WorkspaceBootstrapResponse(
+        **bootstrap.model_dump(),
+        demo_data=_workspace_state_from_snapshot(snapshot),
+    )
+
+
+@demo_data_router.post("", response_model=DemoDataLoadResponse)
+def load_demo_data(
+    principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
+    response: Response,
+) -> DemoDataLoadResponse:
     """Load one bounded, fictional dataset into an otherwise empty workspace."""
 
     request_started_at = perf_counter()
     stages_ms: dict[str, int] = {}
     stage_started_at = perf_counter()
-    existing = _workspace_state(principal.workspace_id)
+    existing_snapshot = _workspace_snapshot(principal.workspace_id)
+    existing = _workspace_state_from_snapshot(existing_snapshot)
     stages_ms["status"] = _elapsed_ms(stage_started_at)
     if existing.has_artifacts or existing.supplier_count:
-        return _record_load_performance(
+        return _record_bootstrapped_load(
             response=response,
             workspace_id=principal.workspace_id,
             outcome="already_available",
             request_started_at=request_started_at,
             stages_ms=stages_ms,
             state=existing,
+            snapshot=existing_snapshot,
         )
 
     stage_started_at = perf_counter()
@@ -254,13 +374,15 @@ async def load_demo_data(
         )
         stages_ms["relational"] = _elapsed_ms(stage_started_at)
         if not seed_result.seeded:
-            return _record_load_performance(
+            snapshot = _workspace_snapshot(principal.workspace_id)
+            return _record_bootstrapped_load(
                 response=response,
                 workspace_id=principal.workspace_id,
                 outcome="already_available",
                 request_started_at=request_started_at,
                 stages_ms=stages_ms,
-                state=_workspace_state(principal.workspace_id),
+                state=_workspace_state_from_snapshot(snapshot),
+                snapshot=snapshot,
             )
         supplier_ids_by_name = seed_result.supplier_ids_by_name
     else:
@@ -298,15 +420,9 @@ async def load_demo_data(
         stages_ms["relational"] = _elapsed_ms(stage_started_at)
 
     demo_supplier_metadata = sorted(supplier_ids_by_name.values())
-    embedding_ms = 0
     relational_finalize_ms = 0
+    embedding_status = "pending" if settings.embedding_provider else "not_configured"
     for item in prepared_evidence:
-        stage_started_at = perf_counter()
-        embedding_status = await _index_document(
-            principal.workspace_id,
-            item.document,
-        )
-        embedding_ms += _elapsed_ms(stage_started_at)
         stage_started_at = perf_counter()
         artifact_repository.mark_ready(
             principal.workspace_id,
@@ -325,21 +441,21 @@ async def load_demo_data(
         relational_finalize_ms += _elapsed_ms(stage_started_at)
 
     stages_ms["relational"] += relational_finalize_ms
-    stages_ms["embeddings"] = embedding_ms
+    # Semantic and hybrid search index pending documents on demand.
+    stages_ms["embeddings"] = 0
     stage_started_at = perf_counter()
-    state = _workspace_state(principal.workspace_id)
-    assert all(
-        artifact.status is ArtifactStatus.READY
-        for artifact in artifact_repository.list_for_workspace(principal.workspace_id)
-    )
+    snapshot = _workspace_snapshot(principal.workspace_id)
+    state = _workspace_state_from_snapshot(snapshot)
+    assert all(artifact.status is ArtifactStatus.READY for artifact in snapshot.artifacts)
     stages_ms["finalize"] = _elapsed_ms(stage_started_at)
-    return _record_load_performance(
+    return _record_bootstrapped_load(
         response=response,
         workspace_id=principal.workspace_id,
         outcome="loaded",
         request_started_at=request_started_at,
         stages_ms=stages_ms,
         state=state,
+        snapshot=snapshot,
     )
 
 

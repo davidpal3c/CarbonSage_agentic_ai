@@ -22,8 +22,9 @@ CarbonSage records one bounded timing trace for every demo-load request:
 - `prepare`: supplier normalization, local evidence extraction, and artifact
   construction before persistence;
 - `relational`: artifact, shipment, supplier, lane, and evidence writes;
-- `embeddings`: calls to the configured embedding provider plus vector writes;
-- `finalize`: the final workspace-state and readiness checks; and
+- `embeddings`: zero during demo loading because indexing is deferred;
+- `finalize`: the final workspace-state and readiness checks;
+- `bootstrap`: assembly of the versioned client-hydration snapshot; and
 - `total`: end-to-end API handler time.
 
 The API returns these timings in an optional `performance` object, emits a
@@ -33,7 +34,8 @@ first two minutes of a process from requests on an older process. It is an
 operational hint, not proof that the hosting platform performed a cold start.
 
 The client also creates a `carbonsage:demo-data-load` Performance API measure
-that separates the POST duration from the subsequent workspace hydration.
+that separates the POST duration from applying the returned bootstrap snapshot
+to the workspace store.
 
 ## Measurement and acceptance
 
@@ -45,9 +47,16 @@ The immediate target for the next slices is:
 - client hydration p95 below 3 seconds after the POST resolves; and
 - no regression in idempotency, rollback safety, or workspace isolation.
 
-Embedding latency has its own stage and is not hidden inside the relational
-target. Moving semantic readiness off the synchronous critical path is a later
-slice and requires a separate decision.
+Embedding latency is no longer on the demo-load request path. The five demo
+documents are stored with their lexical indexes during loading. The existing
+semantic and hybrid search path indexes missing vectors on the first such
+search. This keeps the public demo load independent of five sequential external
+embedding requests, which can otherwise hold the browser request open long
+enough to fail at a network intermediary. The first semantic or hybrid search
+can take longer while those vectors are created; lexical search is ready as
+soon as loading completes. The remaining synchronous database work runs in
+FastAPI's worker threadpool so the API event loop can continue serving other
+requests while a workspace is seeded.
 
 ## Consequences
 
