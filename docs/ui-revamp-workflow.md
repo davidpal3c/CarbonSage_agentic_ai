@@ -23,15 +23,16 @@ must not be pushed or merged into a published branch without a separate review.
 ## Test locally from the original checkout
 
 Use the `nzeroesg app` checkout on `design/carbonsage-ui-revamp`. Its root
-`.venv` and client `node_modules` are installed. Run these in separate terminals:
+`.venv` and client `node_modules` are installed. From the repository root, run
+these in separate terminals:
 
 ```bash
-cd "nzeroesg app/nzeroesg-api"
+cd nzeroesg-api
 APP_ENV=development DATABASE_URL= EMBEDDING_PROVIDER= ASSISTANT_ENABLED=false CORS_ORIGINS=http://127.0.0.1:3000 ../.venv/bin/python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ```bash
-cd "nzeroesg app/nzeroesg-client"
+cd nzeroesg-client
 NEXT_PUBLIC_BACKEND_URL=http://127.0.0.1:8000 npm run dev -- --hostname 127.0.0.1 --port 3000
 ```
 
