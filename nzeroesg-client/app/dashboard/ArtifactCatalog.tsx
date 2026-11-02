@@ -350,7 +350,7 @@ export default function ArtifactCatalog({
                       }).format(new Date(artifact.created_at))}
                     </span>
                     <span className="flex items-center gap-2">
-                      <span className="rounded-md bg-secondary/10 px-2 py-1 text-[11px] font-semibold capitalize text-secondary">
+                      <span className="rounded-md bg-secondary/10 px-2 py-1 text-[11px] font-semibold capitalize text-tertiary">
                         {artifact.status}
                       </span>
                       <ChevronDown

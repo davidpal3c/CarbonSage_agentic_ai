@@ -16,7 +16,7 @@ export default function ScenariosPage() {
 
       <article className="mt-7 flex min-h-72 items-center justify-center rounded-xl border border-dashed border-border bg-card p-7 text-center">
         <div className="max-w-md">
-          <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/10 text-secondary">
+          <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/10 text-tertiary">
             <Route aria-hidden="true" className="h-5 w-5" />
           </span>
           <p className="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-accent">

@@ -95,7 +95,7 @@ export default function IntegrationsPage() {
         <article className="w-full rounded-xl border border-border bg-card p-5 sm:p-6">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary/10 text-secondary">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary/10 text-tertiary">
                 <Database aria-hidden="true" className="h-5 w-5" />
               </span>
               <div>
@@ -109,7 +109,7 @@ export default function IntegrationsPage() {
                   uploads.
                 </p>
                 {demoData?.loaded ? (
-                  <p className="mt-3 inline-flex items-center gap-2 text-xs font-medium text-secondary">
+                  <p className="mt-3 inline-flex items-center gap-2 text-xs font-medium text-tertiary">
                     <FileCheck2 aria-hidden="true" className="h-4 w-4" />
                     {demoData.supplier_count} suppliers ·{" "}
                     {demoData.shipment_count} shipments ·{" "}
@@ -120,7 +120,7 @@ export default function IntegrationsPage() {
             </div>
             {demoData?.loaded ? (
               <div className="flex shrink-0 flex-wrap items-center gap-2">
-                <span className="rounded-md bg-secondary/10 px-2.5 py-1.5 text-xs font-semibold text-secondary">
+                <span className="rounded-md bg-secondary/10 px-2.5 py-1.5 text-xs font-semibold text-tertiary">
                   Loaded
                 </span>
                 <button
@@ -157,7 +157,7 @@ export default function IntegrationsPage() {
 
         <article className="w-full rounded-xl border border-border bg-card p-5 sm:p-6">
           <div className="flex items-start gap-4">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary/10 text-secondary">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary/10 text-tertiary">
               <Cloud aria-hidden="true" className="h-5 w-5" />
             </span>
             <div className="min-w-0 flex-1">

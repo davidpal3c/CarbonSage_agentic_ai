@@ -94,6 +94,15 @@ const axisTickStyle = {
   fontSize: 10,
 };
 
+// Series colours mark the swatch only: coloured legend text fails 4.5:1 for
+// several series (ship, train), so the label itself uses the muted foreground.
+const legendProps = {
+  wrapperStyle: { fontSize: "0.75rem" },
+  formatter: (value: string) => (
+    <span style={{ color: "var(--muted-foreground)" }}>{value}</span>
+  ),
+};
+
 export function StructuredDataChart({
   title,
   description,
@@ -142,7 +151,7 @@ export function StructuredDataChart({
                   ];
                 }}
               />
-              {series.length > 1 ? <Legend /> : null}
+              {series.length > 1 ? <Legend {...legendProps} /> : null}
               {series.map((item, index) => (
                 <Line
                   key={item.key}
@@ -178,7 +187,7 @@ export function StructuredDataChart({
                   ];
                 }}
               />
-              {series.length > 1 ? <Legend /> : null}
+              {series.length > 1 ? <Legend {...legendProps} /> : null}
               {series.map((item, index) => (
                 <Bar
                   key={item.key}
@@ -300,7 +309,7 @@ export function ShipmentTrendChart({
                 ];
               }}
             />
-            <Legend wrapperStyle={{ fontSize: "0.6875rem" }} />
+            <Legend {...legendProps} />
             {series.map((item) => (
               <Area
                 key={item.key}

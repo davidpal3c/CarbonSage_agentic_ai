@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   useCallback,
   useContext,
@@ -14,18 +15,18 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Building2,
   ChartNoAxesCombined,
-  ChevronDown,
   CircleHelp,
   Files,
   LayoutDashboard,
-  Leaf,
   LogOut,
+  Menu,
   MessageSquareText,
   Moon,
   Plug,
   Route,
   Sun,
   Truck,
+  X,
 } from "lucide-react";
 
 import { getBackendUrl } from "@/app/api/urls";
@@ -55,7 +56,7 @@ type WorkspaceContextValue = {
 type NavigationItem = {
   label: string;
   href: string;
-  icon: typeof Leaf;
+  icon: typeof LayoutDashboard;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -78,6 +79,14 @@ const simulationNavigation: NavigationItem[] = [
   { label: "Scenarios", href: "/dashboard/scenarios", icon: Route },
 ];
 
+const navigationGroups = [
+  { label: "Workspace", items: workspaceNavigation },
+  { label: "Simulations", items: simulationNavigation },
+];
+
+const howToHref = "/dashboard/how-to";
+const drawerId = "workspace-drawer";
+
 export function useWorkspace() {
   const value = useContext(WorkspaceContext);
   if (!value) {
@@ -86,30 +95,136 @@ export function useWorkspace() {
   return value;
 }
 
-function NavigationLink({
-  item,
+function currentLabel(pathname: string) {
+  if (pathname.startsWith(howToHref)) return "How to use";
+  return (
+    [...workspaceNavigation, ...simulationNavigation].find((item) =>
+      pathname.startsWith(item.href),
+    )?.label ?? "Workspace"
+  );
+}
+
+const itemClass = (active: boolean) =>
+  `flex min-h-11 items-center gap-3 border-l-[3px] px-3 text-[15px] transition-colors ${
+    active
+      ? "border-foreground bg-card font-semibold text-foreground"
+      : "border-transparent text-muted-foreground hover:bg-card/70 hover:text-foreground"
+  }`;
+
+function WorkspaceNavigation({
   pathname,
   onNavigate,
 }: {
-  item: NavigationItem;
   pathname: string;
-  onNavigate: () => void;
+  onNavigate?: () => void;
 }) {
-  const Icon = item.icon;
-  const active = pathname.startsWith(item.href);
+  return (
+    <nav aria-label="Workspace navigation" className="space-y-6">
+      {navigationGroups.map((group) => (
+        <div key={group.label}>
+          <p className="label-mono mb-2 px-3 text-muted-foreground">
+            {group.label}
+          </p>
+          <ul>
+            {group.items.map((item) => {
+              const active = pathname.startsWith(item.href);
+              const Icon = item.icon;
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    onClick={onNavigate}
+                    aria-current={active ? "page" : undefined}
+                    className={itemClass(active)}
+                  >
+                    <Icon aria-hidden="true" className="h-[18px] w-[18px]" />
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </nav>
+  );
+}
+
+function ShellUtilities({
+  pathname,
+  expiresAt,
+  onNavigate,
+  onSignOut,
+}: {
+  pathname: string;
+  expiresAt: number;
+  onNavigate?: () => void;
+  onSignOut: () => void;
+}) {
+  const { theme, toggleTheme, mounted } = useTheme();
+  const expires = new Date(expiresAt * 1000).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return (
+    <div className="border-t border-sidebar-border pt-4">
+      <p className="mb-3 px-3 text-[13px] leading-5 text-muted-foreground">
+        Temporary demo workspace. Expires {expires}.
+      </p>
+      <ul>
+        <li>
+          <Link
+            href={howToHref}
+            onClick={onNavigate}
+            aria-current={pathname.startsWith(howToHref) ? "page" : undefined}
+            className={itemClass(pathname.startsWith(howToHref))}
+          >
+            <CircleHelp aria-hidden="true" className="h-[18px] w-[18px]" />
+            How to use CarbonSage
+          </Link>
+        </li>
+        <li>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            disabled={!mounted}
+            className={`${itemClass(false)} w-full text-left disabled:opacity-50`}
+          >
+            {theme === "dark" ? (
+              <Sun aria-hidden="true" className="h-[18px] w-[18px]" />
+            ) : (
+              <Moon aria-hidden="true" className="h-[18px] w-[18px]" />
+            )}
+            {theme === "dark" ? "Light mode" : "Dark mode"}
+          </button>
+        </li>
+        <li>
+          <button
+            type="button"
+            onClick={onSignOut}
+            className={`${itemClass(false)} w-full text-left`}
+          >
+            <LogOut aria-hidden="true" className="h-[18px] w-[18px]" />
+            Sign out
+          </button>
+        </li>
+      </ul>
+    </div>
+  );
+}
+
+function Lockup({ onClick }: { onClick?: () => void }) {
   return (
     <Link
-      href={item.href}
-      onClick={onNavigate}
-      aria-current={active ? "page" : undefined}
-      className={`inline-flex min-w-[4.75rem] shrink-0 flex-col items-center justify-center gap-1 rounded-lg px-1.5 py-2 text-center text-[10px] leading-tight transition lg:min-h-[3.75rem] lg:w-full lg:min-w-0 ${
-        active
-          ? "bg-secondary/10 font-semibold text-brand-primary"
-          : "text-muted-foreground hover:bg-card/80 hover:text-primary"
-      }`}
+      href="/"
+      onClick={onClick}
+      aria-label="CarbonSage home"
+      className="flex items-center gap-2.5 text-[15px]"
     >
-      <Icon aria-hidden="true" className="h-[18px] w-[18px]" />
-      <span>{item.label}</span>
+      <BrandMark className="h-7 w-7 shrink-0" />
+      <BrandWordmark />
     </Link>
   );
 }
@@ -117,12 +232,21 @@ function NavigationLink({
 export default function WorkspaceShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { theme, toggleTheme, mounted } = useTheme();
   const [session, setSession] = useState<WorkspaceSession | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [simulationsOpen, setSimulationsOpen] = useState(true);
-  const profileRef = useRef<HTMLDivElement>(null);
+  // The drawer is open only for the route it was opened on, so any navigation
+  // (links, browser back/forward) closes it without an effect.
+  const [drawerPath, setDrawerPath] = useState<string | null>(null);
+  const [launcherSlot, setLauncherSlot] = useState<HTMLElement | null>(null);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const drawer = useRef<HTMLDivElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
+  const drawerOpen = drawerPath === pathname;
+
+  const closeDrawer = useCallback(() => {
+    setDrawerPath(null);
+    menuButton.current?.focus();
+  }, []);
 
   const refreshSession = useCallback(async () => {
     const response = await fetch(`${getBackendUrl()}/demo/session`, {
@@ -139,20 +263,6 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
     useWorkspaceDataStore.getState().setWorkspace(workspace.workspace_id);
     setSession(workspace);
   }, [router]);
-
-  useEffect(() => {
-    function closeProfile(event: MouseEvent) {
-      if (
-        profileRef.current &&
-        event.target instanceof Node &&
-        !profileRef.current.contains(event.target)
-      ) {
-        setProfileOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", closeProfile);
-    return () => document.removeEventListener("mousedown", closeProfile);
-  }, []);
 
   useEffect(() => {
     let isCurrent = true;
@@ -189,6 +299,45 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
     };
   }, [router]);
 
+  // While the drawer is open: lock page scroll, move focus in, close on
+  // Escape, and close if the viewport grows to the desktop layout.
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeButton.current?.focus();
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    function onViewportChange() {
+      if (desktop.matches) setDrawerPath(null);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") closeDrawer();
+    }
+    desktop.addEventListener("change", onViewportChange);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      desktop.removeEventListener("change", onViewportChange);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [closeDrawer, drawerOpen]);
+
+  function trapFocus(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Tab" || !drawer.current) return;
+    const focusable = drawer.current.querySelectorAll<HTMLElement>(
+      "a[href], button:not([disabled])",
+    );
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   async function leaveWorkspace() {
     try {
       await fetch(`${getBackendUrl()}/demo/session`, {
@@ -205,7 +354,10 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
   if (error) {
     return (
       <main className="flex min-h-screen items-center justify-center px-6">
-        <p className="rounded-lg border border-red-300 bg-red-50 px-5 py-4 text-red-800">
+        <p
+          role="alert"
+          className="rounded-lg border border-red-300 bg-red-50 px-5 py-4 text-red-800"
+        >
           {error}
         </p>
       </main>
@@ -220,179 +372,123 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
     );
   }
 
-  const allNavigation = [...workspaceNavigation, ...simulationNavigation];
-
   return (
     <WorkspaceContext.Provider value={{ session, refreshSession }}>
       <ArtifactViewerProvider>
-        <div className="flex min-h-screen w-full flex-col overflow-x-clip bg-background lg:flex-row">
-          <aside className="sticky top-0 z-40 flex border-b border-sidebar-border bg-sidebar px-4 py-3 lg:h-screen lg:w-[7.25rem] lg:shrink-0 lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-2 lg:py-4">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-4 px-1 lg:flex-col lg:justify-center lg:gap-2 lg:px-0 lg:text-center">
-                <div className="flex items-center gap-3 lg:flex-col lg:gap-1.5">
-                  <BrandMark className="h-9 w-9" />
-                  <div>
-                    <Link
-                      href="/"
-                      className="text-base font-bold tracking-tight lg:text-[10px]"
-                    >
-                      <BrandWordmark />
-                    </Link>
-                    <p className="text-[11px] text-muted-foreground lg:text-[9px] lg:uppercase lg:tracking-[0.12em]">
-                      Workspace
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={leaveWorkspace}
-                  className="shrink-0 text-xs font-semibold text-primary hover:text-accent lg:hidden"
-                >
-                  Sign out
-                </button>
-              </div>
-
-              <nav
-                aria-label="Workspace navigation"
-                className="mt-3 flex gap-1 overflow-x-auto pb-1 lg:hidden"
-              >
-                {allNavigation.map((item) => (
-                  <NavigationLink
-                    key={item.href}
-                    item={item}
-                    pathname={pathname}
-                    onNavigate={() => setProfileOpen(false)}
-                  />
-                ))}
-              </nav>
-
-              <nav
-                aria-label="Workspace navigation"
-                className="mt-6 hidden lg:block"
-              >
-                <p className="text-center text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">
-                  Workspace
-                </p>
-                <div className="mt-1.5 space-y-1">
-                  {workspaceNavigation.map((item) => (
-                    <NavigationLink
-                      key={item.href}
-                      item={item}
-                      pathname={pathname}
-                      onNavigate={() => setProfileOpen(false)}
-                    />
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setSimulationsOpen((current) => !current)}
-                  aria-expanded={simulationsOpen}
-                  className="mt-5 flex w-full items-center justify-center gap-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80"
-                >
-                  Simulations
-                  <ChevronDown
-                    aria-hidden="true"
-                    className={`h-3.5 w-3.5 transition ${simulationsOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
-                {simulationsOpen ? (
-                  <div className="mt-1.5 space-y-1">
-                    {simulationNavigation.map((item) => (
-                      <NavigationLink
-                        key={item.href}
-                        item={item}
-                        pathname={pathname}
-                        onNavigate={() => setProfileOpen(false)}
-                      />
-                    ))}
-                  </div>
-                ) : null}
-              </nav>
+        <div className="flex min-h-screen w-full overflow-x-clip bg-background">
+          <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col gap-6 overflow-y-auto border-r border-sidebar-border bg-sidebar px-3 py-5 lg:flex">
+            <div className="px-3">
+              <Lockup />
             </div>
-
-            <div ref={profileRef} className="relative mt-4 hidden lg:block">
-              {profileOpen ? (
-                <div
-                  role="menu"
-                  aria-label="Workspace menu"
-                  className="fixed bottom-4 left-[6rem] z-[80] w-52 overflow-hidden rounded-xl border border-border bg-card p-1.5 shadow-xl"
-                >
-                  <Link
-                    href="/dashboard/how-to"
-                    onClick={() => setProfileOpen(false)}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-primary transition hover:bg-muted"
-                  >
-                    <CircleHelp
-                      aria-hidden="true"
-                      className="h-4 w-4 text-accent"
-                    />
-                    How to use CarbonSage
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      toggleTheme();
-                      setProfileOpen(false);
-                    }}
-                    disabled={!mounted}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-primary transition hover:bg-muted disabled:opacity-50"
-                  >
-                    {theme === "dark" ? (
-                      <Sun aria-hidden="true" className="h-4 w-4 text-accent" />
-                    ) : (
-                      <Moon
-                        aria-hidden="true"
-                        className="h-4 w-4 text-accent"
-                      />
-                    )}
-                    {theme === "dark" ? "Light mode" : "Dark mode"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={leaveWorkspace}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-primary transition hover:bg-muted"
-                  >
-                    <LogOut
-                      aria-hidden="true"
-                      className="h-4 w-4 text-accent"
-                    />
-                    Sign out
-                  </button>
-                </div>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => setProfileOpen((current) => !current)}
-                aria-label="Open workspace menu"
-                aria-expanded={profileOpen}
-                className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-sm font-bold text-white shadow-sm transition hover:bg-secondary/85"
-              >
-                DW
-              </button>
+            <div className="flex-1">
+              <WorkspaceNavigation pathname={pathname} />
             </div>
+            <ShellUtilities
+              pathname={pathname}
+              expiresAt={session.expires_at}
+              onSignOut={leaveWorkspace}
+            />
           </aside>
 
-          <main className="min-w-0 flex-1 bg-background text-primary">
-            {children}
-            <div
-              className={
-                pathname === "/dashboard/agent"
-                  ? "px-4 pb-7 sm:px-6 lg:px-10 lg:pb-9"
-                  : ""
-              }
-            >
-              <ChatInterface
-                navigationKey={pathname}
-                onUsageChange={refreshSession}
-                onAction={runWorkspaceAgentAction}
-                presentation={
-                  pathname === "/dashboard/agent" ? "panel" : "launcher"
-                }
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background px-4 print:hidden lg:px-10">
+              <button
+                ref={menuButton}
+                type="button"
+                onClick={() => setDrawerPath(pathname)}
+                aria-label="Open menu"
+                aria-expanded={drawerOpen}
+                aria-controls={drawerId}
+                className="flex h-10 w-10 shrink-0 items-center justify-center border-[1.5px] border-foreground text-foreground lg:hidden"
+              >
+                <Menu aria-hidden="true" className="h-5 w-5" />
+              </button>
+              <div className="min-w-0 lg:hidden">
+                <Lockup />
+              </div>
+              <p
+                aria-hidden="true"
+                className="label-mono hidden text-muted-foreground lg:block"
+              >
+                Workspace <span className="mx-1">/</span>
+                <span className="text-foreground">
+                  {currentLabel(pathname)}
+                </span>
+              </p>
+              <div
+                ref={setLauncherSlot}
+                className="ml-auto flex shrink-0 items-center"
               />
             </div>
-          </main>
+
+            <main className="min-w-0 flex-1 bg-background text-primary">
+              {children}
+              <div
+                className={
+                  pathname === "/dashboard/agent"
+                    ? "px-4 pb-7 sm:px-6 lg:px-10 lg:pb-9"
+                    : ""
+                }
+              >
+                <ChatInterface
+                  navigationKey={pathname}
+                  onUsageChange={refreshSession}
+                  onAction={runWorkspaceAgentAction}
+                  launcherSlot={launcherSlot}
+                  presentation={
+                    pathname === "/dashboard/agent" ? "panel" : "launcher"
+                  }
+                />
+              </div>
+            </main>
+          </div>
         </div>
+
+        {drawerOpen ? (
+          <div className="fixed inset-0 z-[60] lg:hidden print:hidden">
+            <div
+              aria-hidden="true"
+              onClick={closeDrawer}
+              className="absolute inset-0 bg-black/50"
+            />
+            <div
+              ref={drawer}
+              id={drawerId}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Workspace menu"
+              onKeyDown={trapFocus}
+              className="absolute inset-y-0 left-0 flex w-[min(20rem,88vw)] flex-col gap-6 overflow-y-auto border-r border-sidebar-border bg-sidebar px-3 py-4"
+            >
+              <div className="flex items-start justify-between px-3">
+                <div>
+                  <Lockup onClick={closeDrawer} />
+                </div>
+                <button
+                  ref={closeButton}
+                  type="button"
+                  onClick={closeDrawer}
+                  aria-label="Close menu"
+                  className="flex h-10 w-10 items-center justify-center border-[1.5px] border-foreground text-foreground"
+                >
+                  <X aria-hidden="true" className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="flex-1">
+                <WorkspaceNavigation
+                  pathname={pathname}
+                  onNavigate={closeDrawer}
+                />
+              </div>
+              <ShellUtilities
+                pathname={pathname}
+                expiresAt={session.expires_at}
+                onNavigate={closeDrawer}
+                onSignOut={leaveWorkspace}
+              />
+            </div>
+          </div>
+        ) : null}
       </ArtifactViewerProvider>
     </WorkspaceContext.Provider>
   );

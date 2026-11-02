@@ -7,7 +7,8 @@ export default function AgentPage() {
         </h1>
         <p className="mt-2 max-w-2xl leading-7 text-muted-foreground">
           Explore your workspace, compare freight decisions, and review the
-          sources and calculations behind each answer.
+          sources and calculations behind its answers, and see where the
+          evidence runs out.
         </p>
       </header>
     </section>

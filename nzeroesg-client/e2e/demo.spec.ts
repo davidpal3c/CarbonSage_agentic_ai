@@ -35,6 +35,10 @@ async function enterWorkspace(page: Page) {
 }
 
 async function openWorkspacePage(page: Page, label: string, path: string) {
+  // Below the desktop breakpoint the navigation lives in the menu drawer.
+  const menu = page.getByRole("button", { name: "Open menu" });
+  const useDrawer = await menu.isVisible();
+  if (useDrawer) await menu.click();
   await page
     .getByRole("navigation", { name: "Workspace navigation" })
     .getByRole("link", { name: label, exact: true })
@@ -42,9 +46,11 @@ async function openWorkspacePage(page: Page, label: string, path: string) {
   await expect(page).toHaveURL(new RegExp(`/dashboard/${path}$`), {
     timeout: backendActionTimeout,
   });
-  await expect(
-    page.getByRole("link", { name: label, exact: true }),
-  ).toHaveAttribute("aria-current", "page");
+  if (!useDrawer) {
+    await expect(
+      page.getByRole("link", { name: label, exact: true }),
+    ).toHaveAttribute("aria-current", "page");
+  }
 }
 
 async function openShipmentImport(page: Page) {
@@ -168,23 +174,9 @@ test("completes the five-minute demo workflow and exports a report", async ({
   await openWorkspacePage(page, "Report", "report");
   await expect(page.getByText("Current baseline")).toBeVisible();
   expect(reportPreviewRequests).toBe(1);
-  const workspaceMenu = page.getByRole("button", {
-    name: "Open workspace menu",
-  });
-  await workspaceMenu.focus();
-  await page.keyboard.press("Enter");
   await expect(
     page.getByRole("link", { name: "How to use CarbonSage" }),
   ).toBeVisible();
-  const menuBox = await page
-    .getByRole("menu", { name: "Workspace menu" })
-    .boundingBox();
-  const avatarBox = await workspaceMenu.boundingBox();
-  expect(menuBox).not.toBeNull();
-  expect(avatarBox).not.toBeNull();
-  expect(
-    (menuBox?.x ?? 0) - ((avatarBox?.x ?? 0) + (avatarBox?.width ?? 0)),
-  ).toBeLessThanOrEqual(24);
   const menuViewport = await page.evaluate(() => ({
     width: window.innerWidth,
     documentWidth: document.documentElement.scrollWidth,
@@ -1054,10 +1046,10 @@ test("renders a typed interactive response with keyboard-accessible chart data",
   );
 
   await enterWorkspace(page);
-  const openAgent = page.getByRole("link", {
-    name: "Ask CarbonSage",
-    exact: true,
-  });
+  await page.getByRole("button", { name: "Open menu" }).click();
+  const openAgent = page
+    .getByRole("dialog", { name: "Workspace menu" })
+    .getByRole("link", { name: "Ask CarbonSage", exact: true });
   await openAgent.focus();
   await expect(openAgent).toBeFocused();
   await page.keyboard.press("Enter");
@@ -1213,9 +1205,11 @@ test("supports keyboard entry and a narrow viewport", async ({ page }) => {
   await openWorkspacePage(page, "Shipments", "shipments");
   await page.reload();
   await expect(page).toHaveURL(/\/dashboard\/shipments$/);
+  await page.getByRole("button", { name: "Open menu" }).click();
   await expect(
     page.getByRole("navigation", { name: "Workspace navigation" }),
   ).toBeVisible();
+  await page.keyboard.press("Escape");
   const shipmentDialog = await openShipmentImport(page);
   const shipmentInput = shipmentDialog.getByLabel("Shipment file");
   await shipmentInput.focus();

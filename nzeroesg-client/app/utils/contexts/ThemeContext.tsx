@@ -91,9 +91,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     getServerMountedSnapshot,
   );
 
+  // Hydration renders the server snapshot ("light") first. Applying it would
+  // overwrite a saved or system dark preference before it is read, so wait
+  // until the client snapshot is live.
   useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
+    if (mounted) applyTheme(theme);
+  }, [mounted, theme]);
 
   const toggleTheme = () => {
     updateTheme(theme === "dark" ? "light" : "dark");

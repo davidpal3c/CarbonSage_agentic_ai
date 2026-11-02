@@ -189,7 +189,7 @@ export default function ReportPage() {
           type="button"
           onClick={saveSnapshot}
           disabled={isSaving || !report?.shipment_analysis.shipment_count}
-          className="inline-flex items-center gap-2 rounded-lg border border-secondary px-3.5 py-2 text-sm font-semibold text-secondary disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-lg border border-tertiary px-3.5 py-2 text-sm font-semibold text-tertiary disabled:opacity-60"
         >
           {isSaving ? <Spinner /> : null}
           Save report snapshot
@@ -199,7 +199,7 @@ export default function ReportPage() {
             type="button"
             onClick={exportReport}
             disabled={isExporting}
-            className="inline-flex items-center gap-2 rounded-lg border border-secondary px-3.5 py-2 text-sm font-semibold text-secondary disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-lg border border-tertiary px-3.5 py-2 text-sm font-semibold text-tertiary disabled:opacity-60"
           >
             {isExporting ? <Spinner /> : null}
             Export CSV report

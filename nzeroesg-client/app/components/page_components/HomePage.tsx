@@ -87,8 +87,9 @@ export default function HomePage() {
               </h1>
               <p className="mb-3 max-w-[44ch] text-[17px] leading-[1.5]">
                 CarbonSage joins shipment data, supplier documents and
-                deterministic emissions tools, so every answer shows its numbers
-                and its sources.
+                deterministic emissions tools. Calculated figures show their
+                inputs, supported claims cite their source, and unsupported ones
+                say so.
               </p>
               <p className="mb-6 text-[15px] text-muted-foreground">
                 <span className="label-mono mr-2 inline-block bg-foreground px-1.5 py-1 text-[11px] text-background">
@@ -150,7 +151,7 @@ export default function HomePage() {
                 01 · From operational data to evidence
               </p>
               <h2 id="how-title" className={sectionTitle}>
-                Every figure keeps its trail.
+                Each calculation keeps its trail.
               </h2>
               <p className="mt-6 max-w-[46ch] leading-7 text-muted-foreground">
                 Follow one shipment from the fictional demo dataset. CarbonSage

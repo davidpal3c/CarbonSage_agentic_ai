@@ -19,11 +19,15 @@
   --muted: #eae4d8;
   --muted-foreground: #5b5a56;
   --border: #d6cec0;
+  --control-border: #85806f;
   --sidebar: #f7f3eb;
   --sidebar-border: #ddd5c7;
   --chat-surface: #fbf9f4;
   --user-message: #e9e3d7;
   --primary: #202326;
+  /* --secondary is the clay FILL for buttons with white text. Clay used as
+     foreground (labels, links, outline buttons) is --tertiary, which is
+     lightened in dark mode so it keeps 4.5:1 on dark surfaces. */
   --secondary: #a8472a;
   --tertiary: #a8472a;
   --accent: #2b6b68;
@@ -50,6 +54,7 @@
   --muted: #26292c;
   --muted-foreground: #a9a69f;
   --border: #34383b;
+  --control-border: #7a8085;
   --sidebar: #1b1e20;
   --sidebar-border: #2c3033;
   --chat-surface: #1d2023;
@@ -79,6 +84,7 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --color-control: var(--control-border);
   --color-sidebar: var(--sidebar);
   --color-sidebar-border: var(--sidebar-border);
   --color-chat-surface: var(--chat-surface);
@@ -120,6 +126,16 @@ body {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Form controls carry their boundary in the border, so it needs 3:1 against
+   the surface. Hover and focus keep their own utility colours. */
+:where(
+    input:not([type="checkbox"], [type="radio"], [type="file"]),
+    select,
+    textarea
+  ):not(:hover, :focus-visible) {
+  border-color: var(--control-border);
 }
 
 .agent-suggestions {

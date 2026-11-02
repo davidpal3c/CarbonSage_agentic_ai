@@ -63,7 +63,7 @@ export default function HowToPage() {
           const Icon = step.icon;
           return (
             <article key={step.title} className="flex gap-4 p-5 sm:p-6">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary/10 text-secondary">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary/10 text-tertiary">
                 <Icon aria-hidden="true" className="h-4 w-4" />
               </span>
               <div>

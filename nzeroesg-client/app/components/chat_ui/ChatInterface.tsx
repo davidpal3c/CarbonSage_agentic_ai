@@ -2,9 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Database, Leaf, Plus, Trash2, Upload, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import {
+  Database,
+  MessageSquareText,
+  Plus,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 
 import { getBackendUrl } from "@/app/api/urls";
+import BrandMark from "@/app/components/BrandMark";
 import { LoadingState, Spinner } from "@/app/components/Spinner";
 import type {
   AgentAvailability,
@@ -35,6 +44,11 @@ interface ChatInterfaceProps {
   presentation?: "launcher" | "panel";
   navigationKey?: string;
   onUsageChange?: () => Promise<void>;
+  /**
+   * Where the closed launcher button renders. The shell supplies a slot in its
+   * top bar so the launcher never floats over page content.
+   */
+  launcherSlot?: HTMLElement | null;
 }
 
 const statusLabels: Record<AgentAvailability, string> = {
@@ -139,6 +153,7 @@ export default function ChatInterface({
   presentation = "launcher",
   navigationKey,
   onUsageChange,
+  launcherSlot,
 }: ChatInterfaceProps) {
   const isPanel = presentation === "panel";
   const [messages, setMessages] = useState<UiMessage[]>([]);
@@ -591,6 +606,18 @@ export default function ChatInterface({
   const showInterface =
     isPanel || (previousNavigationKey.current === navigationKey && isOpen);
 
+  const launcherButton = (
+    <button
+      type="button"
+      onClick={() => handleToggleChat(true)}
+      aria-label="Open CarbonSage quick ask"
+      className="inline-flex h-10 items-center gap-2 border-[1.5px] border-foreground bg-card px-3 text-foreground transition-colors hover:bg-muted"
+    >
+      <MessageSquareText aria-hidden="true" className="h-5 w-5" />
+      <span className="label-mono max-sm:sr-only">Quick ask</span>
+    </button>
+  );
+
   return (
     <div>
       {showInterface ? (
@@ -760,7 +787,7 @@ export default function ChatInterface({
                   ) : !messages.length && !isLoading ? (
                     <div className="mx-auto flex h-full max-w-xl flex-col items-center justify-center py-8 text-center">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-accent">
-                        <Leaf aria-hidden="true" className="h-5 w-5" />
+                        <BrandMark className="h-5 w-5" />
                       </div>
                       <h3 className="mt-4 text-lg font-semibold text-primary">
                         {demoData && !demoData.has_artifacts
@@ -887,18 +914,10 @@ export default function ChatInterface({
             ) : null}
           </div>
         </section>
-      ) : isPanel ? null : (
-        <button
-          type="button"
-          onClick={() => handleToggleChat(true)}
-          aria-label="Open CarbonSage"
-          className="group fixed bottom-4 right-4 z-50 rounded-full border border-border bg-primary p-4 text-background shadow-lg transition hover:-translate-y-0.5 hover:border-accent"
-        >
-          <Leaf
-            aria-hidden="true"
-            className="h-6 w-6 transition-transform group-hover:scale-105"
-          />
-        </button>
+      ) : isPanel ? null : launcherSlot ? (
+        createPortal(launcherButton, launcherSlot)
+      ) : (
+        launcherButton
       )}
     </div>
   );
