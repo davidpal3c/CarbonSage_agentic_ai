@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Database, Leaf, Plus, Trash2, Upload, X } from "lucide-react";
+import { Database, Plus, Trash2, Upload, X } from "lucide-react";
 
 import { getBackendUrl } from "@/app/api/urls";
+import BrandMark from "@/app/components/BrandMark";
 import { LoadingState, Spinner } from "@/app/components/Spinner";
 import type {
   AgentAvailability,
@@ -603,8 +604,8 @@ export default function ChatInterface({
               ? "flex h-[min(50rem,calc(100vh-11rem))] min-h-[38rem] w-full flex-col overflow-hidden rounded-2xl border border-border bg-chat-surface shadow-sm"
               : `fixed inset-x-3 bottom-3 z-50 flex ${
                   hasAssistantMessage
-                    ? "h-[min(48rem,calc(100vh-1.5rem))]"
-                    : "h-[min(36rem,calc(100vh-1.5rem))]"
+                    ? "h-[min(57.6rem,calc(100vh-1.5rem))]"
+                    : "h-[min(43.2rem,calc(100vh-1.5rem))]"
                 } flex-col overflow-hidden rounded-2xl border border-border bg-chat-surface shadow-2xl transition-[height] duration-200 sm:left-auto sm:right-4 sm:w-[min(48rem,calc(100vw-2rem))]`
           }
         >
@@ -759,9 +760,7 @@ export default function ChatInterface({
                     <LoadingState label="Loading conversation" />
                   ) : !messages.length && !isLoading ? (
                     <div className="mx-auto flex h-full max-w-xl flex-col items-center justify-center py-8 text-center">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-accent">
-                        <Leaf aria-hidden="true" className="h-5 w-5" />
-                      </div>
+                      <BrandMark className="h-10 w-10" />
                       <h3 className="mt-4 text-lg font-semibold text-primary">
                         {demoData && !demoData.has_artifacts
                           ? "Start with demo data or bring your own"
@@ -892,12 +891,9 @@ export default function ChatInterface({
           type="button"
           onClick={() => handleToggleChat(true)}
           aria-label="Open CarbonSage"
-          className="group fixed bottom-4 right-4 z-50 rounded-full border border-border bg-primary p-4 text-background shadow-lg transition hover:-translate-y-0.5 hover:border-accent"
+          className="group fixed bottom-4 right-4 z-50 rounded-full shadow-lg transition hover:-translate-y-0.5"
         >
-          <Leaf
-            aria-hidden="true"
-            className="h-6 w-6 transition-transform group-hover:scale-105"
-          />
+          <BrandMark className="h-14 w-14 transition-transform group-hover:scale-105" />
         </button>
       )}
     </div>

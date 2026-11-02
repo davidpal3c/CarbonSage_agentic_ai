@@ -1,11 +1,9 @@
-import { Leaf } from "lucide-react";
+import BrandMark from "@/app/components/BrandMark";
 
 export function LoadingIndicator() {
   return (
     <div className="flex items-start gap-3">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-accent">
-        <Leaf aria-hidden="true" className="h-4 w-4" />
-      </div>
+      <BrandMark className="h-9 w-9" />
       <div className="rounded-2xl border border-border bg-transparent px-4 py-3 shadow-sm">
         <p className="mb-2 text-xs font-semibold text-primary">CarbonSage</p>
         <div className="flex gap-1.5" aria-label="CarbonSage is responding">

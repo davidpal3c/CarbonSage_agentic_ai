@@ -66,6 +66,7 @@ export const comingSoonData = [
     id: 5,
     title: "JavaScript embed",
     icon: BarChart3,
+    status: "Coming soon",
     description:
       "Mount the authenticated agent in an existing application through an isolated iframe and small loader.",
   },
@@ -73,6 +74,7 @@ export const comingSoonData = [
     id: 6,
     title: "Selected-file import",
     icon: FileText,
+    status: "Planned",
     description:
       "Import one explicitly selected Google Drive file through the same bounded artifact pipeline.",
   },

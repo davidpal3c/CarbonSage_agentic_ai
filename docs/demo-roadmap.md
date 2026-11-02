@@ -1168,7 +1168,7 @@ Exit gate:
 
 Next performance gate:
 
-- Deploy slices 1 and 2, collect representative warm and cold-ish production
+- Deploy the approved optimization slices, collect representative warm and cold-ish production
   samples, and compare p50/p95 stage timing against the recorded targets.
 - Do not introduce background jobs, asynchronous readiness, precomputed vector
   snapshots, or a queue until production measurements show that embedding work
@@ -1176,6 +1176,33 @@ Next performance gate:
 - If transfer-leg recommendations are implemented later, model them as a
   separately itemized multimodal leg with explicit distance source, emissions,
   cost, and uncertainty rather than silently folding them into a supplier lane.
+
+### Phase 10.8 — Versioned workspace bootstrap contract
+
+Implementation evidence (completed on the feature branch 2026-08-24):
+
+- `GET /demo/data/bootstrap` returns one private, versioned snapshot containing
+  demo readiness, normalized shipments with default analytics, supplier cards,
+  and active artifact metadata. Focused resource endpoints remain unchanged for
+  mutations, downloads, filtered analytics, and compatibility fallback.
+- `POST /demo/data` includes the same bootstrap payload after both a new seed
+  and an idempotent existing-data result. Bootstrap assembly is measured as its
+  own server-timing stage and remains inside the end-to-end load duration.
+- The workspace shell hydrates Zustand before mounting page content. A
+  successful demo load applies all baseline slices in one client state update
+  and no longer follows the POST with separate shipment, supplier, and artifact
+  collection requests.
+- The bootstrap schema and its payload boundaries are recorded in
+  [`decisions/004-workspace-bootstrap-contract.md`](decisions/004-workspace-bootstrap-contract.md).
+- The compact assistant launcher is 20 percent taller in both its initial and
+  response states while remaining bounded by the available viewport.
+
+Exit gate:
+
+> Initial entry and demo loading hydrate the complete dashboard baseline from
+> one versioned snapshot, canonical resource totals reconcile with that
+> snapshot, route navigation remains cached, and the browser performs no
+> redundant baseline collection requests after a successful seed.
 
 ### Phase 11 — Authenticated JavaScript embed
 

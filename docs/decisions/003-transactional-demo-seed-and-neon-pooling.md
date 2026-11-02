@@ -64,8 +64,9 @@ that can silently select the wrong host or environment.
   pooled lease rolls back any unfinished transaction before returning it.
 - Process concurrency is capped locally, while Neon's pooled endpoint handles
   platform-side connection multiplexing.
-- Semantic indexing is still synchronous in this slice. Moving it off the load
-  critical path remains a separate architectural decision.
+- Semantic indexing was synchronous in this slice. The subsequent loader change
+  defers demo indexing until semantic or hybrid search; see
+  [`loader-performance-and-pageindex-assessment.md`](../loader-performance-and-pageindex-assessment.md).
 
 ## References
 

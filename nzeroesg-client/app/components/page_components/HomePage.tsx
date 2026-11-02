@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Leaf } from "lucide-react";
 
+import BrandMark from "@/app/components/BrandMark";
 import BrandWordmark from "@/app/components/BrandWordmark";
 import ThemeToggle from "@/app/components/ThemeToggle";
 import AboutSection from "@/app/components/page_components/AboutSection";
@@ -26,9 +26,7 @@ export default function HomePage() {
             href="#"
             className="flex items-center gap-2 text-xl font-bold tracking-tight"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-brand-mark text-brand-primary">
-              <Leaf aria-hidden="true" className="h-4 w-4" />
-            </span>
+            <BrandMark className="h-8 w-8" />
             <BrandWordmark />
           </a>
           <div className="flex items-center gap-5 text-sm font-semibold">
@@ -92,10 +90,10 @@ export default function HomePage() {
           <div className="mx-auto max-w-6xl">
             <div className="mb-12 text-center">
               <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-accent">
-                Next release track
+                Platform capabilities
               </p>
               <h2 className="text-3xl font-bold text-primary">
-                From trusted data to embedded intelligence
+                What works today—and what comes next
               </h2>
             </div>
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -104,7 +102,14 @@ export default function HomePage() {
                   key={item.id}
                   className="rounded-xl border border-border bg-background p-6 shadow-sm"
                 >
-                  <item.icon className="mb-4 h-7 w-7 text-accent" />
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <item.icon className="h-7 w-7 text-accent" />
+                    {item.status ? (
+                      <span className="rounded-full border border-border bg-muted px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                        {item.status}
+                      </span>
+                    ) : null}
+                  </div>
                   <h3 className="mb-2 font-semibold text-primary">
                     {item.title}
                   </h3>

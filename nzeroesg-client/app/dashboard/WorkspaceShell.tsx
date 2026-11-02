@@ -18,7 +18,6 @@ import {
   CircleHelp,
   Files,
   LayoutDashboard,
-  Leaf,
   LogOut,
   MessageSquareText,
   Moon,
@@ -29,6 +28,7 @@ import {
 } from "lucide-react";
 
 import { getBackendUrl } from "@/app/api/urls";
+import BrandMark from "@/app/components/BrandMark";
 import BrandWordmark from "@/app/components/BrandWordmark";
 import { LoadingState } from "@/app/components/Spinner";
 import ChatInterface from "@/app/components/chat_ui/ChatInterface";
@@ -54,7 +54,7 @@ type WorkspaceContextValue = {
 type NavigationItem = {
   label: string;
   href: string;
-  icon: typeof Leaf;
+  icon: typeof LayoutDashboard;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -166,15 +166,12 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
         }
         return (await response.json()) as WorkspaceSession;
       })
-      .then((workspace) => {
+      .then(async (workspace) => {
         if (workspace && isCurrent) {
           const workspaceData = useWorkspaceDataStore.getState();
           workspaceData.setWorkspace(workspace.workspace_id);
-          setSession(workspace);
-          void useWorkspaceDataStore
-            .getState()
-            .ensureDemoData()
-            .catch(() => undefined);
+          await workspaceData.ensureWorkspaceBootstrap().catch(() => undefined);
+          if (isCurrent) setSession(workspace);
         }
       })
       .catch((requestError) => {
@@ -232,9 +229,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-4 px-1 lg:flex-col lg:justify-center lg:gap-2 lg:px-0 lg:text-center">
                 <div className="flex items-center gap-3 lg:flex-col lg:gap-1.5">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-brand-mark text-brand-primary shadow-sm">
-                    <Leaf aria-hidden="true" className="h-[18px] w-[18px]" />
-                  </span>
+                  <BrandMark className="h-9 w-9 drop-shadow-sm" />
                   <div>
                     <Link
                       href="/"
