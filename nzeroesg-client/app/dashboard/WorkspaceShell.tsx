@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 
 import { getBackendUrl } from "@/app/api/urls";
+import BrandMark from "@/app/components/BrandMark";
 import BrandWordmark from "@/app/components/BrandWordmark";
 import { LoadingState } from "@/app/components/Spinner";
 import ChatInterface from "@/app/components/chat_ui/ChatInterface";
@@ -229,13 +230,11 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-4 px-1 lg:flex-col lg:justify-center lg:gap-2 lg:px-0 lg:text-center">
                 <div className="flex items-center gap-3 lg:flex-col lg:gap-1.5">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-brand-mark text-brand-primary shadow-sm">
-                    <Leaf aria-hidden="true" className="h-[18px] w-[18px]" />
-                  </span>
+                  <BrandMark className="h-9 w-9" />
                   <div>
                     <Link
                       href="/"
-                      className="text-base font-bold tracking-tight lg:text-[13px]"
+                      className="text-base font-bold tracking-tight lg:text-[10px]"
                     >
                       <BrandWordmark />
                     </Link>

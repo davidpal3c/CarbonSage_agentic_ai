@@ -9,59 +9,66 @@
 }
 
 :root {
-  --background: #eeece8;
-  --foreground: #1b1a1d;
-  --secondary-bg: #e5e3df;
-  --secondary-fg: #45434a;
-  --card: #f9f8f5;
-  --card-foreground: #201f22;
-  --muted: #f2f0ec;
-  --muted-foreground: #6c6970;
-  --border: #d8d5d0;
-  --sidebar: #f6f5f2;
-  --sidebar-border: #dedbd6;
-  --chat-surface: #fbfaf7;
-  --user-message: #e8e6e1;
-  --primary: #1d1c20;
-  --secondary: #4a4466;
-  --tertiary: #b96555;
-  --accent: #4b7480;
-  --brand-primary: #4a4466;
-  --brand-secondary: #597a64;
-  --brand-mark: #dce7df;
-  --chart-plane: #4a4466;
-  --chart-truck: #d77f6c;
-  --chart-train: #78a887;
-  --chart-ship: #6fabbc;
-  --chart-highlight: #a6b568;
+  /* Evidence Atlas: warm paper, graphite ink, oxide clay, muted teal. */
+  --background: #f3eee5;
+  --foreground: #202326;
+  --secondary-bg: #e8e1d5;
+  --secondary-fg: #3a3d40;
+  --card: #faf7f1;
+  --card-foreground: #202326;
+  --muted: #eae4d8;
+  --muted-foreground: #5b5a56;
+  --border: #d6cec0;
+  --sidebar: #f7f3eb;
+  --sidebar-border: #ddd5c7;
+  --chat-surface: #fbf9f4;
+  --user-message: #e9e3d7;
+  --primary: #202326;
+  --secondary: #a8472a;
+  --tertiary: #a8472a;
+  --accent: #2b6b68;
+  --brand-primary: #202326;
+  --brand-secondary: #2b6b68;
+  --brand-mark: #e8e1d5;
+  --band: #202326;
+  --band-foreground: #f3eee5;
+  --band-muted: #b9b4aa;
+  --chart-plane: #202326;
+  --chart-truck: #a8472a;
+  --chart-train: #b07f1f;
+  --chart-ship: #3f8f8a;
+  --chart-highlight: #2b6b68;
 }
 
 .dark {
-  --background: #111115;
-  --foreground: #f1f0ed;
-  --secondary-bg: #202026;
-  --secondary-fg: #d7d4dc;
-  --card: #1c1c22;
-  --card-foreground: #f4f2ef;
-  --muted: #24242b;
-  --muted-foreground: #aaa7b0;
-  --border: #35343d;
-  --sidebar: #17171c;
-  --sidebar-border: #2e2d35;
-  --chat-surface: #1a1a20;
-  --user-message: #27272e;
-  --primary: #f1f0ed;
-  --secondary: #5d567d;
-  --tertiary: #ef9b87;
-  --accent: #88bdcb;
-  --brand-primary: #b6b0d2;
-  --brand-secondary: #9fcbad;
-  --brand-mark: #292733;
-  --chart-plane: #aaa5c8;
-  --chart-truck: #ef9b87;
-  --chart-train: #9fcbad;
-  --chart-ship: #86c1d1;
-  --chart-highlight: #f1f6d3;
+  --background: #17191b;
+  --foreground: #f1ece2;
+  --secondary-bg: #202326;
+  --secondary-fg: #d9d4c9;
+  --card: #1f2225;
+  --card-foreground: #f1ece2;
+  --muted: #26292c;
+  --muted-foreground: #a9a69f;
+  --border: #34383b;
+  --sidebar: #1b1e20;
+  --sidebar-border: #2c3033;
+  --chat-surface: #1d2023;
+  --user-message: #272a2d;
+  --primary: #f1ece2;
+  --secondary: #b04a2b;
+  --tertiary: #e08a6c;
+  --accent: #6fb1ac;
+  --brand-primary: #f1ece2;
+  --brand-secondary: #6fb1ac;
+  --brand-mark: #26292c;
+  --band: #0f1112;
+  --band-foreground: #f1ece2;
+  --band-muted: #a9a69f;
+  --chart-plane: #e9e4da;
+  --chart-truck: #e08a6c;
+  --chart-train: #d9b45a;
+  --chart-ship: #6fb1ac;
+  --chart-highlight: #6fb1ac;
 }
 
 @theme {
@@ -85,8 +92,11 @@
   --color-brand-primary: var(--brand-primary);
   --color-brand-secondary: var(--brand-secondary);
   --color-brand-mark: var(--brand-mark);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-band: var(--band);
+  --color-band-foreground: var(--band-foreground);
+  --color-band-muted: var(--band-muted);
+  --font-sans: var(--font-archivo), Arial, Helvetica, sans-serif;
+  --font-mono: var(--font-dm-mono), ui-monospace, monospace;
 }
 
 html {
@@ -97,7 +107,7 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
   transition:
     background-color var(--default-transition-duration),
     color var(--default-transition-duration);
@@ -168,9 +178,59 @@ body {
   }
 }
 
+/* The evidence trail draws itself once on load. Under reduced motion the
+   path and nodes simply render in their final state. */
+@media (prefers-reduced-motion: no-preference) {
+  .trail-path {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: trail-draw 1.4s 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .trail-node {
+    opacity: 0;
+    animation: trail-node 0.3s ease-out forwards;
+    animation-delay: calc(0.35s + var(--i, 0) * 0.28s);
+  }
+}
+
+@keyframes trail-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes trail-node {
+  to {
+    opacity: 1;
+  }
+}
+
 @layer utilities {
   .brand-wordmark {
     color: var(--brand-primary);
+    font-stretch: 118%;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* Marketing display voice: semi-expanded heavy grotesque. */
+  .font-display {
+    font-stretch: 112%;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 0.98;
+  }
+
+  /* Index labels: small mono capitals used for legends and section marks. */
+  .label-mono {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    line-height: 1;
+    text-transform: uppercase;
   }
 
   .brand-wordmark-sage {

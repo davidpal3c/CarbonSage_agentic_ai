@@ -9,6 +9,7 @@ import {
   Wrench,
 } from "lucide-react";
 
+/** Capabilities the readme lists under "What works today". */
 export const featuresData = [
   {
     id: 1,
@@ -31,49 +32,57 @@ export const featuresData = [
     description:
       "Signed sessions, server-side quotas, retention, and workspace-scoped repositories protect every user-owned record.",
   },
-];
-
-export const comingSoonData = [
   {
-    id: 1,
+    id: 4,
     title: "Artifact control plane",
     icon: Calculator,
     description:
       "Manage shipment datasets, evidence documents, and generated decision artifacts with provenance.",
   },
   {
-    id: 2,
-    title: "Evaluated hybrid RAG",
+    id: 5,
+    title: "Evaluated hybrid retrieval",
     icon: FileInput,
     description:
       "Compare full-text, pgvector semantic, and hybrid retrieval to tune ranking against representative questions.",
   },
   {
-    id: 3,
+    id: 6,
     title: "Typed agent tools",
     icon: FileSearch,
     description:
       "Orchestrate evidence search, emissions calculations, scenarios, data quality, and reports through validated commands.",
   },
   {
-    id: 4,
+    id: 7,
     title: "Structured conversations",
     icon: Users,
     description:
       "Return cited text, metrics, tables, charts, warnings, artifact links, and safe suggested actions.",
   },
+];
+
+/** The readme's "Upcoming changes": not available in the demo yet. */
+export const comingSoonData = [
   {
-    id: 5,
+    id: 1,
     title: "JavaScript embed",
     icon: BarChart3,
     description:
       "Mount the authenticated agent in an existing application through an isolated iframe and small loader.",
   },
   {
-    id: 6,
+    id: 2,
     title: "Selected-file import",
     icon: FileText,
     description:
       "Import one explicitly selected Google Drive file through the same bounded artifact pipeline.",
+  },
+  {
+    id: 3,
+    title: "Read-only MCP adapter",
+    icon: FileSearch,
+    description:
+      "Optionally expose the same stable application tools through a read-only MCP adapter.",
   },
 ];
