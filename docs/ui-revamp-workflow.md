@@ -10,9 +10,16 @@ decision.
 For every builder design or feature pass:
 
 1. Start the pass branch from the latest `origin/design/carbonsage-ui-revamp`.
-2. Keep the pass isolated on that branch while it is built and reviewed.
-3. Run the checks relevant to the changed surfaces and review the resulting UI.
-4. Merge the reviewed pass into `design/carbonsage-ui-revamp`, then push that
+2. Keep the pass isolated on that branch while it is built. Commit and push the
+   pass branch before review. A branch that exists only in the builder's clone
+   will not appear in the user's original checkout.
+3. Fetch the pass branch into the original `nzeroesg app` checkout and verify
+   that `git branch` lists it. Switch that clean checkout to the pass branch so
+   the user can test locally before integration. Preserve any local changes on
+   their own branch before switching.
+4. Run the checks relevant to the changed surfaces and review the resulting UI.
+   Keep the builder branch available after review so the user can return to it.
+5. Merge the reviewed pass into `design/carbonsage-ui-revamp`, then push that
    central branch. Resolve conflicts against the central branch before the
    merge. The next pass starts from the newly integrated tip.
 

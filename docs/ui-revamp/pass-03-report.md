@@ -2,7 +2,9 @@
 
 Branch `design/pass-03-atalanta-calibration`, from `origin/design/carbonsage-ui-revamp`
 at `ecc7aa3`. No API, retrieval, calculation, storage, agent-parsing or roadmap
-code changed. Not deployed, not pushed. Review captures, the comparison sheet and
+code changed. At builder handoff it was not pushed; the branch was subsequently
+pushed and integrated after review (see `pass-03-planner-review.md`). It has not
+been deployed. Review captures, the comparison sheet and
 the scripts are in the untracked pack `_workspace/ui-pass-03-review/` (see its README).
 
 ## What changed
