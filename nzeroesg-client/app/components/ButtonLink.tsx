@@ -1,13 +1,13 @@
 import Link from "next/link";
 
 const base =
-  "inline-flex min-h-12 items-center justify-center gap-2 whitespace-nowrap px-5 text-[15px] font-semibold transition-colors";
+  "inline-flex min-h-12 items-center justify-center gap-2 whitespace-nowrap px-6 text-[13px] font-medium uppercase tracking-[0.03em] transition-colors";
 
 const variants = {
-  primary: "bg-secondary text-white hover:bg-secondary/90",
+  // Inverts with the surface: paper on olive, olive on paper.
+  primary: "bg-foreground text-background hover:bg-foreground/85",
   ghost:
-    "border-[1.5px] border-foreground text-foreground hover:bg-foreground hover:text-background",
-  onBand: "bg-secondary text-white hover:bg-secondary/90",
+    "border border-foreground/60 text-foreground hover:border-foreground hover:bg-foreground/10",
 } as const;
 
 export default function ButtonLink({

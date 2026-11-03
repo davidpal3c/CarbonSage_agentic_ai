@@ -3,11 +3,11 @@ import { Archivo, DM_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
 
-// One variable family covers body and display (the width axis gives the
-// semi-expanded headline voice); the mono face is for labels and numerals.
+// One variable family covers body, workspace and the public site's light
+// display weight; the mono face is for workspace figures. The public serif
+// lives with the public surface.
 const archivo = Archivo({
   subsets: ["latin"],
-  axes: ["wdth"],
   variable: "--font-archivo",
   display: "swap",
 });

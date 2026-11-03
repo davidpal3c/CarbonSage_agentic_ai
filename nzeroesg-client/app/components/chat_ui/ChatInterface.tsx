@@ -611,10 +611,10 @@ export default function ChatInterface({
       type="button"
       onClick={() => handleToggleChat(true)}
       aria-label="Open CarbonSage quick ask"
-      className="inline-flex h-10 items-center gap-2 border-[1.5px] border-foreground bg-card px-3 text-foreground transition-colors hover:bg-muted"
+      className="inline-flex h-10 items-center gap-2 rounded-md border border-control bg-card px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
     >
       <MessageSquareText aria-hidden="true" className="h-5 w-5" />
-      <span className="label-mono max-sm:sr-only">Quick ask</span>
+      <span className="max-sm:sr-only">Quick ask</span>
     </button>
   );
 

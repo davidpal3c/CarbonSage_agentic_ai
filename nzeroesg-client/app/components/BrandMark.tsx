@@ -1,4 +1,4 @@
-/** A surveyed line between two evidence nodes inside a registration frame. */
+/** A stepped line from an origin node to an evidence node: a trail. */
 export default function BrandMark({
   className = "h-7 w-7",
 }: {
@@ -11,17 +11,15 @@ export default function BrandMark({
       aria-hidden="true"
       className={`text-brand-primary ${className}`}
     >
+      <path d="M5 23h8v-7h14" stroke="currentColor" strokeWidth="1.75" />
       <rect
-        x="2"
-        y="2"
-        width="28"
-        height="28"
-        stroke="currentColor"
-        strokeWidth="2.4"
+        x="2.5"
+        y="20.5"
+        width="5"
+        height="5"
+        fill="var(--brand-secondary)"
       />
-      <path d="M8 24h7v-8h9" stroke="currentColor" strokeWidth="2.4" />
-      <rect x="5.5" y="21.5" width="5" height="5" fill="var(--tertiary)" />
-      <rect x="21.5" y="13.5" width="5" height="5" fill="currentColor" />
+      <rect x="24.5" y="13.5" width="5" height="5" fill="currentColor" />
     </svg>
   );
 }

@@ -29,32 +29,3 @@ export const evidenceSteps = [
       "The answer quotes the passage, names the file, and keeps the supplier's own estimate labelled as the supplier's.",
   },
 ] as const;
-
-/** Trail geometry as fractions of the hero plate (780 x 800 artwork). */
-const trailPoints: ReadonlyArray<readonly [number, number]> = [
-  [0.1, 0.92],
-  [0.3, 0.78],
-  [0.52, 0.64],
-  [0.7, 0.48],
-  [0.78, 0.32],
-];
-
-/** One numbered node per evidence step; the first point only starts the line. */
-export const trailNodes = trailPoints.slice(1);
-
-export const PLATE_WIDTH = 780;
-export const PLATE_HEIGHT = 800;
-
-/** A stepped, surveyed line: horizontal to the midpoint, vertical, horizontal. */
-export function trailPath(): string {
-  const [first, ...rest] = trailPoints.map(
-    ([x, y]) => [x * PLATE_WIDTH, y * PLATE_HEIGHT] as const,
-  );
-  let d = `M${first[0]} ${first[1]}`;
-  let previousX = first[0];
-  for (const [x, y] of rest) {
-    d += `H${(previousX + x) / 2}V${y}H${x}`;
-    previousX = x;
-  }
-  return d;
-}

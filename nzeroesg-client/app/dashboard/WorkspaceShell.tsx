@@ -105,10 +105,10 @@ function currentLabel(pathname: string) {
 }
 
 const itemClass = (active: boolean) =>
-  `flex min-h-11 items-center gap-3 border-l-[3px] px-3 text-[15px] transition-colors ${
+  `flex min-h-11 items-center gap-3 rounded-md border-l-2 px-3 text-[15px] transition-colors ${
     active
-      ? "border-foreground bg-card font-semibold text-foreground"
-      : "border-transparent text-muted-foreground hover:bg-card/70 hover:text-foreground"
+      ? "border-accent bg-muted font-medium text-foreground"
+      : "border-transparent text-muted-foreground hover:bg-muted/70 hover:text-foreground"
   }`;
 
 function WorkspaceNavigation({
@@ -122,7 +122,7 @@ function WorkspaceNavigation({
     <nav aria-label="Workspace navigation" className="space-y-6">
       {navigationGroups.map((group) => (
         <div key={group.label}>
-          <p className="label-mono mb-2 px-3 text-muted-foreground">
+          <p className="label-ui mb-2 px-3 text-muted-foreground">
             {group.label}
           </p>
           <ul>
@@ -399,7 +399,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
                 aria-label="Open menu"
                 aria-expanded={drawerOpen}
                 aria-controls={drawerId}
-                className="flex h-10 w-10 shrink-0 items-center justify-center border-[1.5px] border-foreground text-foreground lg:hidden"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-control text-foreground lg:hidden"
               >
                 <Menu aria-hidden="true" className="h-5 w-5" />
               </button>
@@ -408,7 +408,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
               </div>
               <p
                 aria-hidden="true"
-                className="label-mono hidden text-muted-foreground lg:block"
+                className="label-ui hidden text-muted-foreground lg:block"
               >
                 Workspace <span className="mx-1">/</span>
                 <span className="text-foreground">
@@ -469,7 +469,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
                   type="button"
                   onClick={closeDrawer}
                   aria-label="Close menu"
-                  className="flex h-10 w-10 items-center justify-center border-[1.5px] border-foreground text-foreground"
+                  className="flex h-10 w-10 items-center justify-center rounded-md border border-control text-foreground"
                 >
                   <X aria-hidden="true" className="h-5 w-5" />
                 </button>

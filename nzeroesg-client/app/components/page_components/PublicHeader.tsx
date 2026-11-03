@@ -6,7 +6,6 @@ import { useEffect, useRef, useState } from "react";
 
 import BrandMark from "@/app/components/BrandMark";
 import BrandWordmark from "@/app/components/BrandWordmark";
-import ButtonLink from "@/app/components/ButtonLink";
 import ThemeToggle from "@/app/components/ThemeToggle";
 
 const navigation = [
@@ -15,6 +14,9 @@ const navigation = [
   { name: "Product", href: "#product" },
   { name: "Trust and limits", href: "#trust" },
 ];
+
+const navLink =
+  "rail-label text-muted-foreground transition-colors hover:text-foreground";
 
 export default function PublicHeader() {
   const [open, setOpen] = useState(false);
@@ -33,54 +35,71 @@ export default function PublicHeader() {
   }, [open]);
 
   return (
-    <header className="sticky top-0 z-40 border-b-[1.5px] border-foreground bg-background">
-      <div className="flex h-16 items-center gap-2 px-4 sm:gap-3 md:px-10">
+    <header className="tone-ink sticky top-0 z-40 border-b border-spine bg-background text-foreground">
+      <div className="relative grid h-[62px] grid-cols-[var(--rail)_minmax(0,1fr)]">
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-0 left-[var(--rail)] w-px bg-spine"
+        />
         <Link
           href="/"
           aria-label="CarbonSage home"
-          className="flex shrink-0 items-center gap-2.5 text-[14px] sm:text-[17px]"
+          className="flex items-center justify-center gap-2.5 text-[17px] lg:justify-start lg:pl-10"
         >
-          <BrandMark className="h-6 w-6 shrink-0 sm:h-7 sm:w-7" />
-          <BrandWordmark />
+          <BrandMark className="h-7 w-7 shrink-0" />
+          <BrandWordmark className="hidden lg:inline" />
         </Link>
 
-        <nav aria-label="Primary" className="ml-6 mr-auto hidden gap-7 lg:flex">
-          {navigation.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className="label-mono text-muted-foreground underline-offset-8 transition-colors hover:text-foreground hover:underline"
-            >
-              {item.name}
-            </a>
-          ))}
-        </nav>
+        <div className="flex min-w-0 items-stretch">
+          <Link
+            href="/"
+            tabIndex={-1}
+            aria-hidden="true"
+            className="flex items-center pl-4 text-[16px] md:pl-8 lg:hidden"
+          >
+            <BrandWordmark />
+          </Link>
 
-        <div className="ml-auto flex items-center gap-2 lg:ml-0">
-          <div className="hidden lg:block">
-            <ThemeToggle />
+          <nav
+            aria-label="Primary"
+            className="ml-5 hidden items-center gap-7 lg:flex"
+          >
+            {navigation.map((item) => (
+              <a key={item.href} href={item.href} className={navLink}>
+                <span aria-hidden="true" className="mr-2 text-muted-foreground">
+                  /
+                </span>
+                {item.name}
+              </a>
+            ))}
+          </nav>
+
+          <div className="ml-auto flex items-stretch">
+            <div className="hidden items-center border-l border-spine px-2 lg:flex">
+              <ThemeToggle />
+            </div>
+            <Link
+              href="/login"
+              className="rail-label flex items-center border-l border-spine bg-foreground px-4 text-background transition-colors hover:bg-foreground/85 md:px-7"
+            >
+              Try the demo
+            </Link>
+            <button
+              ref={menuButton}
+              type="button"
+              aria-expanded={open}
+              aria-controls="mobile-menu"
+              aria-label={open ? "Close menu" : "Open menu"}
+              onClick={() => setOpen((value) => !value)}
+              className="flex w-12 shrink-0 items-center justify-center border-l border-spine text-foreground hover:bg-foreground/10 lg:hidden"
+            >
+              {open ? (
+                <X aria-hidden="true" className="h-5 w-5" />
+              ) : (
+                <Menu aria-hidden="true" className="h-5 w-5" />
+              )}
+            </button>
           </div>
-          <ButtonLink
-            href="/login"
-            className="min-h-11 px-3 max-sm:text-sm sm:px-5"
-          >
-            Try the demo
-          </ButtonLink>
-          <button
-            ref={menuButton}
-            type="button"
-            aria-expanded={open}
-            aria-controls="mobile-menu"
-            aria-label={open ? "Close menu" : "Open menu"}
-            onClick={() => setOpen((value) => !value)}
-            className="flex h-11 w-11 shrink-0 items-center justify-center border-[1.5px] border-foreground text-foreground lg:hidden"
-          >
-            {open ? (
-              <X aria-hidden="true" className="h-5 w-5" />
-            ) : (
-              <Menu aria-hidden="true" className="h-5 w-5" />
-            )}
-          </button>
         </div>
       </div>
 
@@ -88,23 +107,29 @@ export default function PublicHeader() {
         <nav
           id="mobile-menu"
           aria-label="Primary"
-          className="border-t border-border bg-background px-4 pb-4 md:px-10 lg:hidden"
+          className="border-t border-spine bg-background pb-4 pl-[calc(var(--rail)+1.25rem)] pr-5 md:pl-[calc(var(--rail)+2rem)] lg:hidden"
         >
           <ul>
             {navigation.map((item) => (
-              <li key={item.href} className="border-b border-border">
+              <li key={item.href} className="border-b border-spine">
                 <a
                   href={item.href}
                   onClick={() => setOpen(false)}
-                  className="label-mono flex min-h-14 items-center text-foreground"
+                  className="rail-label flex min-h-14 items-center text-foreground"
                 >
+                  <span
+                    aria-hidden="true"
+                    className="mr-2 text-muted-foreground"
+                  >
+                    /
+                  </span>
                   {item.name}
                 </a>
               </li>
             ))}
           </ul>
-          <div className="mt-4 flex items-center justify-between">
-            <span className="label-mono text-muted-foreground">Theme</span>
+          <div className="mt-3 flex items-center justify-between">
+            <span className="rail-label text-muted-foreground">Theme</span>
             <ThemeToggle />
           </div>
         </nav>

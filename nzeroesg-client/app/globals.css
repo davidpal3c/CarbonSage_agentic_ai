@@ -8,35 +8,48 @@
   --radius-3xl: 1rem;
 }
 
-:root {
-  /* Evidence Atlas: warm paper, graphite ink, oxide clay, muted teal. */
-  --background: #f3eee5;
-  --foreground: #202326;
-  --secondary-bg: #e8e1d5;
-  --secondary-fg: #3a3d40;
-  --card: #faf7f1;
-  --card-foreground: #202326;
-  --muted: #eae4d8;
-  --muted-foreground: #5b5a56;
-  --border: #d6cec0;
-  --control-border: #85806f;
-  --sidebar: #f7f3eb;
-  --sidebar-border: #ddd5c7;
-  --chat-surface: #fbf9f4;
-  --user-message: #e9e3d7;
-  --primary: #202326;
-  /* --secondary is the clay FILL for buttons with white text. Clay used as
-     foreground (labels, links, outline buttons) is --tertiary, which is
+/*
+ * Two token sets share one set of names.
+ *
+ *  - Workspace (the defaults on :root and .dark): neutral, conventional
+ *    surfaces for daily-use data screens. Application components read these
+ *    unless a public wrapper says otherwise, so a marketing change cannot
+ *    recolour a table or chart.
+ *  - Public (.surface-public): the warm olive and paper editorial system for
+ *    the homepage and /login. It overrides the same names for its subtree
+ *    only. .tone-ink marks a section that stays dark in both themes, and
+ *    .surface-workspace restores the workspace set inside a public page (the
+ *    homepage product glimpse), so it shows the real product treatment.
+ *
+ * Because tokens are re-declared per subtree, the theme block below uses
+ * `inline`: utilities read var(--background) where they are used, not the
+ * value it had on :root.
+ */
+:root,
+.surface-workspace {
+  --background: #f6f6f4;
+  --foreground: #242422;
+  --secondary-bg: #eeeeeb;
+  --secondary-fg: #3d3d39;
+  --card: #ffffff;
+  --card-foreground: #242422;
+  --muted: #eeeeeb;
+  --muted-foreground: #62625c;
+  --border: #dcdcd6;
+  --control-border: #85857e;
+  --sidebar: #fafaf8;
+  --sidebar-border: #e2e2dd;
+  --chat-surface: #ffffff;
+  --user-message: #ecece8;
+  --primary: #242422;
+  /* --secondary is the sage FILL for buttons with white text. Sage used as a
+     foreground (links, labels, outline buttons) is --tertiary, which is
      lightened in dark mode so it keeps 4.5:1 on dark surfaces. */
-  --secondary: #a8472a;
-  --tertiary: #a8472a;
-  --accent: #2b6b68;
-  --brand-primary: #202326;
-  --brand-secondary: #2b6b68;
-  --brand-mark: #e8e1d5;
-  --band: #202326;
-  --band-foreground: #f3eee5;
-  --band-muted: #b9b4aa;
+  --secondary: #3d5c45;
+  --tertiary: #3f5f48;
+  --accent: #3f5f48;
+  --brand-primary: #242422;
+  --brand-secondary: #3f5f48;
   --chart-plane: #202326;
   --chart-truck: #a8472a;
   --chart-train: #b07f1f;
@@ -44,31 +57,28 @@
   --chart-highlight: #2b6b68;
 }
 
-.dark {
-  --background: #17191b;
-  --foreground: #f1ece2;
-  --secondary-bg: #202326;
-  --secondary-fg: #d9d4c9;
-  --card: #1f2225;
-  --card-foreground: #f1ece2;
-  --muted: #26292c;
-  --muted-foreground: #a9a69f;
-  --border: #34383b;
-  --control-border: #7a8085;
-  --sidebar: #1b1e20;
-  --sidebar-border: #2c3033;
-  --chat-surface: #1d2023;
-  --user-message: #272a2d;
-  --primary: #f1ece2;
-  --secondary: #b04a2b;
-  --tertiary: #e08a6c;
-  --accent: #6fb1ac;
-  --brand-primary: #f1ece2;
-  --brand-secondary: #6fb1ac;
-  --brand-mark: #26292c;
-  --band: #0f1112;
-  --band-foreground: #f1ece2;
-  --band-muted: #a9a69f;
+.dark,
+.dark .surface-workspace {
+  --background: #171817;
+  --foreground: #ededea;
+  --secondary-bg: #202120;
+  --secondary-fg: #d4d4cf;
+  --card: #202120;
+  --card-foreground: #ededea;
+  --muted: #272826;
+  --muted-foreground: #a6a69f;
+  --border: #343532;
+  --control-border: #7c7d78;
+  --sidebar: #1b1c1b;
+  --sidebar-border: #2b2c2a;
+  --chat-surface: #1d1e1d;
+  --user-message: #292a28;
+  --primary: #ededea;
+  --secondary: #4a7155;
+  --tertiary: #8fb89b;
+  --accent: #8fb89b;
+  --brand-primary: #ededea;
+  --brand-secondary: #8fb89b;
   --chart-plane: #e9e4da;
   --chart-truck: #e08a6c;
   --chart-train: #d9b45a;
@@ -76,14 +86,70 @@
   --chart-highlight: #6fb1ac;
 }
 
-@theme {
+/* Public: paper reading surface (light) and deep olive (dark). The body takes
+   the tokens too, so overscroll matches the page. */
+.surface-public,
+body:has(.surface-public) {
+  --background: #fcfaf3;
+  --foreground: #37352f;
+  --secondary-bg: #ece8db;
+  --card: #f4f1e6;
+  --card-foreground: #37352f;
+  --muted: #ece8db;
+  --muted-foreground: #625f52;
+  /* Second tone of two-tone display type. Large text only (3:1). */
+  --quiet: #8b8778;
+  --border: #d0cec8;
+  --spine: rgb(55 53 47 / 0.2);
+  --control-border: #85816f;
+  --accent: #4a6648;
+  --tertiary: #4a6648;
+  --secondary: #4a6648;
+  --brand-primary: #37352f;
+  --brand-secondary: #4a6648;
+}
+
+/* Public dark theme, and sections that stay dark in both themes. */
+.dark .surface-public,
+.dark body:has(.surface-public),
+.surface-public .tone-ink {
+  --background: #37352f;
+  --foreground: #fcfaf3;
+  --secondary-bg: #45433c;
+  --card: #413f38;
+  --card-foreground: #fcfaf3;
+  --muted: #45433c;
+  --muted-foreground: #bcb9ac;
+  --quiet: #989486;
+  --border: #55534b;
+  --spine: rgb(252 250 243 / 0.22);
+  --control-border: #9a9588;
+  --accent: #aac3a0;
+  --tertiary: #aac3a0;
+  --secondary: #aac3a0;
+  --brand-primary: #fcfaf3;
+  --brand-secondary: #aac3a0;
+}
+
+/* Public dark theme reading sections sit a step deeper than the ink bands. */
+.dark .surface-public,
+.dark body:has(.surface-public) {
+  --background: #2d2b26;
+  --card: #37352f;
+  --muted: #37352f;
+  --border: #48463f;
+}
+
+@theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-quiet: var(--quiet);
   --color-border: var(--border);
+  --color-spine: var(--spine);
   --color-control: var(--control-border);
   --color-sidebar: var(--sidebar);
   --color-sidebar-border: var(--sidebar-border);
@@ -97,12 +163,9 @@
   --color-accent: var(--accent);
   --color-brand-primary: var(--brand-primary);
   --color-brand-secondary: var(--brand-secondary);
-  --color-brand-mark: var(--brand-mark);
-  --color-band: var(--band);
-  --color-band-foreground: var(--band-foreground);
-  --color-band-muted: var(--band-muted);
   --font-sans: var(--font-archivo), Arial, Helvetica, sans-serif;
   --font-mono: var(--font-dm-mono), ui-monospace, monospace;
+  --font-serif: var(--font-newsreader), Georgia, "Times New Roman", serif;
 }
 
 html {
@@ -113,7 +176,7 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans);
+  font-family: var(--font-archivo), Arial, Helvetica, sans-serif;
   transition:
     background-color var(--default-transition-duration),
     color var(--default-transition-duration);
@@ -194,63 +257,55 @@ body {
   }
 }
 
-/* The evidence trail draws itself once on load. Under reduced motion the
-   path and nodes simply render in their final state. */
-@media (prefers-reduced-motion: no-preference) {
-  .trail-path {
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-    animation: trail-draw 1.4s 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-  }
-
-  .trail-node {
-    opacity: 0;
-    animation: trail-node 0.3s ease-out forwards;
-    animation-delay: calc(0.35s + var(--i, 0) * 0.28s);
-  }
-}
-
-@keyframes trail-draw {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes trail-node {
-  to {
-    opacity: 1;
-  }
-}
-
 @layer utilities {
+  /* Wordmark: mixed-case, light, shared by the public site and the workspace. */
   .brand-wordmark {
     color: var(--brand-primary);
-    font-stretch: 118%;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  /* Marketing display voice: semi-expanded heavy grotesque. */
-  .font-display {
-    font-stretch: 112%;
-    font-weight: 800;
-    letter-spacing: -0.025em;
-    line-height: 0.98;
-  }
-
-  /* Index labels: small mono capitals used for legends and section marks. */
-  .label-mono {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    font-weight: 500;
-    letter-spacing: 0.14em;
-    line-height: 1;
-    text-transform: uppercase;
+    font-weight: 400;
+    letter-spacing: -0.015em;
   }
 
   .brand-wordmark-sage {
     color: var(--brand-secondary);
+  }
+
+  /* Public display voice: large, light, two-tone (see .tone-quiet). */
+  .display-light {
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    text-wrap: balance;
+  }
+
+  .tone-quiet {
+    color: var(--quiet);
+  }
+
+  /* Public small caps label (navigation, buttons, section index). */
+  .rail-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  /* Section index marker: adds the square bullet. */
+  .rail-index::before {
+    content: "";
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-right: 0.45rem;
+    background: currentColor;
+  }
+
+  /* Workspace label: small, medium weight, sentence case. */
+  .label-ui {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
   }
 
   .theme-transition {

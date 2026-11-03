@@ -63,12 +63,12 @@ function Panel({
   return (
     <section
       aria-labelledby={id}
-      className="min-w-0 border-t-[1.5px] border-foreground pt-4"
+      className="min-w-0 rounded-lg border border-border bg-card p-5"
     >
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <p className="label-mono text-muted-foreground">{eyebrow}</p>
-          <h2 id={id} className="mt-1.5 text-lg font-bold">
+          <p className="label-ui text-muted-foreground">{eyebrow}</p>
+          <h2 id={id} className="mt-1 text-base font-semibold">
             {title}
           </h2>
         </div>
@@ -153,7 +153,7 @@ export default function OverviewView({
       {failed ? (
         <div
           role="alert"
-          className="flex flex-wrap items-center justify-between gap-4 border-[1.5px] border-red-300 bg-red-50 px-5 py-4 text-red-800"
+          className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-red-300 bg-red-50 px-5 py-4 text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200"
         >
           <div>
             <h2 className="font-bold">Shipment data could not be loaded</h2>
@@ -162,7 +162,7 @@ export default function OverviewView({
           <button
             type="button"
             onClick={onRetry}
-            className="inline-flex min-h-11 items-center border-[1.5px] border-red-800 px-4 text-sm font-semibold text-red-800 hover:bg-red-800 hover:text-white"
+            className="inline-flex min-h-11 items-center rounded-md border border-red-800 px-4 text-sm font-semibold text-red-800 hover:bg-red-800 hover:text-white dark:border-red-300 dark:text-red-200 dark:hover:bg-red-200 dark:hover:text-red-950"
           >
             Try again
           </button>
@@ -172,7 +172,7 @@ export default function OverviewView({
       {isEmpty ? (
         <section
           aria-labelledby="overview-empty"
-          className="flex flex-wrap items-center justify-between gap-4 border-[1.5px] border-foreground bg-card px-5 py-4"
+          className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-card px-5 py-4"
         >
           <div>
             <h2 id="overview-empty" className="font-bold">
@@ -191,7 +191,7 @@ export default function OverviewView({
             {demoLoadError ? (
               <p
                 role="alert"
-                className="mt-3 border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800"
+                className="mt-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200"
               >
                 {demoLoadError}
               </p>
@@ -202,7 +202,7 @@ export default function OverviewView({
               type="button"
               onClick={onLoadDemoData}
               disabled={isLoadingDemoData}
-              className="inline-flex min-h-11 items-center gap-2 bg-secondary px-4 text-sm font-semibold text-white transition-colors hover:bg-secondary/90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 items-center gap-2 rounded-md bg-secondary px-4 text-sm font-semibold text-white transition-colors hover:bg-secondary/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isLoadingDemoData ? (
                 <Spinner />
@@ -213,7 +213,7 @@ export default function OverviewView({
             </button>
             <Link
               href="/dashboard/shipments"
-              className="inline-flex min-h-11 items-center border-[1.5px] border-foreground px-4 text-sm font-semibold text-foreground transition-colors hover:bg-foreground hover:text-background"
+              className="inline-flex min-h-11 items-center rounded-md border border-control px-4 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
             >
               Import shipments
             </Link>
@@ -223,17 +223,17 @@ export default function OverviewView({
 
       <section
         aria-labelledby="overview-baseline"
-        className="border-t-[1.5px] border-foreground pt-4"
+        className="rounded-lg border border-border bg-card p-5"
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="label-mono text-muted-foreground">Current baseline</p>
-            <h2 id="overview-baseline" className="mt-1.5 text-lg font-bold">
+            <p className="label-ui text-muted-foreground">Current baseline</p>
+            <h2 id="overview-baseline" className="mt-1 text-base font-semibold">
               Carbon metrics
             </h2>
           </div>
           {hasData ? (
-            <span className="label-mono bg-foreground px-2 py-1.5 text-[11px] text-background">
+            <span className="label-ui rounded-md border border-border bg-muted px-2 py-1 text-muted-foreground">
               {source.demo
                 ? "Fictional demo dataset"
                 : `Source: ${source.title ?? "uploaded shipments"}`}

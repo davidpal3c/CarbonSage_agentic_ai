@@ -8,6 +8,7 @@ import { getBackendUrl } from "@/app/api/urls";
 import BrandMark from "@/app/components/BrandMark";
 import BrandWordmark from "@/app/components/BrandWordmark";
 import MediaSlot from "@/app/components/MediaSlot";
+import PublicSurface from "@/app/components/public/PublicSurface";
 import { Spinner } from "@/app/components/Spinner";
 
 export default function LoginPage() {
@@ -40,9 +41,9 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
-      <div className="mx-auto grid min-h-screen max-w-[1680px] lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-        <div className="flex flex-col px-4 py-6 md:px-10 lg:py-9">
+    <PublicSurface>
+      <main className="grid min-h-screen lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+        <div className="flex flex-col px-5 py-6 md:px-10 lg:px-14 lg:py-9">
           <Link
             href="/"
             aria-label="CarbonSage home"
@@ -53,18 +54,20 @@ export default function LoginPage() {
           </Link>
 
           <section className="my-auto max-w-xl py-14">
-            <p className="label-mono mb-5 text-tertiary">Current demo</p>
-            <h1 className="font-display mb-5 text-[clamp(2.25rem,4.6vw,3.5rem)] text-foreground">
-              Enter the demo workspace
+            <p className="rail-label rail-index mb-6 text-foreground">
+              Current demo
+            </p>
+            <h1 className="display-light mb-6 text-[clamp(2.25rem,4.4vw,3.5rem)] text-foreground">
+              <span className="tone-quiet">Enter the</span> demo workspace
             </h1>
-            <p className="mb-8 max-w-[46ch] text-[17px] leading-7 text-muted-foreground">
+            <p className="mb-8 max-w-[46ch] font-serif text-[17px] leading-[1.6] text-muted-foreground">
               A private, short-lived workspace is created for your visit. Use it
               to upload data, review evidence, and try CarbonSage. The demo
               covers freight and transportation suppliers, and you can start
               from a fictional dataset or your own files.
             </p>
 
-            <dl className="mb-8 border-t-[1.5px] border-foreground">
+            <dl className="mb-8 border-t border-foreground/30">
               {[
                 ["24 hours", "workspace retention"],
                 ["Private", "isolated workspace"],
@@ -74,8 +77,8 @@ export default function LoginPage() {
                   key={term}
                   className="flex items-baseline justify-between gap-4 border-b border-border py-3"
                 >
-                  <dt className="font-bold">{term}</dt>
-                  <dd className="label-mono text-muted-foreground">{detail}</dd>
+                  <dt className="font-medium">{term}</dt>
+                  <dd className="text-sm text-muted-foreground">{detail}</dd>
                 </div>
               ))}
             </dl>
@@ -83,7 +86,7 @@ export default function LoginPage() {
             {error ? (
               <p
                 role="alert"
-                className="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800"
+                className="mb-4 border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200"
               >
                 {error} Check that the API is running and try again.
               </p>
@@ -94,14 +97,14 @@ export default function LoginPage() {
                 type="button"
                 onClick={enterDemoWorkspace}
                 disabled={isEntering}
-                className="inline-flex min-h-12 items-center gap-2 bg-secondary px-5 text-[15px] font-semibold text-white transition-colors hover:bg-secondary/90 disabled:cursor-wait disabled:opacity-60"
+                className="inline-flex min-h-12 items-center gap-2 bg-foreground px-6 text-[13px] font-medium uppercase tracking-[0.03em] text-background transition-colors hover:bg-foreground/85 disabled:cursor-wait disabled:opacity-60"
               >
                 {isEntering ? <Spinner /> : null}
                 Enter demo workspace
               </button>
               <Link
                 href="/"
-                className="text-[15px] font-semibold text-foreground underline underline-offset-4 hover:text-accent"
+                className="text-[15px] font-medium text-foreground underline underline-offset-4 hover:text-accent"
               >
                 Back to overview
               </Link>
@@ -109,15 +112,18 @@ export default function LoginPage() {
           </section>
         </div>
 
-        <div className="hidden border-l-[1.5px] border-foreground lg:block">
-          <MediaSlot
-            slot="hero-operations-environment"
-            sizes="55vw"
-            eager
-            className="min-h-screen"
+        <div className="tone-ink relative hidden bg-background lg:block">
+          <MediaSlot slot="mode-sea" sizes="55vw" preload />
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 bg-gradient-to-t from-[#2d2b26]/90 via-[#2d2b26]/10 to-transparent"
           />
+          <p className="absolute inset-x-0 bottom-0 max-w-[34rem] px-10 pb-10 font-serif text-[16px] leading-6 text-foreground">
+            Inside, a plain working surface: Overview, Ask CarbonSage,
+            Integrations, Artifacts, Report, Shipments, Suppliers and Scenarios.
+          </p>
         </div>
-      </div>
-    </main>
+      </main>
+    </PublicSurface>
   );
 }
