@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { getBackendUrl } from "@/app/api/urls";
-import BrandMark from "@/app/components/BrandMark";
-import BrandWordmark from "@/app/components/BrandWordmark";
+import BrandLockup from "@/app/components/BrandLockup";
 import MediaSlot from "@/app/components/MediaSlot";
 import PublicSurface from "@/app/components/public/PublicSurface";
 import { Spinner } from "@/app/components/Spinner";
@@ -47,10 +46,9 @@ export default function LoginPage() {
           <Link
             href="/"
             aria-label="CarbonSage home"
-            className="flex w-fit items-center gap-2.5 text-[17px]"
+            className="flex w-fit items-center"
           >
-            <BrandMark className="h-7 w-7" />
-            <BrandWordmark />
+            <BrandLockup variant="large" />
           </Link>
 
           <section className="my-auto max-w-xl py-14">

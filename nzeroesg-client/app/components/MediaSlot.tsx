@@ -7,12 +7,15 @@ export default function MediaSlot({
   slot,
   sizes,
   preload = false,
+  quality = 60,
   className = "",
 }: {
   slot: MediaSlotId;
   sizes: string;
   /** Preload the image: for the one above-the-fold image per page. */
   preload?: boolean;
+  /** Photographs sit under scrims, so lower qualities are fine. */
+  quality?: 45 | 60 | 75;
   className?: string;
 }) {
   const media = mediaSlots[slot];
@@ -22,7 +25,7 @@ export default function MediaSlot({
       alt={media.alt}
       fill
       sizes={sizes}
-      quality={60}
+      quality={quality}
       preload={preload}
       loading={preload ? undefined : "lazy"}
       style={{ objectPosition: media.position }}

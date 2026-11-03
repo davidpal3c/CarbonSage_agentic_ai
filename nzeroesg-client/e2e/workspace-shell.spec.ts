@@ -46,8 +46,8 @@ test("desktop shell lists every destination with readable labels", async ({
   for (const [label] of destinations) {
     const link = navigation.getByRole("link", { name: label, exact: true });
     await expect(link).toBeVisible();
-    // Labels were 10px captions under tiny icons before.
-    await expect(link).toHaveCSS("font-size", "15px");
+    // Compact desktop rows, but never the 10px captions the shell once had.
+    await expect(link).toHaveCSS("font-size", "14px");
   }
   await expect(
     navigation.getByRole("link", { name: "Overview", exact: true }),

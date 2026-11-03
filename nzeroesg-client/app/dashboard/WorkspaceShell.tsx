@@ -30,8 +30,7 @@ import {
 } from "lucide-react";
 
 import { getBackendUrl } from "@/app/api/urls";
-import BrandMark from "@/app/components/BrandMark";
-import BrandWordmark from "@/app/components/BrandWordmark";
+import BrandLockup from "@/app/components/BrandLockup";
 import { LoadingState } from "@/app/components/Spinner";
 import ChatInterface from "@/app/components/chat_ui/ChatInterface";
 import { runWorkspaceAgentAction } from "@/app/dashboard/agent-actions";
@@ -105,7 +104,8 @@ function currentLabel(pathname: string) {
 }
 
 const itemClass = (active: boolean) =>
-  `flex min-h-11 items-center gap-3 rounded-md border-l-2 px-3 text-[15px] transition-colors ${
+  // Touch-sized rows in the mobile drawer, compact rows in the desktop sidebar.
+  `flex min-h-11 items-center gap-3 rounded-md border-l-2 px-3 text-[15px] transition-colors lg:min-h-9 lg:gap-2.5 lg:text-sm ${
     active
       ? "border-accent bg-muted font-medium text-foreground"
       : "border-transparent text-muted-foreground hover:bg-muted/70 hover:text-foreground"
@@ -119,10 +119,10 @@ function WorkspaceNavigation({
   onNavigate?: () => void;
 }) {
   return (
-    <nav aria-label="Workspace navigation" className="space-y-6">
+    <nav aria-label="Workspace navigation" className="space-y-5 lg:space-y-4">
       {navigationGroups.map((group) => (
         <div key={group.label}>
-          <p className="label-ui mb-2 px-3 text-muted-foreground">
+          <p className="label-ui mb-1.5 px-3 text-muted-foreground lg:mb-1">
             {group.label}
           </p>
           <ul>
@@ -137,7 +137,10 @@ function WorkspaceNavigation({
                     aria-current={active ? "page" : undefined}
                     className={itemClass(active)}
                   >
-                    <Icon aria-hidden="true" className="h-[18px] w-[18px]" />
+                    <Icon
+                      aria-hidden="true"
+                      className="h-[18px] w-[18px] lg:h-4 lg:w-4"
+                    />
                     {item.label}
                   </Link>
                 </li>
@@ -169,8 +172,8 @@ function ShellUtilities({
     minute: "2-digit",
   });
   return (
-    <div className="border-t border-sidebar-border pt-4">
-      <p className="mb-3 px-3 text-[13px] leading-5 text-muted-foreground">
+    <div className="border-t border-sidebar-border pt-3">
+      <p className="mb-2 px-3 text-[13px] leading-5 text-muted-foreground">
         Temporary demo workspace. Expires {expires}.
       </p>
       <ul>
@@ -181,7 +184,10 @@ function ShellUtilities({
             aria-current={pathname.startsWith(howToHref) ? "page" : undefined}
             className={itemClass(pathname.startsWith(howToHref))}
           >
-            <CircleHelp aria-hidden="true" className="h-[18px] w-[18px]" />
+            <CircleHelp
+              aria-hidden="true"
+              className="h-[18px] w-[18px] lg:h-4 lg:w-4"
+            />
             How to use CarbonSage
           </Link>
         </li>
@@ -193,9 +199,15 @@ function ShellUtilities({
             className={`${itemClass(false)} w-full text-left disabled:opacity-50`}
           >
             {theme === "dark" ? (
-              <Sun aria-hidden="true" className="h-[18px] w-[18px]" />
+              <Sun
+                aria-hidden="true"
+                className="h-[18px] w-[18px] lg:h-4 lg:w-4"
+              />
             ) : (
-              <Moon aria-hidden="true" className="h-[18px] w-[18px]" />
+              <Moon
+                aria-hidden="true"
+                className="h-[18px] w-[18px] lg:h-4 lg:w-4"
+              />
             )}
             {theme === "dark" ? "Light mode" : "Dark mode"}
           </button>
@@ -206,7 +218,10 @@ function ShellUtilities({
             onClick={onSignOut}
             className={`${itemClass(false)} w-full text-left`}
           >
-            <LogOut aria-hidden="true" className="h-[18px] w-[18px]" />
+            <LogOut
+              aria-hidden="true"
+              className="h-[18px] w-[18px] lg:h-4 lg:w-4"
+            />
             Sign out
           </button>
         </li>
@@ -221,10 +236,9 @@ function Lockup({ onClick }: { onClick?: () => void }) {
       href="/"
       onClick={onClick}
       aria-label="CarbonSage home"
-      className="flex items-center gap-2.5 text-[15px]"
+      className="flex items-center"
     >
-      <BrandMark className="h-7 w-7 shrink-0" />
-      <BrandWordmark />
+      <BrandLockup />
     </Link>
   );
 }
@@ -376,7 +390,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
     <WorkspaceContext.Provider value={{ session, refreshSession }}>
       <ArtifactViewerProvider>
         <div className="flex min-h-screen w-full overflow-x-clip bg-background">
-          <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col gap-6 overflow-y-auto border-r border-sidebar-border bg-sidebar px-3 py-5 lg:flex">
+          <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col gap-4 overflow-y-auto border-r border-sidebar-border bg-sidebar px-2.5 py-4 lg:flex">
             <div className="px-3">
               <Lockup />
             </div>
@@ -391,7 +405,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
           </aside>
 
           <div className="flex min-w-0 flex-1 flex-col">
-            <div className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background px-4 print:hidden lg:px-10">
+            <div className="sticky top-0 z-30 flex h-12 items-center gap-3 border-b border-border bg-background px-4 print:hidden lg:px-6">
               <button
                 ref={menuButton}
                 type="button"

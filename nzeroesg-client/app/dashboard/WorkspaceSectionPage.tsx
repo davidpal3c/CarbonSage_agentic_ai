@@ -502,13 +502,13 @@ export function WorkspaceSectionPage({
   const hotspotRows = activeShipmentAnalysis?.hotspots.slice(0, 8) ?? [];
 
   return (
-    <section className="min-w-0 px-4 py-7 sm:px-6 lg:px-10 lg:py-9">
-      <header className="mb-7 flex flex-wrap items-start justify-between gap-4">
+    <section className="min-w-0 px-4 py-5 sm:px-5 lg:px-6 lg:py-5">
+      <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-primary sm:text-3xl">
+          <h1 className="text-xl font-semibold tracking-tight text-primary sm:text-2xl">
             {details.title}
           </h1>
-          <p className="mt-2 max-w-2xl leading-7 text-muted-foreground">
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
             {details.description}
           </p>
         </div>
@@ -576,7 +576,7 @@ export function WorkspaceSectionPage({
       ) : null}
 
       {section === "shipments" ? (
-        <section id="shipments" className="space-y-6">
+        <section id="shipments" className="space-y-4">
           {isShipmentModalOpen ? (
             <>
               <button
@@ -1071,7 +1071,7 @@ export function WorkspaceSectionPage({
       {section === "evidence" ? (
         <section
           id="evidence"
-          className="flex flex-col rounded-xl border border-border bg-card p-5 sm:p-6"
+          className="flex flex-col rounded-xl border border-border bg-card p-4"
         >
           {isSupplierModalOpen ? (
             <>
@@ -1242,7 +1242,7 @@ export function WorkspaceSectionPage({
 
           <form onSubmit={searchEvidence} className="order-1">
             <div className="flex flex-wrap items-end gap-3">
-              <label className="flex w-full min-w-0 flex-1 flex-col gap-2 text-sm font-semibold text-primary sm:min-w-64">
+              <label className="flex min-w-0 flex-[1_1_100%] flex-col gap-2 text-sm font-semibold text-primary sm:flex-[1_1_16rem]">
                 Search document evidence
                 <input
                   value={evidenceQuery}
@@ -1326,14 +1326,14 @@ export function WorkspaceSectionPage({
       {section === "scenarios" ? (
         <section
           id="scenarios"
-          className="rounded-xl border border-border bg-card p-5 sm:p-6"
+          className="rounded-xl border border-border bg-card p-4"
         >
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h2 className="text-2xl font-semibold text-primary">
                 Compare an alternative
               </h2>
-              <p className="mt-2 max-w-2xl leading-7 text-muted-foreground">
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
                 Apply one freight mode to the current shipment inputs and see
                 the difference from the baseline.
               </p>

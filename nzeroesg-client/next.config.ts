@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: process.cwd(),
   // Public photographs sit under dark scrims, so a lower quality is invisible
   // and keeps the above-the-fold image light on slow connections.
-  images: { qualities: [60, 75] },
+  images: { qualities: [45, 60, 75] },
 };
 
 export default nextConfig;

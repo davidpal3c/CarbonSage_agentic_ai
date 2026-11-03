@@ -4,7 +4,8 @@
  * from the demo analysis; CS-1042 is its highest-impact shipment). It renders
  * inside .surface-workspace, so it uses the workspace tokens and surface
  * treatment (neutral panels, hairline borders, sage accent) rather than the
- * public ones. It does not render the workspace itself.
+ * public ones: a compact metric strip, a mode-mix bar and the leading
+ * shipment, as the Overview shows them. It does not render the workspace itself.
  */
 const modes = [
   {
@@ -40,30 +41,45 @@ const modes = [
 export default function DashboardGlimpse() {
   return (
     <figure className="surface-workspace relative overflow-hidden rounded-lg border border-border bg-background text-foreground">
-      <div className="flex items-center justify-between border-b border-border bg-card px-5 py-3">
+      <div className="flex items-center justify-between border-b border-border bg-card px-4 py-2.5">
         <span className="text-sm font-medium">Overview</span>
         <span className="label-ui rounded-md border border-border bg-muted px-2 py-1 text-muted-foreground">
           Fictional demo dataset
         </span>
       </div>
 
-      <div className="p-4 md:p-5">
-        <div className="rounded-lg border border-border bg-card p-5">
-          <p className="label-ui text-muted-foreground">Total emissions</p>
-          <p className="mt-2 flex flex-wrap items-baseline gap-x-2.5">
-            <span className="font-mono text-[clamp(2rem,5vw,2.75rem)] font-medium leading-none tracking-[-0.04em] tabular-nums">
-              120,629.1
-            </span>
-            <span className="font-mono text-base font-medium text-muted-foreground">
-              kg CO₂e
-            </span>
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            58 shipments · 573,300 kg freight weight
-          </p>
+      <div className="space-y-3 p-3 md:p-4">
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <dl className="grid grid-cols-2 gap-px bg-border sm:grid-cols-[1.6fr_1fr_1fr]">
+            <div className="col-span-2 bg-card px-4 py-3 sm:col-span-1">
+              <dt className="text-xs text-muted-foreground">Total emissions</dt>
+              <dd className="mt-0.5 font-mono text-[clamp(1.5rem,4vw,1.875rem)] font-medium leading-tight tracking-[-0.03em] tabular-nums">
+                120,629.1{" "}
+                <span className="text-sm tracking-normal text-muted-foreground">
+                  kg CO₂e
+                </span>
+              </dd>
+            </div>
+            <div className="bg-card px-4 py-3">
+              <dt className="text-xs text-muted-foreground">Shipments</dt>
+              <dd className="mt-0.5 font-mono text-xl font-medium leading-tight tabular-nums">
+                58
+              </dd>
+            </div>
+            <div className="bg-card px-4 py-3">
+              <dt className="text-xs text-muted-foreground">Freight weight</dt>
+              <dd className="mt-0.5 font-mono text-xl font-medium leading-tight tabular-nums">
+                573,300{" "}
+                <span className="text-xs text-muted-foreground">kg</span>
+              </dd>
+            </div>
+          </dl>
+        </div>
 
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="mb-3 text-sm font-semibold">Aggregate emissions mix</p>
           <div
-            className="mt-5 flex h-3 gap-0.5 overflow-hidden rounded-sm"
+            className="flex h-3 gap-0.5 overflow-hidden rounded-sm"
             role="img"
             aria-label={`Emissions by mode: ${modes.map((m) => `${m.name.toLowerCase()} ${m.share}%`).join(", ")}`}
           >
@@ -110,20 +126,16 @@ export default function DashboardGlimpse() {
               ))}
             </tbody>
           </table>
-        </div>
-
-        <div className="mt-4 rounded-lg border border-border bg-card px-5 py-4 text-[15px]">
-          <p className="label-ui mb-2 text-muted-foreground">
-            Highest-impact shipment
+          <p className="mt-3 border-t border-border pt-3 text-sm">
+            <span className="text-muted-foreground">Highest impact </span>
+            <strong className="font-semibold">CS-1042</strong> Shanghai → Madrid
+            · plane ·{" "}
+            <span className="font-mono tabular-nums">9,300.9 kg CO₂e</span>
           </p>
-          <strong className="font-semibold">CS-1042</strong> Shanghai → Madrid ·
-          plane ·{" "}
-          <span className="font-mono tabular-nums">9,300.9 kg CO₂e</span> ·
-          Iberia Air Cargo
         </div>
       </div>
 
-      <figcaption className="border-t border-border bg-card px-5 py-3 text-xs leading-relaxed text-muted-foreground">
+      <figcaption className="border-t border-border bg-card px-4 py-2.5 text-xs leading-relaxed text-muted-foreground">
         Fictional demo dataset. Factor set prototype-2026.1, a screening
         estimate. Illustrative layout, not a live workspace.
       </figcaption>

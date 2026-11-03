@@ -19,6 +19,11 @@ const dmMono = DM_Mono({
   display: "swap",
 });
 
+// Applies the saved or system theme before first paint, so a dark preference
+// never flashes light while the client hydrates. It mirrors getClientTheme in
+// ThemeContext (saved value first, then the system preference).
+const themeScript = `try{var t=localStorage.getItem("theme");if(t==="dark"||(t!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark")}catch(e){}`;
+
 export const metadata: Metadata = {
   title: "CarbonSage | Evidence-grounded Scope 3 decision intelligence",
   description:
@@ -37,6 +42,9 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       className={`${archivo.variable} ${dmMono.variable}`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="antialiased scroll-smooth">
         <Providers>{children}</Providers>
       </body>

@@ -4,15 +4,15 @@ import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import BrandMark from "@/app/components/BrandMark";
+import BrandLockup from "@/app/components/BrandLockup";
 import BrandWordmark from "@/app/components/BrandWordmark";
 import ThemeToggle from "@/app/components/ThemeToggle";
 
 const navigation = [
   { name: "How it works", href: "#how" },
   { name: "Freight demo", href: "#lens" },
-  { name: "Product", href: "#product" },
   { name: "Trust and limits", href: "#trust" },
+  { name: "Product", href: "#product" },
 ];
 
 const navLink =
@@ -46,8 +46,12 @@ export default function PublicHeader() {
           aria-label="CarbonSage home"
           className="flex items-center justify-center gap-2.5 text-[17px] lg:justify-start lg:pl-10"
         >
-          <BrandMark className="h-7 w-7 shrink-0" />
-          <BrandWordmark className="hidden lg:inline" />
+          <span className="lg:hidden">
+            <BrandLockup variant="mark" />
+          </span>
+          <span className="hidden lg:block">
+            <BrandLockup />
+          </span>
         </Link>
 
         <div className="flex min-w-0 items-stretch">
@@ -57,7 +61,7 @@ export default function PublicHeader() {
             aria-hidden="true"
             className="flex items-center pl-4 text-[16px] md:pl-8 lg:hidden"
           >
-            <BrandWordmark />
+            <BrandWordmark className="text-[16px]" />
           </Link>
 
           <nav

@@ -1,50 +1,26 @@
-import BrandMark from "@/app/components/BrandMark";
+import BrandLockup from "@/app/components/BrandLockup";
 import ButtonLink from "@/app/components/ButtonLink";
 import MediaSlot from "@/app/components/MediaSlot";
 import DashboardGlimpse from "@/app/components/page_components/DashboardGlimpse";
 import PublicHeader from "@/app/components/page_components/PublicHeader";
+import Parallax from "@/app/components/public/Parallax";
 import PublicSurface from "@/app/components/public/PublicSurface";
+import ScrollStory from "@/app/components/public/ScrollStory";
 import SpineSection from "@/app/components/public/SpineSection";
 import { comingSoonData, featuresData } from "@/app/lib/data";
-import { evidenceSteps } from "@/app/lib/evidence-trail";
-import type { MediaSlotId } from "@/app/lib/media-slots";
+import { photoCredits, type MediaSlotId } from "@/app/lib/media-slots";
 
 // Shares and counts come from the fictional demo dataset (58 shipments).
 const freightModes: ReadonlyArray<{
   slot: MediaSlotId;
-  id: string;
-  quiet: string;
-  loud: string;
-  stat: string;
+  mode: string;
+  shipments: number;
+  share: number;
 }> = [
-  {
-    slot: "mode-air",
-    id: "mode-air",
-    quiet: "Freight",
-    loud: "by air.",
-    stat: "12 shipments in the fictional demo dataset, 63.7% of its calculated emissions.",
-  },
-  {
-    slot: "mode-sea",
-    id: "mode-sea",
-    quiet: "Freight",
-    loud: "by sea.",
-    stat: "18 shipments in the fictional demo dataset, 23.8% of its calculated emissions.",
-  },
-  {
-    slot: "mode-rail",
-    id: "mode-rail",
-    quiet: "Freight",
-    loud: "by rail.",
-    stat: "14 shipments in the fictional demo dataset, 7.7% of its calculated emissions.",
-  },
-  {
-    slot: "mode-road",
-    id: "mode-road",
-    quiet: "Freight",
-    loud: "by road.",
-    stat: "14 shipments in the fictional demo dataset, 4.8% of its calculated emissions.",
-  },
+  { slot: "mode-air", mode: "Air", shipments: 12, share: 63.7 },
+  { slot: "mode-sea", mode: "Sea", shipments: 18, share: 23.8 },
+  { slot: "mode-rail", mode: "Rail", shipments: 14, share: 7.7 },
+  { slot: "mode-road", mode: "Road", shipments: 14, share: 4.8 },
 ];
 
 const trustPoints = [
@@ -159,13 +135,12 @@ export default function HomePage() {
           </h2>
         </SpineSection>
 
-        {/* From operational data to evidence. */}
+        {/* The evidence journey: one centred, scroll-linked story. */}
         <SpineSection id="how" label="How it works" labelledBy="how-title">
           <Title id="how-title" quiet="Each calculation">
             keeps its trail.
           </Title>
-
-          <p className={`${lead} max-w-[52ch]`}>
+          <p className={`${lead} -mt-4 max-w-[52ch]`}>
             Follow one shipment from the fictional demo dataset. CarbonSage
             calculates its footprint with a fixed formula, finds the supplier
             passage that bears on it, and cites that passage in the answer.
@@ -175,109 +150,184 @@ export default function HomePage() {
             the demo dataset; the question and answer wording is an example, not
             recorded model output.
           </p>
-
-          <ol className="mt-14 grid gap-x-8 gap-y-0 sm:grid-cols-2 xl:grid-cols-4">
-            {evidenceSteps.map((step, index) => (
-              <li
-                key={step.title}
-                className="border-t border-foreground/30 py-6"
-              >
-                <span
-                  aria-hidden="true"
-                  className="rail-label mb-4 block text-muted-foreground"
-                >
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <h3 className="text-[19px] font-medium leading-snug tracking-[-0.01em]">
-                  {step.title}
-                </h3>
-                <p className="mt-2 text-[14px] leading-5 text-accent">
-                  {step.summary}
-                </p>
-                <p className="mt-3 font-serif text-[15px] leading-6 text-muted-foreground">
-                  {step.detail}
-                </p>
-              </li>
-            ))}
-          </ol>
-
-          <figure className="mb-16 mt-12 max-w-[46rem] border-l-2 border-accent bg-card px-5 py-5 md:px-7 lg:mb-28">
-            <p className="rail-label mb-3 text-muted-foreground">
-              Example question and answer
-            </p>
-            <p className="mb-3 text-[16px] font-medium">
-              Does Northstar Logistics report a lower-emission option for long
-              lanes?
-            </p>
-            <blockquote className="font-serif text-[17px] leading-[1.6]">
-              Its disclosure reports a rail-intermodal option for lanes over 800
-              km and estimates a 31 percent emissions reduction for eligible
-              intermodal routes compared with its conventional truck baseline
-              [1]. Refrigerated service and last-mile delivery remain truck-only
-              [1]. This is the supplier&rsquo;s own estimate, not a verified
-              figure.
-            </blockquote>
-            <figcaption className="mt-3 text-[13px] text-muted-foreground">
-              [1] northstar-logistics-disclosure.txt
-            </figcaption>
-          </figure>
+          <div className="pb-16 pt-14 lg:pb-28 lg:pt-20">
+            <ScrollStory />
+          </div>
         </SpineSection>
 
-        {/* Current freight lens: an introduction, then one band per mode. */}
+        {/* Current freight lens: offset photographs beside the figures. */}
         <SpineSection
           id="lens"
           label="Current freight lens"
           labelledBy="lens-title"
           tone="ink"
+          contentClassName="lg:pr-0"
         >
-          <Title id="lens-title" quiet="The demo covers">
-            freight across four modes.
-          </Title>
-          <p className={`${lead} -mt-4 max-w-[56ch] pb-16 lg:pb-24`}>
-            Freight and transportation suppliers are the current demo, not the
-            limit of the idea: CarbonSage is aimed at Scope 3 decisions in
-            general. The fictional dataset holds 38 suppliers, 58 dated
-            shipments and five cited disclosures. Shares below show how its
-            emissions concentrate; they are not benchmarks, and data depth
-            differs by mode.
-          </p>
+          <div className="grid gap-12 pb-20 pt-6 lg:grid-cols-12 lg:gap-10 lg:pb-36 lg:pt-28">
+            <div className="lg:col-span-5">
+              <Title
+                id="lens-title"
+                quiet="The demo covers"
+                className="display-light text-[clamp(2.1rem,4vw,3.25rem)] text-foreground"
+              >
+                freight across four modes.
+              </Title>
+              <p className={`${lead} mt-6 max-w-[46ch]`}>
+                Freight and transportation suppliers are the current demo, not
+                the limit of the idea: CarbonSage is aimed at Scope 3 decisions
+                in general. The fictional dataset holds 38 suppliers, 58 dated
+                shipments and five cited disclosures. Shares show how its
+                emissions concentrate; they are not benchmarks, and data depth
+                differs by mode.
+              </p>
+              <table className="mt-8 w-full max-w-[34rem] text-left text-[15px]">
+                <caption className="sr-only">
+                  Shipments and share of calculated emissions by transport mode
+                  in the fictional demo dataset
+                </caption>
+                <thead>
+                  <tr className="rail-label text-muted-foreground">
+                    <th scope="col" className="py-2 pr-3 font-medium">
+                      Mode
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-3 py-2 text-right font-medium"
+                    >
+                      Shipments
+                    </th>
+                    <th scope="col" className="py-2 pl-3 font-medium">
+                      Share of emissions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {freightModes.map((row) => (
+                    <tr
+                      key={row.mode}
+                      className="border-t border-foreground/30"
+                    >
+                      <th
+                        scope="row"
+                        className="py-2 pr-3 text-left font-normal"
+                      >
+                        <span className="flex items-center gap-3">
+                          <span className="relative h-9 w-12 shrink-0 overflow-hidden">
+                            <MediaSlot
+                              slot={row.slot}
+                              sizes="48px"
+                              quality={45}
+                            />
+                          </span>
+                          {row.mode}
+                        </span>
+                      </th>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {row.shipments}
+                      </td>
+                      <td className="min-w-32 py-2 pl-3">
+                        <span className="tabular-nums">{row.share}%</span>
+                        <span
+                          aria-hidden="true"
+                          className="mt-1 block h-1 bg-foreground/15"
+                        >
+                          <span
+                            className="block h-full bg-accent"
+                            style={{ width: `${row.share}%` }}
+                          />
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="relative lg:col-span-7">
+              <Parallax
+                range={40}
+                className="relative aspect-[4/3] bg-card sm:aspect-[5/4] lg:aspect-[4/5]"
+              >
+                <MediaSlot
+                  slot="mode-rail"
+                  sizes="(min-width: 1024px) 55vw, 100vw"
+                />
+              </Parallax>
+              <Parallax
+                range={20}
+                className="absolute -bottom-12 left-6 hidden aspect-[4/3] w-[44%] border-[6px] border-background bg-card shadow-none lg:block xl:-left-12"
+              >
+                <MediaSlot slot="mode-sea" sizes="26vw" />
+              </Parallax>
+            </div>
+          </div>
         </SpineSection>
 
-        {freightModes.map(({ slot, id, quiet, loud, stat }) => (
-          <section
-            key={id}
-            aria-labelledby={`${id}-title`}
-            className="tone-ink relative isolate overflow-hidden bg-background text-foreground"
-          >
-            <MediaSlot slot={slot} sizes="100vw" />
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 bg-gradient-to-b from-[#2d2b26]/92 via-[#2d2b26]/65 to-[#2d2b26]/30"
-            />
-            <span
-              aria-hidden="true"
-              className="absolute inset-y-0 left-[var(--rail)] z-10 w-px bg-spine"
-            />
-            <div className="relative grid min-h-[min(80vh,34rem)] grid-cols-[var(--rail)_minmax(0,1fr)]">
-              <div className="col-start-2 grid content-start gap-6 px-5 pb-16 pt-12 md:px-8 lg:grid-cols-[1fr_21rem] lg:gap-16 lg:px-5 lg:pt-16">
-                <h2
-                  id={`${id}-title`}
-                  className="display-light text-[clamp(2.4rem,4.6vw,3.75rem)] text-foreground"
+        {/* Trust and limits: an editorial panel overlapping an environment photograph. */}
+        <section
+          aria-labelledby="trust-title"
+          id="trust"
+          className="tone-ink relative isolate scroll-mt-16 overflow-hidden bg-background text-foreground"
+        >
+          <Parallax range={56} className="absolute inset-0 -z-10">
+            <MediaSlot slot="env-forest" sizes="100vw" quality={45} />
+          </Parallax>
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 -z-10 bg-gradient-to-b from-[#2d2b26]/85 via-[#2d2b26]/55 to-[#2d2b26]/70"
+          />
+          <span
+            aria-hidden="true"
+            className="absolute inset-y-0 left-[var(--rail)] z-10 w-px bg-spine"
+          />
+          <div className="relative grid grid-cols-[var(--rail)_minmax(0,1fr)]">
+            <p className="rail-label rail-index col-start-2 pl-5 pt-16 md:pl-8 lg:col-start-1 lg:pl-10 lg:pt-[7.4rem]">
+              Trust and limits
+            </p>
+            <h2
+              id="trust-title"
+              className="display-light col-start-2 row-start-2 max-w-[18ch] px-5 pb-48 pt-6 text-[clamp(2.1rem,4.4vw,3.5rem)] md:px-8 lg:col-start-2 lg:row-start-1 lg:px-5 lg:pb-[22rem] lg:pt-28"
+            >
+              <span className="text-muted-foreground">What it does,</span> and
+              what it does not claim.
+            </h2>
+          </div>
+        </section>
+
+        <SpineSection contentClassName="pb-16 lg:pb-28">
+          <div className="relative z-10 -mt-40 border border-border bg-card px-6 py-8 shadow-none md:px-8 lg:-mt-64 lg:ml-auto lg:max-w-[46rem] lg:px-10 lg:py-10">
+            <dl className="grid gap-x-10 md:grid-cols-2">
+              {trustPoints.map((point) => (
+                <div
+                  key={point.title}
+                  className="border-t border-foreground/30 py-5"
                 >
-                  <span className="text-muted-foreground">{quiet}</span>
-                  <br />
-                  {loud}
-                </h2>
-                <p className="max-w-[34ch] font-serif text-[17px] leading-[1.55] text-foreground lg:pt-2">
-                  {stat}
-                </p>
-              </div>
-            </div>
-          </section>
-        ))}
+                  <dt className="text-[18px] font-medium tracking-[-0.01em]">
+                    {point.title}
+                  </dt>
+                  <dd className="mt-2 font-serif text-[15px] leading-6 text-muted-foreground">
+                    {point.body}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-2 border-t border-foreground/30 pt-5 font-serif text-[15px] leading-6 text-muted-foreground">
+              <span className="rail-label mr-3 font-sans text-foreground">
+                Direction
+              </span>
+              Not available today: the same approach could later extend to other
+              procurement evidence beyond freight.
+            </p>
+          </div>
+        </SpineSection>
 
         {/* Product proof. */}
-        <SpineSection id="product" label="Product" labelledBy="product-title">
+        <SpineSection
+          id="product"
+          label="Product"
+          labelledBy="product-title"
+          className="border-t border-spine"
+        >
           <Title id="product-title" quiet="The workspace, with the">
             numbers in view.
           </Title>
@@ -298,40 +348,6 @@ export default function HomePage() {
           <div className="mb-16 mt-12 max-w-[56rem] lg:mb-28">
             <DashboardGlimpse />
           </div>
-        </SpineSection>
-
-        {/* Trust and scope. */}
-        <SpineSection
-          id="trust"
-          label="Trust and limits"
-          labelledBy="trust-title"
-          className="border-t border-spine"
-        >
-          <Title id="trust-title" quiet="What it does,">
-            and what it does not claim.
-          </Title>
-          <dl className="grid gap-x-12 md:grid-cols-2">
-            {trustPoints.map((point) => (
-              <div
-                key={point.title}
-                className="border-t border-foreground/30 py-6"
-              >
-                <dt className="text-[19px] font-medium tracking-[-0.01em]">
-                  {point.title}
-                </dt>
-                <dd className={`${lead} mt-2 max-w-[52ch]`}>{point.body}</dd>
-              </div>
-            ))}
-          </dl>
-          <p
-            className={`${lead} mb-16 mt-2 max-w-[64ch] border-t border-foreground/30 pt-6 lg:mb-28`}
-          >
-            <span className="rail-label mr-3 font-sans text-foreground">
-              Direction
-            </span>
-            Not available today: the same approach could later extend to other
-            procurement evidence beyond freight.
-          </p>
         </SpineSection>
 
         {/* Technical baseline and roadmap, kept below the primary story. */}
@@ -411,24 +427,61 @@ export default function HomePage() {
         />
         <div className="grid grid-cols-[var(--rail)_minmax(0,1fr)] py-8 text-sm text-muted-foreground">
           <div className="flex items-start justify-center lg:justify-start lg:pl-10">
-            <BrandMark className="h-6 w-6" />
+            <BrandLockup variant="mark" markClassName="h-6 w-6" />
           </div>
-          <div className="flex flex-col gap-5 px-5 md:px-8 lg:flex-row lg:items-center lg:justify-between lg:px-5">
-            <p>
-              © {new Date().getFullYear()} CarbonSage · Evidence-grounded Scope
-              3 intelligence, wherever decisions happen
-            </p>
-            <nav aria-label="Footer" className="flex gap-6">
-              <a className="rail-label hover:text-foreground" href="#baseline">
-                Baseline
-              </a>
-              <a className="rail-label hover:text-foreground" href="#roadmap">
-                Roadmap
-              </a>
-              <a className="rail-label hover:text-foreground" href="#top">
-                Top
-              </a>
-            </nav>
+          <div className="flex flex-col gap-5 px-5 md:px-8 lg:px-5">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <p>
+                © {new Date().getFullYear()} CarbonSage · Evidence-grounded
+                Scope 3 intelligence, wherever decisions happen
+              </p>
+              <nav
+                aria-label="Footer"
+                className="flex flex-wrap gap-x-6 gap-y-2"
+              >
+                <a
+                  className="rail-label hover:text-foreground"
+                  href="#baseline"
+                >
+                  Baseline
+                </a>
+                <a className="rail-label hover:text-foreground" href="#roadmap">
+                  Roadmap
+                </a>
+                <a className="rail-label hover:text-foreground" href="#top">
+                  Top
+                </a>
+              </nav>
+            </div>
+            <details className="text-[13px] leading-5">
+              <summary className="rail-label cursor-pointer">
+                Photo credits
+              </summary>
+              <ul className="mt-3 space-y-1">
+                {photoCredits.map((credit) => (
+                  <li key={credit.title}>
+                    <a
+                      className="underline underline-offset-2"
+                      href={credit.source}
+                    >
+                      {credit.title}
+                    </a>{" "}
+                    by {credit.author},{" "}
+                    <a
+                      className="underline underline-offset-2"
+                      href={credit.licenseUrl}
+                    >
+                      {credit.license}
+                    </a>{" "}
+                    ({credit.subject}).
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2">
+                The other photographs are public domain or CC0; sources are
+                recorded with the site&apos;s media files. Temporary images.
+              </p>
+            </details>
           </div>
         </div>
       </footer>
