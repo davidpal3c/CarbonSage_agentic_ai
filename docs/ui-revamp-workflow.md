@@ -1,7 +1,9 @@
 # CarbonSage UI revamp workflow
 
-`design/carbonsage-ui-revamp` is the central integration branch for the Atlas
-revamp. The pre-revamp production baseline is preserved at
+`design/carbonsage-ui-revamp` is the central integration branch for the UI
+revamp. The next visual direction and builder pass are specified in
+[`ui-revamp/next-pass-plan.md`](ui-revamp/next-pass-plan.md). The pre-revamp
+production baseline is preserved at
 `baseline/pre-ui-revamp-2026-11-02`. Production `main` is a separate release
 decision.
 
@@ -15,7 +17,7 @@ For every builder design or feature pass:
    merge. The next pass starts from the newly integrated tip.
 
 Do not merge the legacy `feature/workspace-bootstrap-contract` snapshot wholesale
-into Atlas. Its pending bootstrap work and older UI edits were preserved at
+into the revamp. Its pending bootstrap work and older UI edits were preserved at
 `e4fbd83` for selective review. The production loader measurement file is on
 the local-only `archive/local-demo-loader-measurements-2026-11-02` branch and
 must not be pushed or merged into a published branch without a separate review.
