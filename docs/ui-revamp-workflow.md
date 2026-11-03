@@ -1,8 +1,9 @@
 # CarbonSage UI revamp workflow
 
 `design/carbonsage-ui-revamp` is the central integration branch for the UI
-revamp. The next visual direction and builder pass are specified in
-[`ui-revamp/next-pass-plan.md`](ui-revamp/next-pass-plan.md). The pre-revamp
+revamp. The current roadmap and builder pass are specified in
+[`ui-revamp/roadmap.md`](ui-revamp/roadmap.md) and
+[`ui-revamp/builder-pass-04.md`](ui-revamp/builder-pass-04.md). The pre-revamp
 production baseline is preserved at
 `baseline/pre-ui-revamp-2026-11-02`. Production `main` is a separate release
 decision.
@@ -10,9 +11,9 @@ decision.
 For every builder design or feature pass:
 
 1. Start the pass branch from the latest `origin/design/carbonsage-ui-revamp`.
-2. Keep the pass isolated on that branch while it is built. Commit and push the
-   pass branch before review. A branch that exists only in the builder's clone
-   will not appear in the user's original checkout.
+2. Push the pass branch immediately, then keep it isolated there while it is
+   built. Commit and push checkpoints. A branch that exists only in the
+   builder's clone will not appear in the user's original checkout.
 3. Fetch the pass branch into the original `nzeroesg app` checkout and verify
    that `git branch` lists it. Switch that clean checkout to the pass branch so
    the user can test locally before integration. Preserve any local changes on

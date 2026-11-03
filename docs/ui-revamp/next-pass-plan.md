@@ -1,6 +1,8 @@
 # UI revamp: next pass direction
 
-Status: planning brief, 2 November 2026. This supersedes the Evidence Atlas
+Status: completed Pass 03 brief, 2 November 2026. The current roadmap and
+builder brief are [`roadmap.md`](roadmap.md) and
+[`builder-pass-04.md`](builder-pass-04.md). This supersedes the Evidence Atlas
 visual choice and the older instruction to avoid Atalanta's palette and layout.
 It does not change the product roadmap or authorize deployment to `main`.
 
