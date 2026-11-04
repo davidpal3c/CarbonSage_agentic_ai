@@ -3,26 +3,29 @@
 `design/carbonsage-ui-revamp` is the central integration branch for the UI
 revamp. The current roadmap and builder pass are specified in
 [`ui-revamp/roadmap.md`](ui-revamp/roadmap.md) and
-[`ui-revamp/builder-pass-04.md`](ui-revamp/builder-pass-04.md). The pre-revamp
+[`ui-revamp/builder-pass-05.md`](ui-revamp/builder-pass-05.md). The pre-revamp
 production baseline is preserved at
 `baseline/pre-ui-revamp-2026-11-02`. Production `main` is a separate release
 decision.
 
-For every builder design or feature pass:
+For every builder design or feature pass, use only the original `nzeroesg app`
+repository. Do not make a clone or worktree. The builder and user share its
+current checkout, so the user can test the builder branch without a fetch or
+checkout handoff.
 
-1. Start the pass branch from the latest `origin/design/carbonsage-ui-revamp`.
-2. Push the pass branch immediately, then keep it isolated there while it is
-   built. Commit and push checkpoints. A branch that exists only in the
-   builder's clone will not appear in the user's original checkout.
-3. Fetch the pass branch into the original `nzeroesg app` checkout and verify
-   that `git branch` lists it. Switch that clean checkout to the pass branch so
-   the user can test locally before integration. Preserve any local changes on
-   their own branch before switching.
-4. Run the checks relevant to the changed surfaces and review the resulting UI.
-   Keep the builder branch available after review so the user can return to it.
-5. Merge the reviewed pass into `design/carbonsage-ui-revamp`, then push that
-   central branch. Resolve conflicts against the central branch before the
-   merge. The next pass starts from the newly integrated tip.
+1. Confirm the original checkout is clean on the latest
+   `design/carbonsage-ui-revamp`. Preserve unexpected local changes on their
+   owning branch before switching.
+2. Create and switch to the named pass branch in this checkout. Publish it
+   immediately if permitted, and tell the user its name and base SHA. A remote
+   publishing restriction does not prevent local testing in this checkout.
+3. Commit coherent checkpoints and keep the checkout on the pass branch while
+   building and testing. Share a ready checkpoint with the user before review.
+4. Run relevant checks and review rendered UI. Commit and push the final pass
+   branch if permitted; leave the original checkout on it for user testing.
+5. Codex reviews and fixes the pass on that branch, then fast-forwards it into
+   `design/carbonsage-ui-revamp`, pushes central, and leaves the same original
+   checkout on central. The next pass starts from that new tip.
 
 Do not merge the legacy `feature/workspace-bootstrap-contract` snapshot wholesale
 into the revamp. Its pending bootstrap work and older UI edits were preserved at
@@ -32,7 +35,8 @@ must not be pushed or merged into a published branch without a separate review.
 
 ## Test locally from the original checkout
 
-Use the `nzeroesg app` checkout on `design/carbonsage-ui-revamp`. Its root
+Use the `nzeroesg app` checkout on the current pass branch during a builder
+pass, or on `design/carbonsage-ui-revamp` after integration. Its root
 `.venv` and client `node_modules` are installed. From the repository root, run
 these in separate terminals:
 

@@ -6,10 +6,11 @@ Status: planning, 3 November 2026. The central integration branch is
 ## Current position and reference assessment
 
 Pass 03 established an Atalanta-led public site and neutral workspace shell and
-Overview. The public page still has mostly static, repeated image bands; its
-mark and wordmark are provisional. Inner workspace pages retain older roomy
-cards and inconsistent density. Today's demo covers freight and transportation
-suppliers across air, truck, ship, and train. Wider Scope 3 procurement and a
+Overview. Pass 04 added the CO₂-inspired mark, dot-matrix wordmark, evidence
+scroll story, varied media composition, and leaner shell/Overview. Inner
+workspace pages retain older roomy cards and inconsistent density. Today's demo
+covers freight and transportation suppliers across air, truck, ship, and train.
+Wider Scope 3 procurement and a
 marketplace remain future possibilities, not current product claims.
 
 - **Atalanta:** Keep the warm olive/paper restraint, rail, whitespace, quiet
@@ -28,7 +29,7 @@ marketplace remain future possibilities, not current product claims.
   (`355f92e`) preserves purple `#4a4466`, green `#597a64`, and blue-gray
   `#4b7480` as a distinctiveness reference.
 
-## Pass 04 — identity, public narrative, workspace density
+## Pass 04 — identity, public narrative, workspace density (complete)
 
 1. Design an original simple CO₂-inspired three-node/two-bond mark. Pair
    dot-matrix “Carbon” with clean grotesque “Sage”; supply large, compact, and
@@ -53,19 +54,24 @@ marketplace remain future possibilities, not current product claims.
 Pass 04 is presentation work. Keep API, retrieval, calculations, storage,
 agent response semantics, routes, and current product capability claims.
 Builder instructions: [`builder-pass-04.md`](builder-pass-04.md).
+The review and integration record is in
+[`pass-04-planner-review.md`](pass-04-planner-review.md).
 
 ## Pass 05 — remaining enterprise work surfaces
 
 Carry the approved density system through Agent, Shipments, Suppliers,
-Artifacts, Scenarios, Integrations, Report, and How to. Resolve the known
-375 px Suppliers label collision and dark-theme first-paint flash if Pass 04
-does not already fix them. Preserve citations, provenance, data tables,
-exports, print, and session behavior.
+Artifacts, Scenarios, Integrations, Report, and How to. Recheck the 375 px
+Suppliers label and dark-theme first paint after shared styling changes.
+Preserve citations, provenance, data tables, exports, print, and session
+behavior.
+The build scope and handoff are in [`pass-05-plan.md`](pass-05-plan.md) and
+[`builder-pass-05.md`](builder-pass-05.md).
 
 ## Pass 06 — final media and release review
 
-Replace temporary military airlift and branded road images, refine the dark
-hero crop/scrim, and record media sources/licenses. Review responsive layout,
+Source commercial freight imagery to replace the temporary air runway and road
+landscape, refine the dark hero crop/scrim, and record media sources/licenses.
+Review responsive layout,
 keyboard, screen reader, Safari, Firefox, zoom, contrast, print, and
 performance. Decide separately when to release the revamp to production.
 
