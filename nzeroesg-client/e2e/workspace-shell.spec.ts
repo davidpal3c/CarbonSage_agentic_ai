@@ -151,7 +151,7 @@ test("mobile drawer exposes all routes, traps focus, and returns focus", async (
   await expect(drawer).toBeHidden();
   await noHorizontalOverflow(page);
 
-  // The Atlas lockup, not the old leaf, anchors the mobile bar.
+  // The CarbonSage lockup anchors the mobile bar.
   await expect(
     page.getByRole("link", { name: "CarbonSage home" }).first(),
   ).toBeVisible();

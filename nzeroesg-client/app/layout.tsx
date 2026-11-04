@@ -22,7 +22,7 @@ const dmMono = DM_Mono({
 // Applies the saved or system theme before first paint, so a dark preference
 // never flashes light while the client hydrates. It mirrors getClientTheme in
 // ThemeContext (saved value first, then the system preference).
-const themeScript = `try{var t=localStorage.getItem("theme");if(t==="dark"||(t!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark")}catch(e){}`;
+const themeScript = `var t;try{t=localStorage.getItem("theme")}catch(e){}try{if(t==="dark"||(t!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark")}catch(e){}`;
 
 export const metadata: Metadata = {
   title: "CarbonSage | Evidence-grounded Scope 3 decision intelligence",

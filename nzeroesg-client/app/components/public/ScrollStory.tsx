@@ -18,9 +18,10 @@ export default function ScrollStory() {
   useEffect(() => {
     const el = root.current;
     if (!el) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     let queued = false;
+    let animationFrame = 0;
     const update = () => {
       queued = false;
       const rect = el.getBoundingClientRect();
@@ -29,7 +30,7 @@ export default function ScrollStory() {
       el.style.setProperty("--pointer", `${y.toFixed(1)}px`);
       // The state lives on the DOM (data attributes), not in React: it only
       // drives presentation, and updating it must not re-render the story.
-      const steps = Array.from(el.children) as HTMLElement[];
+      const steps = Array.from(el.querySelectorAll<HTMLElement>(".story-step"));
       let next = 0;
       steps.forEach((step, index) => {
         if (step.offsetTop + 24 <= y) next = index;
@@ -39,17 +40,32 @@ export default function ScrollStory() {
       });
     };
     const queue = () => {
-      if (queued) return;
+      if (queued || motionPreference.matches) return;
       queued = true;
-      requestAnimationFrame(update);
+      animationFrame = requestAnimationFrame(update);
+    };
+    const syncMotion = () => {
+      if (motionPreference.matches) {
+        cancelAnimationFrame(animationFrame);
+        queued = false;
+        delete el.dataset.live;
+        el.querySelectorAll<HTMLElement>(".story-step").forEach((step) => {
+          delete step.dataset.active;
+        });
+      } else {
+        el.dataset.live = "true";
+        queue();
+      }
     };
 
-    el.dataset.live = "true";
-    update();
+    syncMotion();
+    motionPreference.addEventListener("change", syncMotion);
     window.addEventListener("scroll", queue, { passive: true });
     window.addEventListener("resize", queue);
     return () => {
+      cancelAnimationFrame(animationFrame);
       delete el.dataset.live;
+      motionPreference.removeEventListener("change", syncMotion);
       window.removeEventListener("scroll", queue);
       window.removeEventListener("resize", queue);
     };

@@ -26,10 +26,11 @@ export default function Parallax({
     const frameEl = frame.current;
     const layerEl = layer.current;
     if (!frameEl || !layerEl) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     let visible = false;
     let queued = false;
+    let animationFrame = 0;
 
     const update = () => {
       queued = false;
@@ -43,9 +44,18 @@ export default function Parallax({
       layerEl.style.transform = `translate3d(0, ${(-clamped * range).toFixed(1)}px, 0)`;
     };
     const queue = () => {
-      if (!visible || queued) return;
+      if (!visible || queued || motionPreference.matches) return;
       queued = true;
-      requestAnimationFrame(update);
+      animationFrame = requestAnimationFrame(update);
+    };
+    const syncMotion = () => {
+      if (motionPreference.matches) {
+        cancelAnimationFrame(animationFrame);
+        queued = false;
+        layerEl.style.transform = "";
+      } else {
+        queue();
+      }
     };
 
     const observer = new IntersectionObserver(
@@ -56,10 +66,13 @@ export default function Parallax({
       { rootMargin: "20% 0px" },
     );
     observer.observe(frameEl);
+    motionPreference.addEventListener("change", syncMotion);
     window.addEventListener("scroll", queue, { passive: true });
     window.addEventListener("resize", queue);
     return () => {
       observer.disconnect();
+      cancelAnimationFrame(animationFrame);
+      motionPreference.removeEventListener("change", syncMotion);
       window.removeEventListener("scroll", queue);
       window.removeEventListener("resize", queue);
     };

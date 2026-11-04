@@ -41,7 +41,12 @@ export default function BrandWordmark({
         fill="currentColor"
       >
         {dots.map((dot) => (
-          <circle key={`${dot.cx}-${dot.cy}`} cx={dot.cx} cy={dot.cy} r="0.5" />
+          <circle
+            key={`${dot.cx}-${dot.cy}`}
+            cx={dot.cx}
+            cy={dot.cy}
+            r="0.57"
+          />
         ))}
       </svg>
       <span aria-hidden="true" className="brand-wordmark-sage ml-[0.14em]">

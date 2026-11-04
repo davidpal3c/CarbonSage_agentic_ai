@@ -194,6 +194,25 @@ test("the evidence pointer follows the scroll position when motion is allowed", 
   await expect(pointer).toBeVisible();
 });
 
+test("the evidence pointer and parallax stop when reduced motion is enabled", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/");
+  const story = page.locator("ol.story");
+  await expect(story).toHaveAttribute("data-live", "true");
+  await page.locator("#lens").scrollIntoViewIfNeeded();
+  const image = page.locator("#lens [class*=will-change-transform]").first();
+  await expect
+    .poll(() => image.evaluate((el) => el.style.transform))
+    .not.toBe("");
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(story).not.toHaveAttribute("data-live", "true");
+  await expect(story.locator(".story-pointer")).toBeHidden();
+  await expect.poll(() => image.evaluate((el) => el.style.transform)).toBe("");
+});
+
 test("the brand lockup keeps one accessible name in each variant", async ({
   page,
 }) => {
