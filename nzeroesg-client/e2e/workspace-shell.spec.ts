@@ -243,3 +243,34 @@ test("a saved dark preference survives page load", async ({ page }) => {
   await expect(page.locator("html")).toHaveClass(/dark/);
   expect(await page.evaluate(() => localStorage.getItem("theme"))).toBe("dark");
 });
+
+test("the Overview shows the decision data in the first desktop viewport", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await enterWorkspace(page);
+  await page.getByRole("button", { name: "Load demo data" }).click();
+  await expect(
+    page.getByRole("img", {
+      name: "Freight emissions trend by transport mode",
+    }),
+  ).toBeVisible({ timeout: backendActionTimeout });
+
+  // A compact sidebar, and the KPI strip, trend, mode mix and the start of
+  // the hotspot table all inside 900px.
+  const sidebar = await page.locator("aside").boundingBox();
+  expect(sidebar?.width).toBeLessThanOrEqual(232);
+  for (const name of [
+    "Carbon metrics",
+    "Monthly freight footprint",
+    "Aggregate emissions mix",
+    "Highest-impact shipments",
+  ]) {
+    const heading = page.getByRole("heading", { name });
+    await expect(heading).toBeVisible();
+    const box = await heading.boundingBox();
+    expect(box?.y ?? 9999).toBeLessThan(860);
+  }
+  await noHorizontalOverflow(page);
+});

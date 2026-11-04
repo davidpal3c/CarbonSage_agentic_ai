@@ -164,7 +164,7 @@ export default function HomePage() {
           contentClassName="lg:pr-0"
         >
           <div className="grid gap-12 pb-20 pt-6 lg:grid-cols-12 lg:gap-10 lg:pb-36 lg:pt-28">
-            <div className="lg:col-span-5">
+            <div className="min-w-0 lg:col-span-5">
               <Title
                 id="lens-title"
                 quiet="The demo covers"
@@ -197,7 +197,7 @@ export default function HomePage() {
                       Shipments
                     </th>
                     <th scope="col" className="py-2 pl-3 font-medium">
-                      Share of emissions
+                      Share
                     </th>
                   </tr>
                 </thead>
@@ -225,7 +225,7 @@ export default function HomePage() {
                       <td className="px-3 py-2 text-right tabular-nums">
                         {row.shipments}
                       </td>
-                      <td className="min-w-32 py-2 pl-3">
+                      <td className="min-w-20 py-2 pl-3">
                         <span className="tabular-nums">{row.share}%</span>
                         <span
                           aria-hidden="true"

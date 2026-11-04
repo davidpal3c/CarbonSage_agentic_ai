@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 import { evidenceStory } from "@/app/lib/evidence-trail";
 
@@ -14,8 +14,6 @@ import { evidenceStory } from "@/app/lib/evidence-trail";
  */
 export default function ScrollStory() {
   const root = useRef<HTMLOListElement>(null);
-  const [live, setLive] = useState(false);
-  const [active, setActive] = useState(0);
 
   useEffect(() => {
     const el = root.current;
@@ -29,12 +27,16 @@ export default function ScrollStory() {
       // The pointer sits at the viewport's vertical centre, clamped to the line.
       const y = Math.max(0, Math.min(rect.height, window.innerHeight * 0.5 - rect.top));
       el.style.setProperty("--pointer", `${y.toFixed(1)}px`);
+      // The state lives on the DOM (data attributes), not in React: it only
+      // drives presentation, and updating it must not re-render the story.
       const steps = Array.from(el.children) as HTMLElement[];
       let next = 0;
       steps.forEach((step, index) => {
         if (step.offsetTop + 24 <= y) next = index;
       });
-      setActive((current) => (current === next ? current : next));
+      steps.forEach((step, index) => {
+        step.dataset.active = index === next ? "true" : "false";
+      });
     };
     const queue = () => {
       if (queued) return;
@@ -42,11 +44,12 @@ export default function ScrollStory() {
       requestAnimationFrame(update);
     };
 
-    setLive(true);
+    el.dataset.live = "true";
     update();
     window.addEventListener("scroll", queue, { passive: true });
     window.addEventListener("resize", queue);
     return () => {
+      delete el.dataset.live;
       window.removeEventListener("scroll", queue);
       window.removeEventListener("resize", queue);
     };
@@ -55,7 +58,6 @@ export default function ScrollStory() {
   return (
     <ol
       ref={root}
-      data-live={live}
       className="story relative py-4"
       style={{ "--pointer": "0px" } as React.CSSProperties}
     >
@@ -76,7 +78,6 @@ export default function ScrollStory() {
       {evidenceStory.map((step, index) => (
         <li
           key={step.kicker}
-          data-active={live && index === active ? "true" : undefined}
           className="story-step relative grid gap-3 pb-16 pl-12 last:pb-4 lg:grid-cols-2 lg:gap-x-24 lg:pb-28 lg:pl-0"
         >
           <p

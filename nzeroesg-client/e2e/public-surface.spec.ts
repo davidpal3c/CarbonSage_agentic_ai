@@ -145,3 +145,76 @@ test("reduced motion leaves the public pages without running animations", async 
     expect(running).toBe(0);
   }
 });
+
+test("the evidence story keeps all four steps in reading order and a static equivalent under reduced motion", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  const story = page.locator("ol.story");
+  const kickers = await story.locator("li .rail-label").allTextContents();
+  expect(kickers).toEqual([
+    "Operational input",
+    "Deterministic calculation",
+    "Cited supplier evidence",
+    "Decision",
+  ]);
+  // No scroll-linked state and no pointer: the line is simply drawn.
+  await expect(story).not.toHaveAttribute("data-live", "true");
+  await expect(story.locator(".story-pointer")).toBeHidden();
+  await expect(story.getByText("774.4 kg CO₂e")).toBeVisible();
+});
+
+test("the evidence pointer follows the scroll position when motion is allowed", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  const story = page.locator("ol.story");
+  await expect(story).toHaveAttribute("data-live", "true");
+  const pointer = story.locator(".story-pointer");
+
+  const steps = story.locator("li");
+  await steps.nth(0).scrollIntoViewIfNeeded();
+  await steps.nth(0).evaluate((el) => el.scrollIntoView({ block: "center" }));
+  await expect(steps.nth(0)).toHaveAttribute("data-active", "true");
+  const pageY = () =>
+    pointer.evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+  const first = await pageY();
+
+  await steps.nth(3).evaluate((el) => el.scrollIntoView({ block: "center" }));
+  await expect(steps.nth(3)).toHaveAttribute("data-active", "true");
+  await expect(steps.nth(0)).toHaveAttribute("data-active", "false");
+  const last = await pageY();
+
+  // The pointer is a page-space line travelling down the story.
+  expect(last).toBeGreaterThan(first + 200);
+  await expect(pointer).toBeVisible();
+});
+
+test("the brand lockup keeps one accessible name in each variant", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await expect(
+    page.getByRole("link", { name: "CarbonSage home" }).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: "CarbonSage" }).first(),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 375, height: 800 });
+  await expect(
+    page.getByRole("link", { name: "CarbonSage home" }).first(),
+  ).toBeVisible();
+});
+
+test("the saved theme is applied by an inline script before hydration", async ({
+  request,
+}) => {
+  const response = await request.get("/login");
+  const html = await response.text();
+  expect(html).toContain('document.documentElement.classList.add("dark")');
+});

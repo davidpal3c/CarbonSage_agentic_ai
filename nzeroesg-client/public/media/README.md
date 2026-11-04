@@ -7,44 +7,51 @@ comes from Atalanta, Waabi or any reference site. The slots are defined in
 chosen to judge the composition; replace them with commissioned or licensed
 CarbonSage photography before launch, keeping the art direction below.
 
-All five were obtained from Wikimedia Commons on 2 November 2026 and are
-either dedicated to the public domain (CC0) or works of the US federal
-government / donated to the public domain. None requires attribution, but
-sources are recorded for provenance. Files were resized (2400 px hero, 1200 px
-others) and re-encoded as progressive JPEG; no other edits (the dark scrims
-and crops are applied in CSS).
+All files were obtained from Wikimedia Commons (2 November 2026 for the first
+three, 3 November 2026 for the rest). Public-domain and CC0 images need no
+attribution but are recorded for provenance. The CC BY and CC BY-SA images
+**require attribution**, which the site footer shows (`photoCredits` in
+`app/lib/media-slots.ts`); the CC BY-SA licence covers the photograph and any
+adaptation of it, not the rest of the site. Files were resized (2400 px hero,
+1800 px forest, 1000-1200 px others) and re-encoded as progressive JPEG; no
+other edits (scrims and crops are applied in CSS).
 
 | File (slot) | Source page | Author | Licence | Original size |
 | --- | --- | --- | --- | --- |
 | `hero-terminal-night.jpg` (`hero-terminal-night`) | [Container terminal in Minneapolis](https://commons.wikimedia.org/wiki/File:Container_terminal_in_Minneapolis.jpg) | Wikideas1 | CC0 1.0 | 3947 × 2825 |
-| `freight-air.jpg` (`mode-air`) | [C-17 Globemaster III Unloads Cargo During REFORPAC 2025](https://commons.wikimedia.org/wiki/File:C-17_Globemaster_III_Unloads_Cargo_During_REFORPAC_2025_(9200089).jpg) | US Air Force, Senior Airman Patrick Boyle | Public domain (US federal government work) | 6906 × 4604 |
 | `freight-sea.jpg` (`mode-sea`) | [Aerial photograph of the Port of Miami Container Port](https://commons.wikimedia.org/wiki/File:Aerial_photograph_of_the_Port_of_Miami_Container_Port.jpg) | James R. Tourtellotte, US Customs and Border Protection | Public domain (US federal government work) | 3040 × 2008 |
 | `freight-rail.jpg` (`mode-rail`) | [A long freight train approaches between a wind-turbine farm and desert land outside the town of Cabazon, California](https://commons.wikimedia.org/wiki/File:A_long_freight_train_approaches_between_a_wind-turbine_farm_and_desert_land_outside_the_town_of_Cabazon_in_Riverside_County,_California_LCCN2013631271.tif) | Carol M. Highsmith, Library of Congress | Public domain (donated by the photographer) | 7360 × 4912 |
-| `freight-road.jpg` (`mode-road`) | [Roxas Bridge, Del Pan, Tondo Port Area 43](https://commons.wikimedia.org/wiki/File:170Roxas_Bridge_Del_Pan_Tondo_Port_Area_43.jpg) | Judgefloro | CC0 1.0 | 4608 × 3456 |
+| `freight-air.jpg` (`mode-air`) | [Palm Springs International Airport](https://commons.wikimedia.org/wiki/File:Palm_Springs_International_Airport_photo_Don_Ramey_Logan.jpg) | Don Ramey Logan | CC BY 4.0 | see source page |
+| `freight-road.jpg` (`mode-road`) | [A591 road, Lake District, June 2009](https://commons.wikimedia.org/wiki/File:A591_road,_Lake_District_-_June_2009_Edit_1.jpg) | Diliff | CC BY-SA 3.0 | see source page |
+| `env-forest.jpg` (`env-forest`) | [Bois Raquet, in the High Fens, Eifel Nature Park](https://commons.wikimedia.org/wiki/File:Bois_Raquet,_in_the_High_Fens_%E2%80%93_Eifel_Nature_Park_(DSCF6655).jpg) | Trougnouf (Benoit Brummer) | CC BY 4.0 | see source page |
 
-Known compromises (why these are temporary): the air photograph is a military
-airlift aircraft rather than commercial air freight; the road photograph shows
-a container truck with a third-party shipping line's markings; the freight
-operations are US and Philippine locations, while the demo dataset's lanes are
-global.
+Replaced in Pass 04: the US Air Force C-17 night photograph (military airlift)
+and the Philippine port-road photograph with a third-party shipping line's
+markings. The replacements are **infrastructure and landscape, not freight
+vehicles**: a permissively licensed commercial air-cargo or truck photograph
+with no legible branding was not found among Commons results, so the air and
+road images show a runway and a road. Licensed commercial stock is the Pass 06
+fix. The two images that remain are US locations (Miami port, Cabazon rail).
 
 ## Art direction for replacements
 
-- **Text-safe area.** Headlines and copy sit on the top-left of each image
-  band under a dark olive scrim (about 90% at the top fading to 15–25%). Keep
-  the upper third quiet: sky, night, haze, or open ground.
-- **Subject.** Real operations at working scale, in an environment (terrain,
-  water, weather), not a studio or product shot. Show the mode, not a brand:
-  avoid legible livery, plates and faces.
-- **Palette.** Muted and slightly warm. Heavy colour casts fight the olive
-  and paper grounds; grade towards low saturation.
-- **Aspect and size.** Hero: 16:10 or wider, at least 2400 px. Mode bands:
-  3:2 to 16:10, at least 1600 px. Provide the focal point as `position` in
-  `media-slots.ts`; the band crops with `object-cover` at roughly 3:1 on
-  desktop and 3:4 on phones.
-- **Motion.** None today. If a poster loop is added later, keep the still as
-  the fallback and honour `prefers-reduced-motion`.
+- **Where each image is used.** Hero: full-bleed under a scrim. Rail (large,
+  portrait, with parallax) and sea (inset): the offset freight section. Forest:
+  full-bleed behind the trust headline, under an overlapping paper panel, with
+  parallax. Air, sea, rail and road also appear as 48 px legend thumbnails in the
+  modes table, so each needs a recognisable centre at tiny sizes.
+- **Text-safe area.** Headlines on photographs sit in the upper-left over a dark
+  olive scrim. Keep the upper third quiet: sky, haze, canopy or open ground.
+- **Subject.** Real operations at working scale in an environment, not a studio
+  or product shot. Avoid legible livery, plates and faces.
+- **Palette.** Muted and slightly warm; avoid strong colour casts against the
+  olive and paper grounds.
+- **Aspect and size.** Hero 16:10 or wider, at least 2400 px. Rail 4:5 portrait
+  crop-friendly, at least 1600 px tall. Forest at least 1800 px wide with a
+  quiet top half. Provide the focal point as `position` in `media-slots.ts`.
+- **Motion.** Parallax only (a bounded transform, off under
+  `prefers-reduced-motion`). If a poster loop is added later, keep the still as
+  the fallback.
 
-The homepage product glimpse is not a photograph: it is a coded rendering of
-the workspace Overview using the demo dataset's real figures (see
-`DashboardGlimpse.tsx`).
+The homepage product glimpse is not a photograph: it is a coded rendering of the
+workspace Overview using the demo dataset's real figures (`DashboardGlimpse.tsx`).
