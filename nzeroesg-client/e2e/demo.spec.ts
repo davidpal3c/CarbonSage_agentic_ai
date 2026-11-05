@@ -1130,7 +1130,10 @@ test("renders a typed interactive response with keyboard-accessible chart data",
   const secondSuggestionBorder = await suggestionButtons
     .nth(1)
     .evaluate((element) => getComputedStyle(element).borderColor);
-  expect(firstSuggestionBorder).not.toBe(secondSuggestionBorder);
+  // Suggested prompts share one quiet, visible control border; the rotating
+  // decorative colours were removed in Pass 05.
+  expect(firstSuggestionBorder).toBe(secondSuggestionBorder);
+  expect(firstSuggestionBorder).not.toBe("rgba(0, 0, 0, 0)");
   const assistantResponse = agentDialog
     .locator("article[data-message-id]")
     .filter({ hasText: "Validated tool results follow." });

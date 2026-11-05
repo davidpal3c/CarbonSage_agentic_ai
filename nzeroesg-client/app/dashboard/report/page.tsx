@@ -163,7 +163,7 @@ export default function ReportPage() {
       />
 
       <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-3">
-        <label className="flex min-w-56 flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
+        <label className="flex min-w-56 max-w-sm flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
           Report alternative
           <select
             value={alternativeMode}

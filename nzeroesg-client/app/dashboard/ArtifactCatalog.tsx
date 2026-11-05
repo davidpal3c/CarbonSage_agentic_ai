@@ -18,6 +18,7 @@ import {
   type ArtifactKind,
   useWorkspaceDataStore,
 } from "@/app/dashboard/workspace-data-store";
+import { buttonPrimary, buttonSecondary } from "@/app/dashboard/workspace-ui";
 
 export type { ArtifactKind } from "@/app/dashboard/workspace-data-store";
 
@@ -233,13 +234,13 @@ export default function ArtifactCatalog({
   }
 
   return (
-    <section id="artifacts" className="rounded-xl border border-border bg-card">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border p-5 sm:px-6">
+    <section id="artifacts" className="rounded-lg border border-border bg-card">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border px-4 py-3">
         <div>
-          <h2 className="text-xl font-semibold text-primary">
+          <h2 className="text-base font-semibold text-primary">
             Files & reports
           </h2>
-          <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
+          <p className="mt-0.5 text-sm leading-6 text-muted-foreground">
             Uploaded sources and saved outputs in this workspace.
           </p>
         </div>
@@ -256,7 +257,7 @@ export default function ArtifactCatalog({
                   )
                 }
                 disabled={busyExport === "/shipments/export"}
-                className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-primary transition hover:bg-muted disabled:opacity-60"
+                className={buttonSecondary}
               >
                 {busyExport === "/shipments/export" ? <Spinner /> : null}
                 Download shipments
@@ -273,7 +274,7 @@ export default function ArtifactCatalog({
                   )
                 }
                 disabled={busyExport === "/suppliers/export"}
-                className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-primary transition hover:bg-muted disabled:opacity-60"
+                className={buttonSecondary}
               >
                 {busyExport === "/suppliers/export" ? <Spinner /> : null}
                 Download suppliers
@@ -287,7 +288,7 @@ export default function ArtifactCatalog({
       </div>
 
       {error ? (
-        <p className="mx-5 mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 sm:mx-6">
+        <p className="mx-4 mt-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200">
           {error}
         </p>
       ) : null}
@@ -298,7 +299,7 @@ export default function ArtifactCatalog({
       {isLoading ? (
         <LoadingState label="Loading artifacts" />
       ) : artifacts.length === 0 ? (
-        <p className="m-5 rounded-lg border border-dashed border-border bg-background p-4 text-sm text-muted-foreground sm:m-6">
+        <p className="m-4 rounded-md border border-dashed border-border bg-background p-3 text-sm text-muted-foreground">
           No active artifacts yet. Load demo data or upload shipment and
           supplier sources to begin.
         </p>
@@ -331,13 +332,13 @@ export default function ArtifactCatalog({
                       )
                     }
                     aria-expanded={expanded}
-                    className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-4 text-left sm:px-6 md:grid-cols-[minmax(0,1.5fr)_0.7fr_0.8fr_auto]"
+                    className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-2.5 text-left md:grid-cols-[minmax(0,1.5fr)_0.7fr_0.8fr_auto]"
                   >
                     <div className="min-w-0">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-accent">
+                      <p className="text-xs text-muted-foreground">
                         {kindLabels[artifact.kind]}
                       </p>
-                      <h3 className="mt-1 break-words text-sm font-semibold text-primary md:truncate">
+                      <h3 className="break-words text-sm font-semibold text-primary md:truncate">
                         {artifact.title}
                       </h3>
                     </div>
@@ -350,7 +351,7 @@ export default function ArtifactCatalog({
                       }).format(new Date(artifact.created_at))}
                     </span>
                     <span className="flex items-center gap-2">
-                      <span className="rounded-md bg-secondary/10 px-2 py-1 text-[11px] font-semibold capitalize text-tertiary">
+                      <span className="rounded-md bg-secondary/10 px-2 py-0.5 text-xs font-medium capitalize text-tertiary">
                         {artifact.status}
                       </span>
                       <ChevronDown
@@ -360,7 +361,7 @@ export default function ArtifactCatalog({
                     </span>
                   </button>
 
-                  <div className="relative flex items-center pr-4 sm:pr-5">
+                  <div className="relative flex items-center pr-3">
                     <button
                       type="button"
                       onClick={() =>
@@ -444,8 +445,8 @@ export default function ArtifactCatalog({
                 </div>
 
                 {expanded ? (
-                  <div className="border-t border-border bg-muted/35 px-5 py-4 sm:px-6">
-                    <dl className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="border-t border-border bg-muted/35 px-4 py-3">
+                    <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
                       <div>
                         <dt className="text-xs text-muted-foreground">
                           Source
@@ -491,8 +492,8 @@ export default function ArtifactCatalog({
                     </dl>
 
                     {editingId === artifact.artifact_id ? (
-                      <div className="mt-4 flex flex-wrap items-end gap-2 border-t border-border pt-4">
-                        <label className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm font-semibold text-primary">
+                      <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-border pt-3">
+                        <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm font-medium text-primary">
                           Artifact title
                           <input
                             value={draftTitle}
@@ -500,14 +501,14 @@ export default function ArtifactCatalog({
                               setDraftTitle(event.target.value)
                             }
                             maxLength={255}
-                            className="min-w-0 rounded-lg border border-border bg-card px-3 py-2 font-normal"
+                            className="min-w-0 rounded-md border border-border bg-card px-3 py-1.5 font-normal"
                           />
                         </label>
                         <button
                           type="button"
                           onClick={() => void renameArtifact(artifact)}
                           disabled={busyId === artifact.artifact_id}
-                          className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                          className={buttonPrimary}
                         >
                           {busyId === artifact.artifact_id ? <Spinner /> : null}
                           Save
@@ -515,7 +516,7 @@ export default function ArtifactCatalog({
                         <button
                           type="button"
                           onClick={() => setEditingId(null)}
-                          className="rounded-lg border border-border px-3.5 py-2 text-sm font-semibold text-primary"
+                          className={buttonSecondary}
                         >
                           Cancel
                         </button>

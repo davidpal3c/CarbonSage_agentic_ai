@@ -203,16 +203,16 @@ export function ArtifactViewerProvider({ children }: { children: ReactNode }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="artifact-viewer-title"
-        className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl"
+        className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl"
       >
         <header className="flex items-start justify-between gap-4 border-b border-border px-4 py-3 sm:px-5">
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-accent">
+            <p className="text-xs text-muted-foreground">
               {kindLabel(artifact)}
             </p>
             <h2
               id="artifact-viewer-title"
-              className="mt-1 truncate text-base font-semibold text-primary"
+              className="truncate text-base font-semibold text-primary"
             >
               {artifact?.title ?? selection.title ?? "Artifact preview"}
             </h2>
@@ -228,7 +228,7 @@ export function ArtifactViewerProvider({ children }: { children: ReactNode }) {
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-auto bg-background p-4 sm:p-5">
+        <div className="min-h-0 flex-1 overflow-auto bg-background p-3 sm:p-4">
           {isLoading ? (
             <div className="flex min-h-72 items-center justify-center">
               <LoadingState label="Opening artifact" />
@@ -243,7 +243,7 @@ export function ArtifactViewerProvider({ children }: { children: ReactNode }) {
               </p>
             </div>
           ) : preview?.mode === "text" ? (
-            <pre className="min-h-72 whitespace-pre-wrap break-words rounded-lg border border-border bg-card p-4 font-mono text-xs leading-6 text-primary">
+            <pre className="min-h-72 whitespace-pre-wrap break-words rounded-md border border-border bg-card p-3 font-mono text-xs leading-6 text-primary">
               {preview.text}
             </pre>
           ) : preview?.mode === "pdf" ? (
@@ -277,7 +277,7 @@ export function ArtifactViewerProvider({ children }: { children: ReactNode }) {
             <a
               href={preview.objectUrl}
               download={artifact?.title ?? selection.title ?? "artifact"}
-              className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-primary transition hover:bg-muted"
+              className="inline-flex min-h-10 items-center gap-2 rounded-md border border-control bg-card px-3 text-sm font-medium text-primary transition hover:bg-muted lg:min-h-9"
             >
               <Download aria-hidden="true" className="h-4 w-4" />
               Download source
@@ -286,7 +286,7 @@ export function ArtifactViewerProvider({ children }: { children: ReactNode }) {
           <button
             type="button"
             onClick={closeArtifact}
-            className="rounded-lg bg-secondary px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-secondary/85"
+            className="inline-flex min-h-10 items-center rounded-md bg-secondary px-3 text-sm font-medium text-white transition hover:bg-secondary/85 lg:min-h-9"
           >
             Close
           </button>

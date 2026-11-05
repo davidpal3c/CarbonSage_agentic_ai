@@ -154,7 +154,7 @@ export function EmptyNotice({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-4 py-8 text-center">
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-4 py-6 text-center">
       {icon ? <IconTile>{icon}</IconTile> : null}
       {label ? <p className="label-ui mt-3 text-accent">{label}</p> : null}
       <h2 className="mt-1 text-base font-semibold text-primary">{title}</h2>

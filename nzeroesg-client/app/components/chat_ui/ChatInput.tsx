@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { buttonPrimary } from "@/app/dashboard/workspace-ui";
 
 interface ChatInputProps {
   sendMessage: (message: string) => void | Promise<void>;
@@ -58,13 +59,13 @@ export default function ChatInput({
         aria-label="Message CarbonSage"
         maxLength={4000}
         rows={1}
-        className="max-h-32 min-w-0 flex-1 resize-none overflow-hidden rounded-lg border border-border bg-muted px-3 py-2 text-sm text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
+        className="max-h-32 min-w-0 flex-1 resize-none overflow-hidden rounded-md border border-border bg-muted px-3 py-2 text-sm text-primary focus:outline-none focus:ring-2 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
       />
       <button
         type="button"
         onClick={handleSend}
         disabled={!input.trim() || disabled}
-        className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition hover:bg-secondary/85 disabled:cursor-not-allowed disabled:opacity-50"
+        className={buttonPrimary}
       >
         Send
       </button>

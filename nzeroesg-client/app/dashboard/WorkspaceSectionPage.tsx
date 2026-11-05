@@ -21,6 +21,11 @@ import {
 } from "@/app/components/charts/CarbonCharts";
 import ArtifactCatalog from "@/app/dashboard/ArtifactCatalog";
 import OverviewView from "@/app/dashboard/overview/OverviewView";
+import {
+  buttonPrimary,
+  buttonSecondary,
+  MetricStrip,
+} from "@/app/dashboard/workspace-ui";
 import { useWorkspace } from "@/app/dashboard/WorkspaceShell";
 import {
   type ShipmentData,
@@ -519,7 +524,7 @@ export function WorkspaceSectionPage({
               setEvidenceError(null);
               setIsSupplierModalOpen(true);
             }}
-            className="rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-secondary/85"
+            className={buttonPrimary}
           >
             Add supplier
           </button>
@@ -533,14 +538,11 @@ export function WorkspaceSectionPage({
                 setShipmentImportIssues([]);
                 setIsShipmentModalOpen(true);
               }}
-              className="rounded-lg border border-border bg-card px-3.5 py-2 text-sm font-semibold text-primary transition hover:border-accent"
+              className={buttonSecondary}
             >
               Import shipments
             </button>
-            <Link
-              href="/dashboard/agent"
-              className="rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-secondary/85"
-            >
+            <Link href="/dashboard/agent" className={buttonPrimary}>
               Calculate freight
             </Link>
           </div>
@@ -590,13 +592,13 @@ export function WorkspaceSectionPage({
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="import-shipments-title"
-                className="fixed left-1/2 top-1/2 z-[70] w-[min(42rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-5 shadow-2xl sm:p-6"
+                className="fixed left-1/2 top-1/2 z-[70] w-[min(42rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-5 shadow-xl"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h2
                       id="import-shipments-title"
-                      className="text-xl font-semibold text-primary"
+                      className="text-lg font-semibold text-primary"
                     >
                       Import shipments
                     </h2>
@@ -630,7 +632,7 @@ export function WorkspaceSectionPage({
                     }
                   }}
                   onDrop={dropShipmentFile}
-                  className={`mt-5 flex cursor-pointer flex-col items-center rounded-xl border border-dashed px-5 py-9 text-center transition ${
+                  className={`mt-5 flex cursor-pointer flex-col items-center rounded-lg border border-dashed px-5 py-9 text-center transition ${
                     isDraggingShipmentFile
                       ? "border-accent bg-accent/10"
                       : "border-border bg-muted/45 hover:border-accent hover:bg-accent/5"
@@ -644,7 +646,7 @@ export function WorkspaceSectionPage({
                     onChange={selectShipmentFile}
                     className="sr-only"
                   />
-                  <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-tertiary">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-card text-tertiary">
                     <UploadCloud aria-hidden="true" className="h-5 w-5" />
                   </span>
                   <span className="mt-4 text-sm font-semibold text-primary">
@@ -661,7 +663,7 @@ export function WorkspaceSectionPage({
                 </label>
 
                 {shipmentError ? (
-                  <p className="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+                  <p className="mt-4 rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-sm text-red-800">
                     {shipmentError}
                   </p>
                 ) : null}
@@ -689,14 +691,14 @@ export function WorkspaceSectionPage({
                       type="button"
                       onClick={closeShipmentImport}
                       disabled={isUploading}
-                      className="rounded-lg border border-border px-3.5 py-2 text-sm font-semibold text-primary disabled:opacity-50"
+                      className={buttonSecondary}
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={isUploading || !selectedFile}
-                      className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-secondary/85 disabled:cursor-not-allowed disabled:opacity-60"
+                      className={buttonPrimary}
                     >
                       {isUploading ? <Spinner /> : null}
                       Upload and analyze
@@ -707,32 +709,27 @@ export function WorkspaceSectionPage({
             </>
           ) : null}
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <article className="rounded-xl border border-border bg-card p-5">
-              <p className="text-sm text-muted-foreground">Shipments</p>
-              <p className="mt-1 text-2xl font-bold text-primary">
-                {activeShipmentAnalysis?.shipment_count ?? 0}
-              </p>
-            </article>
-            <article className="rounded-xl border border-border bg-card p-5">
-              <p className="text-sm text-muted-foreground">Total emissions</p>
-              <p className="mt-1 text-2xl font-bold text-primary">
-                {(activeShipmentAnalysis?.total_emissions_kg ?? 0).toFixed(2)}{" "}
-                kg CO₂e
-              </p>
-            </article>
-            <article className="rounded-xl border border-border bg-card p-5">
-              <p className="text-sm text-muted-foreground">Freight weight</p>
-              <p className="mt-1 text-2xl font-bold text-primary">
-                {(activeShipmentAnalysis?.total_weight_kg ?? 0).toFixed(2)} kg
-              </p>
-            </article>
-          </div>
+          <MetricStrip
+            items={[
+              {
+                label: "Shipments",
+                value: activeShipmentAnalysis?.shipment_count ?? 0,
+              },
+              {
+                label: "Total emissions",
+                value: `${(activeShipmentAnalysis?.total_emissions_kg ?? 0).toFixed(2)} kg CO₂e`,
+              },
+              {
+                label: "Freight weight",
+                value: `${(activeShipmentAnalysis?.total_weight_kg ?? 0).toFixed(2)} kg`,
+              },
+            ]}
+          />
 
           {shipmentData?.accepted_rows ? (
             <section
               aria-label="Shipment analytics filters"
-              className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4"
+              className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3"
             >
               <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
                 Group by
@@ -743,7 +740,7 @@ export function WorkspaceSectionPage({
                       event.target.value as "month" | "year",
                     )
                   }
-                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-primary"
+                  className="rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium text-primary"
                 >
                   <option value="month">Month</option>
                   <option value="year">Year</option>
@@ -766,7 +763,7 @@ export function WorkspaceSectionPage({
                   onChange={(event) =>
                     setAnalyticsStartDate(event.target.value)
                   }
-                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-primary"
+                  className="rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium text-primary"
                 />
               </label>
               <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
@@ -784,7 +781,7 @@ export function WorkspaceSectionPage({
                     undefined
                   }
                   onChange={(event) => setAnalyticsEndDate(event.target.value)}
-                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-primary"
+                  className="rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium text-primary"
                 />
               </label>
               <fieldset className="flex flex-wrap gap-1.5">
@@ -841,14 +838,14 @@ export function WorkspaceSectionPage({
           {analyticsError ? (
             <p
               role="alert"
-              className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800"
+              className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-sm text-red-800"
             >
               {analyticsError}
             </p>
           ) : null}
 
           {shipmentError && !isShipmentModalOpen ? (
-            <p className="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <p className="mt-4 rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-sm text-red-800">
               {shipmentError}
             </p>
           ) : null}
@@ -879,8 +876,8 @@ export function WorkspaceSectionPage({
               {shipmentData.accepted_rows > 0 ? (
                 <>
                   {activeShipmentAnalysis?.shipment_count ? (
-                    <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(22rem,1fr)]">
-                      <article className="min-w-0 rounded-xl border border-border bg-card p-4 sm:p-5">
+                    <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(22rem,1fr)]">
+                      <article className="min-w-0 rounded-lg border border-border bg-card p-4">
                         <div>
                           <h3 className="font-semibold text-primary">
                             Emissions by mode over time
@@ -904,16 +901,16 @@ export function WorkspaceSectionPage({
                             <table className="min-w-full text-left text-xs">
                               <thead className="text-muted-foreground">
                                 <tr>
-                                  <th className="px-2 py-2">Period</th>
+                                  <th className="px-2 py-1.5">Period</th>
                                   {modeBreakdown.map(([mode]) => (
                                     <th
                                       key={mode}
-                                      className="px-2 py-2 capitalize"
+                                      className="px-2 py-1.5 capitalize"
                                     >
                                       {mode}
                                     </th>
                                   ))}
-                                  <th className="px-2 py-2">Total</th>
+                                  <th className="px-2 py-1.5">Total</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -923,17 +920,17 @@ export function WorkspaceSectionPage({
                                       key={period.period}
                                       className="border-t border-border"
                                     >
-                                      <td className="px-2 py-2">
+                                      <td className="px-2 py-1.5">
                                         {period.period}
                                       </td>
                                       {modeBreakdown.map(([mode]) => (
-                                        <td key={mode} className="px-2 py-2">
+                                        <td key={mode} className="px-2 py-1.5">
                                           {(
                                             period.mode_emissions_kg[mode] ?? 0
                                           ).toFixed(2)}
                                         </td>
                                       ))}
-                                      <td className="px-2 py-2 font-semibold">
+                                      <td className="px-2 py-1.5 font-semibold">
                                         {period.emissions_kg.toFixed(2)} kg CO₂e
                                       </td>
                                     </tr>
@@ -945,7 +942,7 @@ export function WorkspaceSectionPage({
                         </details>
                       </article>
 
-                      <article className="min-w-0 rounded-xl border border-border bg-card p-4 sm:p-5">
+                      <article className="min-w-0 rounded-lg border border-border bg-card p-4">
                         <h3 className="font-semibold text-primary">
                           Top shipment hotspots
                         </h3>
@@ -963,11 +960,11 @@ export function WorkspaceSectionPage({
                             <table className="min-w-full text-left text-xs">
                               <thead className="text-muted-foreground">
                                 <tr>
-                                  <th className="px-2 py-2">Shipment</th>
-                                  <th className="px-2 py-2">Date</th>
-                                  <th className="px-2 py-2">Supplier</th>
-                                  <th className="px-2 py-2">Route</th>
-                                  <th className="px-2 py-2">Emissions</th>
+                                  <th className="px-2 py-1.5">Shipment</th>
+                                  <th className="px-2 py-1.5">Date</th>
+                                  <th className="px-2 py-1.5">Supplier</th>
+                                  <th className="px-2 py-1.5">Route</th>
+                                  <th className="px-2 py-1.5">Emissions</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -976,19 +973,19 @@ export function WorkspaceSectionPage({
                                     key={hotspot.shipment_id}
                                     className="border-t border-border"
                                   >
-                                    <td className="px-2 py-2 font-semibold">
+                                    <td className="px-2 py-1.5 font-semibold">
                                       {hotspot.shipment_id}
                                     </td>
-                                    <td className="px-2 py-2">
+                                    <td className="px-2 py-1.5">
                                       {hotspot.shipment_date ?? "Undated"}
                                     </td>
-                                    <td className="px-2 py-2">
+                                    <td className="px-2 py-1.5">
                                       {hotspot.supplier_name ?? "Not provided"}
                                     </td>
-                                    <td className="px-2 py-2">
+                                    <td className="px-2 py-1.5">
                                       {hotspot.origin} → {hotspot.destination}
                                     </td>
-                                    <td className="px-2 py-2">
+                                    <td className="px-2 py-1.5">
                                       {hotspot.emissions_kg.toFixed(2)} kg CO₂e
                                     </td>
                                   </tr>
@@ -1002,25 +999,25 @@ export function WorkspaceSectionPage({
                   ) : analyticsStatus === "loading" ? (
                     <LoadingState label="Updating shipment analytics" />
                   ) : (
-                    <p className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
+                    <p className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
                       No shipment rows match the active filters.
                     </p>
                   )}
 
-                  <div className="mt-6 overflow-x-auto rounded-lg border border-border bg-background">
+                  <div className="mt-3 overflow-x-auto rounded-lg border border-border bg-background">
                     <table className="min-w-full text-left text-sm">
                       <caption className="sr-only">
                         Normalized shipment rows
                       </caption>
-                      <thead className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+                      <thead className="border-b border-border text-xs text-muted-foreground">
                         <tr>
-                          <th className="px-4 py-3">Shipment</th>
-                          <th className="px-4 py-3">Date</th>
-                          <th className="px-4 py-3">Supplier</th>
-                          <th className="px-4 py-3">Route</th>
-                          <th className="px-4 py-3">Weight</th>
-                          <th className="px-4 py-3">Distance</th>
-                          <th className="px-4 py-3">Mode</th>
+                          <th className="px-3 py-1.5">Shipment</th>
+                          <th className="px-3 py-1.5">Date</th>
+                          <th className="px-3 py-1.5">Supplier</th>
+                          <th className="px-3 py-1.5">Route</th>
+                          <th className="px-3 py-1.5">Weight</th>
+                          <th className="px-3 py-1.5">Distance</th>
+                          <th className="px-3 py-1.5">Mode</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1029,25 +1026,25 @@ export function WorkspaceSectionPage({
                             key={`${row.shipment_id}-${row.source_row}`}
                             className="border-b border-border last:border-0"
                           >
-                            <td className="px-4 py-3 font-semibold text-primary">
+                            <td className="px-3 py-1.5 font-semibold text-primary">
                               {row.shipment_id}
                             </td>
-                            <td className="px-4 py-3 text-muted-foreground">
+                            <td className="px-3 py-1.5 text-muted-foreground">
                               {row.shipment_date ?? "Undated"}
                             </td>
-                            <td className="px-4 py-3 text-muted-foreground">
+                            <td className="px-3 py-1.5 text-muted-foreground">
                               {row.supplier_name ?? "Not provided"}
                             </td>
-                            <td className="px-4 py-3 text-muted-foreground">
+                            <td className="px-3 py-1.5 text-muted-foreground">
                               {row.origin} → {row.destination}
                             </td>
-                            <td className="px-4 py-3 text-muted-foreground">
+                            <td className="px-3 py-1.5 text-muted-foreground">
                               {row.weight_kg} kg
                             </td>
-                            <td className="px-4 py-3 text-muted-foreground">
+                            <td className="px-3 py-1.5 text-muted-foreground">
                               {row.distance_km} km
                             </td>
-                            <td className="px-4 py-3 capitalize text-primary">
+                            <td className="px-3 py-1.5 capitalize text-primary">
                               {row.transport_method}
                             </td>
                           </tr>
@@ -1071,7 +1068,7 @@ export function WorkspaceSectionPage({
       {section === "evidence" ? (
         <section
           id="evidence"
-          className="flex flex-col rounded-xl border border-border bg-card p-4"
+          className="flex flex-col rounded-lg border border-border bg-card p-3"
         >
           {isSupplierModalOpen ? (
             <>
@@ -1086,13 +1083,13 @@ export function WorkspaceSectionPage({
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="add-supplier-title"
-                className="fixed left-1/2 top-1/2 z-[70] grid max-h-[calc(100vh-2rem)] w-[min(44rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-2xl md:grid-cols-2 md:p-6"
+                className="fixed left-1/2 top-1/2 z-[70] grid max-h-[calc(100vh-2rem)] w-[min(44rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-lg border border-border bg-card p-5 shadow-xl md:grid-cols-2"
               >
                 <div className="flex items-start justify-between gap-4 md:col-span-2">
                   <div>
                     <h2
                       id="add-supplier-title"
-                      className="text-xl font-semibold text-primary"
+                      className="text-lg font-semibold text-primary"
                     >
                       Add supplier
                     </h2>
@@ -1110,56 +1107,56 @@ export function WorkspaceSectionPage({
                     <X aria-hidden="true" className="h-5 w-5" />
                   </button>
                 </div>
-                <label className="flex flex-col gap-2 text-sm font-semibold text-primary">
+                <label className="flex flex-col gap-1 text-sm font-medium text-primary">
                   Supplier name
                   <input
                     value={supplierName}
                     onChange={(event) => setSupplierName(event.target.value)}
                     placeholder="Supplier ABC"
-                    className="rounded-lg border border-border bg-muted px-3 py-2 font-normal"
+                    className="rounded-md border border-border bg-muted px-3 py-1.5 font-normal"
                   />
                 </label>
-                <label className="flex flex-col gap-2 text-sm font-semibold text-primary">
+                <label className="flex flex-col gap-1 text-sm font-medium text-primary">
                   Region (optional)
                   <input
                     value={supplierRegion}
                     onChange={(event) => setSupplierRegion(event.target.value)}
                     placeholder="Canada"
-                    className="rounded-lg border border-border bg-muted px-3 py-2 font-normal"
+                    className="rounded-md border border-border bg-muted px-3 py-1.5 font-normal"
                   />
                 </label>
-                <label className="flex flex-col gap-2 text-sm font-semibold text-primary">
+                <label className="flex flex-col gap-1 text-sm font-medium text-primary">
                   Certifications (comma separated)
                   <input
                     value={certifications}
                     onChange={(event) => setCertifications(event.target.value)}
                     placeholder="ISO 14001"
-                    className="rounded-lg border border-border bg-muted px-3 py-2 font-normal"
+                    className="rounded-md border border-border bg-muted px-3 py-1.5 font-normal"
                   />
                 </label>
-                <label className="flex flex-col gap-2 text-sm font-semibold text-primary">
+                <label className="flex flex-col gap-1 text-sm font-medium text-primary">
                   Transport modes (comma separated)
                   <input
                     value={transportModes}
                     onChange={(event) => setTransportModes(event.target.value)}
                     placeholder="rail, truck"
-                    className="rounded-lg border border-border bg-muted px-3 py-2 font-normal"
+                    className="rounded-md border border-border bg-muted px-3 py-1.5 font-normal"
                   />
                 </label>
-                <label className="flex flex-col gap-2 text-sm font-semibold text-primary md:col-span-2">
+                <label className="flex flex-col gap-1 text-sm font-medium text-primary md:col-span-2">
                   Evidence document (optional PDF or TXT)
                   <input
                     type="file"
                     accept=".txt,.pdf,text/plain,application/pdf"
                     onChange={selectEvidenceFile}
-                    className="w-full min-w-0 max-w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm font-normal text-primary file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-3 file:py-2 file:text-white"
+                    className="w-full min-w-0 max-w-full rounded-md border border-border bg-muted px-3 py-1.5 text-sm font-normal text-primary file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-3 file:py-2 file:text-white"
                   />
                 </label>
                 <div className="md:col-span-2">
                   <button
                     type="submit"
                     disabled={isEvidenceUploading}
-                    className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-secondary/85 disabled:cursor-wait disabled:opacity-60"
+                    className={buttonPrimary}
                   >
                     {isEvidenceUploading ? <Spinner /> : null}
                     Add supplier
@@ -1173,7 +1170,7 @@ export function WorkspaceSectionPage({
           ) : null}
 
           {visibleEvidenceError ? (
-            <p className="order-1 mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <p className="order-1 mt-4 rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-sm text-red-800">
               {visibleEvidenceError}
             </p>
           ) : null}
@@ -1187,18 +1184,18 @@ export function WorkspaceSectionPage({
                 No suppliers have been added to this workspace.
               </p>
             ) : (
-              <div className="mt-3 grid gap-4 lg:grid-cols-2">
+              <div className="mt-3 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
                 {suppliers.map((supplier) => (
                   <article
                     key={supplier.supplier_id}
-                    className="rounded-lg border border-border bg-background p-4"
+                    className="rounded-lg border border-border bg-background p-3"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h4 className="font-semibold text-primary">
+                        <h4 className="text-sm font-semibold text-primary">
                           {supplier.name}
                         </h4>
-                        <p className="mt-1 text-sm text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           {supplier.region ?? "Region not provided"}
                         </p>
                       </div>
@@ -1207,11 +1204,11 @@ export function WorkspaceSectionPage({
                         {supplier.document_count === 1 ? "" : "s"}
                       </span>
                     </div>
-                    <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                    <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
                       {supplier.certifications.map((certification) => (
                         <span
                           key={certification}
-                          className="rounded-full bg-secondary/10 px-2 py-1 text-primary"
+                          className="rounded-md bg-secondary/10 px-2 py-0.5 text-primary"
                         >
                           {certification}
                         </span>
@@ -1219,18 +1216,18 @@ export function WorkspaceSectionPage({
                       {supplier.transport_modes.map((mode) => (
                         <span
                           key={mode}
-                          className="rounded-full bg-accent/10 px-2 py-1 capitalize text-primary"
+                          className="rounded-md bg-accent/10 px-2 py-0.5 capitalize text-primary"
                         >
                           {mode}
                         </span>
                       ))}
                     </div>
                     {supplier.missing_fields.length > 0 ? (
-                      <p className="mt-4 text-xs text-amber-800">
+                      <p className="mt-2 text-xs text-amber-800">
                         Missing metadata: {supplier.missing_fields.join(", ")}
                       </p>
                     ) : (
-                      <p className="mt-4 text-xs text-muted-foreground">
+                      <p className="mt-2 text-xs text-muted-foreground">
                         Supplier details complete.
                       </p>
                     )}
@@ -1248,17 +1245,17 @@ export function WorkspaceSectionPage({
                   value={evidenceQuery}
                   onChange={(event) => setEvidenceQuery(event.target.value)}
                   placeholder="ISO 14001"
-                  className="w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 font-normal"
+                  className="w-full min-w-0 rounded-md border border-border bg-background px-3 py-1.5 font-normal"
                 />
               </label>
-              <label className="flex flex-col gap-2 text-sm font-semibold text-primary">
+              <label className="flex flex-col gap-1 text-sm font-medium text-primary">
                 Retrieval mode
                 <select
                   value={evidenceMode}
                   onChange={(event) =>
                     setEvidenceMode(event.target.value as RetrievalMode)
                   }
-                  className="rounded-lg border border-border bg-background px-3 py-2 font-normal capitalize"
+                  className="rounded-md border border-border bg-background px-3 py-1.5 font-normal capitalize"
                 >
                   <option value="lexical">Keyword</option>
                   <option value="semantic">Semantic</option>
@@ -1292,7 +1289,7 @@ export function WorkspaceSectionPage({
               {evidenceMatches.map((match) => (
                 <article
                   key={`${match.citation.document_sha256}-${match.citation.chunk_index}`}
-                  className="rounded-lg border border-border bg-background p-4"
+                  className="rounded-lg border border-border bg-background p-3"
                 >
                   <p className="text-sm font-semibold text-primary">
                     {match.supplier_name} · {match.filename}
@@ -1326,7 +1323,7 @@ export function WorkspaceSectionPage({
       {section === "scenarios" ? (
         <section
           id="scenarios"
-          className="rounded-xl border border-border bg-card p-4"
+          className="rounded-lg border border-border bg-card p-3"
         >
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -1349,7 +1346,7 @@ export function WorkspaceSectionPage({
               <select
                 value={scenarioMode}
                 onChange={(event) => setScenarioMode(event.target.value)}
-                className="w-full min-w-0 max-w-full rounded-lg border border-border bg-background px-3 py-2 font-normal capitalize"
+                className="w-full min-w-0 max-w-full rounded-md border border-border bg-background px-3 py-1.5 font-normal capitalize"
               >
                 <option value="plane">Plane</option>
                 <option value="truck">Truck</option>
@@ -1362,7 +1359,7 @@ export function WorkspaceSectionPage({
               disabled={
                 isRunningScenario || !shipmentData?.analysis.shipment_count
               }
-              className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-secondary/85 disabled:cursor-not-allowed disabled:opacity-60"
+              className={buttonPrimary}
             >
               {isRunningScenario ? <Spinner /> : null}
               Run scenario
@@ -1370,7 +1367,7 @@ export function WorkspaceSectionPage({
           </form>
 
           {scenarioError ? (
-            <p className="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <p className="mt-4 rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-sm text-red-800">
               {scenarioError}
             </p>
           ) : null}
@@ -1378,7 +1375,7 @@ export function WorkspaceSectionPage({
           {scenarioData ? (
             <>
               <div className="mt-6 grid gap-4 md:grid-cols-3">
-                <article className="rounded-lg border border-border bg-background p-4">
+                <article className="rounded-lg border border-border bg-background p-3">
                   <p className="text-sm text-muted-foreground">
                     Current baseline
                   </p>
@@ -1390,7 +1387,7 @@ export function WorkspaceSectionPage({
                     shipments
                   </p>
                 </article>
-                <article className="rounded-lg border border-border bg-background p-4">
+                <article className="rounded-lg border border-border bg-background p-3">
                   <p className="text-sm text-muted-foreground">Alternative</p>
                   <p className="mt-1 text-2xl font-bold text-primary">
                     {scenarioData.alternative_total_kg.toFixed(2)} kg
@@ -1399,7 +1396,7 @@ export function WorkspaceSectionPage({
                     {scenarioData.alternative_mode} / same shipment inputs
                   </p>
                 </article>
-                <article className="rounded-lg border border-border bg-background p-4">
+                <article className="rounded-lg border border-border bg-background p-3">
                   <p className="text-sm text-muted-foreground">Change</p>
                   <p
                     className={`mt-1 text-2xl font-bold ${
@@ -1479,17 +1476,17 @@ export function WorkspaceSectionPage({
                 </div>
               </div>
 
-              <div className="mt-6 overflow-x-auto rounded-lg border border-border bg-background">
+              <div className="mt-3 overflow-x-auto rounded-lg border border-border bg-background">
                 <table className="min-w-full text-left text-sm">
                   <caption className="sr-only">
                     Scenario result by shipment
                   </caption>
-                  <thead className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+                  <thead className="border-b border-border text-xs text-muted-foreground">
                     <tr>
-                      <th className="px-4 py-3">Shipment</th>
-                      <th className="px-4 py-3">Baseline kg</th>
-                      <th className="px-4 py-3">Alternative kg</th>
-                      <th className="px-4 py-3">Delta kg</th>
+                      <th className="px-3 py-1.5">Shipment</th>
+                      <th className="px-3 py-1.5">Baseline kg</th>
+                      <th className="px-3 py-1.5">Alternative kg</th>
+                      <th className="px-3 py-1.5">Delta kg</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1498,17 +1495,17 @@ export function WorkspaceSectionPage({
                         key={result.shipment_id}
                         className="border-b border-border last:border-0"
                       >
-                        <td className="px-4 py-3 font-semibold text-primary">
+                        <td className="px-3 py-1.5 font-semibold text-primary">
                           {result.shipment_id}
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">
+                        <td className="px-3 py-1.5 text-muted-foreground">
                           {result.baseline_emissions_kg.toFixed(2)}
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">
+                        <td className="px-3 py-1.5 text-muted-foreground">
                           {result.alternative_emissions_kg.toFixed(2)}
                         </td>
                         <td
-                          className={`px-4 py-3 font-semibold ${
+                          className={`px-3 py-1.5 font-semibold ${
                             result.delta_kg <= 0
                               ? "text-accent"
                               : "text-red-700"

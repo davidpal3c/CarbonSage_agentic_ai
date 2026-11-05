@@ -36,6 +36,7 @@ import {
   type DemoDataStatus,
   useWorkspaceDataStore,
 } from "@/app/dashboard/workspace-data-store";
+import { buttonPrimary, buttonSecondary } from "@/app/dashboard/workspace-ui";
 
 interface ChatInterfaceProps {
   initialOpen?: boolean;
@@ -627,15 +628,15 @@ export default function ChatInterface({
           aria-labelledby="carbonsage-agent-title"
           className={
             isPanel
-              ? "flex h-[min(50rem,calc(100vh-11rem))] min-h-[38rem] w-full flex-col overflow-hidden rounded-2xl border border-border bg-chat-surface shadow-sm"
+              ? "flex h-[calc(100vh-9.5rem)] min-h-[30rem] w-full flex-col overflow-hidden rounded-lg border border-border bg-chat-surface"
               : `fixed inset-x-3 bottom-3 z-50 flex ${
                   hasAssistantMessage
                     ? "h-[min(48rem,calc(100vh-1.5rem))]"
                     : "h-[min(36rem,calc(100vh-1.5rem))]"
-                } flex-col overflow-hidden rounded-2xl border border-border bg-chat-surface shadow-2xl transition-[height] duration-200 sm:left-auto sm:right-4 sm:w-[min(48rem,calc(100vw-2rem))]`
+                } flex-col overflow-hidden rounded-lg border border-border bg-chat-surface shadow-xl transition-[height] duration-200 sm:left-auto sm:right-4 sm:w-[min(48rem,calc(100vw-2rem))]`
           }
         >
-          <header className="flex items-start justify-between gap-4 border-b border-border bg-chat-surface px-5 py-4">
+          <header className="flex items-start justify-between gap-4 border-b border-border bg-chat-surface px-4 py-2.5">
             <div>
               <h2
                 id="carbonsage-agent-title"
@@ -650,7 +651,7 @@ export default function ChatInterface({
             <div className="flex items-center gap-3">
               {agentUsage ? (
                 <span
-                  className="inline-flex rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+                  className="inline-flex rounded-md border border-border bg-card px-2 py-0.5 text-xs font-medium text-muted-foreground"
                   title={`${agentUsage.questions_used} of ${agentUsage.question_limit} questions used today`}
                 >
                   {agentUsage.questions_remaining} left ·{" "}
@@ -686,7 +687,7 @@ export default function ChatInterface({
           </header>
 
           {isPanel ? (
-            <div className="border-b border-border bg-chat-surface px-4 py-3">
+            <div className="border-b border-border bg-chat-surface px-3 py-2">
               <div className="flex flex-wrap items-center gap-2">
                 <label htmlFor="agent-conversation" className="sr-only">
                   Conversation
@@ -698,7 +699,7 @@ export default function ChatInterface({
                     void handleSelectConversation(event.target.value)
                   }
                   disabled={isSwitchingConversation || !conversations.length}
-                  className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm text-primary disabled:text-muted-foreground sm:min-w-56"
+                  className="min-w-0 flex-1 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-primary disabled:text-muted-foreground sm:min-w-56"
                 >
                   {!conversations.length ? (
                     <option value="">No saved conversations</option>
@@ -723,7 +724,7 @@ export default function ChatInterface({
                     conversations.length >= 3 ||
                     assistantStatus !== "available"
                   }
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-primary transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-45"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-primary transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   <Plus aria-hidden="true" className="h-4 w-4" />
                   New
@@ -732,7 +733,7 @@ export default function ChatInterface({
                   type="button"
                   onClick={() => void handleCloseConversation()}
                   disabled={isSwitchingConversation || !activeConversation}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-red-300 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-45"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-muted-foreground transition hover:border-red-300 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   <Trash2 aria-hidden="true" className="h-4 w-4" />
                   Close
@@ -774,7 +775,7 @@ export default function ChatInterface({
             }`}
           >
             <div className="flex min-h-0 flex-col">
-              <div className="min-h-0 flex-1 overflow-y-auto bg-chat-surface px-4 py-5 sm:px-5">
+              <div className="min-h-0 flex-1 overflow-y-auto bg-chat-surface px-4 py-4">
                 <div
                   className={
                     isPanel
@@ -785,8 +786,8 @@ export default function ChatInterface({
                   {isSwitchingConversation ? (
                     <LoadingState label="Loading conversation" />
                   ) : !messages.length && !isLoading ? (
-                    <div className="mx-auto flex h-full max-w-xl flex-col items-center justify-center py-8 text-center">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-accent">
+                    <div className="mx-auto flex h-full max-w-xl flex-col items-center justify-center py-6 text-center">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card text-accent">
                         <BrandMark className="h-5 w-5" />
                       </div>
                       <h3 className="mt-4 text-lg font-semibold text-primary">
@@ -805,7 +806,7 @@ export default function ChatInterface({
                             type="button"
                             onClick={() => void handleLoadDemoData()}
                             disabled={!onAction || isLoadingDemoData}
-                            className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-secondary/85 disabled:opacity-50"
+                            className={buttonPrimary}
                           >
                             {isLoadingDemoData ? (
                               <Spinner />
@@ -819,7 +820,7 @@ export default function ChatInterface({
                           </button>
                           <Link
                             href="/dashboard/shipments"
-                            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3.5 py-2 text-xs font-semibold text-primary transition hover:border-accent"
+                            className={buttonSecondary}
                           >
                             <Upload aria-hidden="true" className="h-4 w-4" />
                             Upload your own
@@ -833,7 +834,7 @@ export default function ChatInterface({
                               key={prompt}
                               type="button"
                               onClick={() => void handleSendMessage(prompt)}
-                              className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-primary transition hover:border-accent"
+                              className="rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-primary transition hover:border-accent"
                             >
                               {prompt}
                             </button>
@@ -859,15 +860,15 @@ export default function ChatInterface({
                       }`}
                     >
                       <div
-                        className={`min-w-0 max-w-[94%] rounded-2xl px-4 py-3 sm:max-w-[88%] ${
+                        className={`min-w-0 max-w-[94%] rounded-lg px-3.5 py-2.5 sm:max-w-[88%] ${
                           message.role === "user"
                             ? "bg-user-message text-primary"
                             : message.isError
-                              ? "border border-red-300 bg-red-50 text-red-900"
-                              : "border border-border bg-transparent text-primary shadow-[0_8px_24px_rgba(27,26,29,0.10)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.32)]"
+                              ? "border border-red-300 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-950/50 dark:text-red-100"
+                              : "border border-border bg-transparent text-primary"
                         }`}
                       >
-                        <p className="mb-2 text-xs font-semibold">
+                        <p className="mb-1 text-xs font-semibold">
                           {message.role === "user" ? "You" : "CarbonSage"}
                         </p>
                         {message.response ? (
@@ -882,7 +883,7 @@ export default function ChatInterface({
                             {message.content}
                           </p>
                         )}
-                        <p className="mt-3 text-[11px] opacity-60">
+                        <p className="mt-2 text-xs text-muted-foreground">
                           {message.timestamp.toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",

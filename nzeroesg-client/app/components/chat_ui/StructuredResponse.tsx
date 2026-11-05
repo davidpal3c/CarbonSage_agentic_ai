@@ -26,6 +26,7 @@ import type {
   TextBlock,
   WarningBlock,
 } from "@/app/types/chat";
+import { buttonPrimary } from "@/app/dashboard/workspace-ui";
 
 type StructuredResponseProps = {
   response: AgentResponseEnvelope;
@@ -65,7 +66,7 @@ function DataTable({ table }: { table: TableBlock }) {
               <th
                 scope="col"
                 key={column.key}
-                className="px-3 py-2 font-semibold"
+                className="px-3 py-1.5 font-semibold"
               >
                 {column.label}
                 {column.unit ? ` (${column.unit})` : ""}
@@ -77,7 +78,7 @@ function DataTable({ table }: { table: TableBlock }) {
           {table.rows.map((row, rowIndex) => (
             <tr key={rowIndex} className="border-b border-border last:border-0">
               {table.columns.map((column) => (
-                <td key={column.key} className="px-3 py-2 text-primary">
+                <td key={column.key} className="px-3 py-1.5 text-primary">
                   {formatValue(row[column.key] ?? null)}
                 </td>
               ))}
@@ -91,8 +92,8 @@ function DataTable({ table }: { table: TableBlock }) {
 
 function Chart({ block }: { block: ChartBlock }) {
   return (
-    <article className="rounded-xl border border-border bg-background p-4">
-      <div className="mb-4 flex items-center gap-2">
+    <article className="rounded-lg border border-border bg-background p-3">
+      <div className="mb-2 flex items-center gap-2">
         <BarChart3 aria-hidden="true" className="h-5 w-5 text-accent" />
         <h4 className="font-semibold text-primary">{block.title}</h4>
       </div>
@@ -105,7 +106,7 @@ function Chart({ block }: { block: ChartBlock }) {
         series={block.series}
         height={Math.max(220, Math.min(340, block.rows.length * 34))}
       />
-      <details className="mt-4 rounded-lg bg-muted px-3 py-2 text-primary">
+      <details className="mt-4 rounded-lg bg-muted px-3 py-1.5 text-primary">
         <summary className="cursor-pointer text-xs font-semibold">
           View chart data
         </summary>
@@ -124,7 +125,7 @@ function Citation({ block }: { block: CitationBlock }) {
       type="button"
       onClick={() => openArtifact(block.artifact_id, block.filename)}
       aria-label={`View source ${block.filename}`}
-      className="w-full rounded-xl border border-border border-l-4 border-l-accent bg-background p-4 text-left shadow-sm transition hover:border-accent hover:border-l-accent"
+      className="w-full rounded-lg border border-border border-l-4 border-l-accent bg-background p-4 text-left  transition hover:border-accent hover:border-l-accent"
     >
       <div className="flex gap-3">
         <Quote
@@ -158,7 +159,7 @@ function ArtifactReference({ block }: { block: ArtifactReferenceBlock }) {
     <button
       type="button"
       onClick={() => openArtifact(block.artifact_id, block.title)}
-      className="flex w-full items-start gap-3 rounded-xl border border-border bg-background p-4 text-left transition hover:border-accent"
+      className="flex w-full items-start gap-3 rounded-lg border border-border bg-background p-3 text-left transition hover:border-accent"
     >
       <FileText
         aria-hidden="true"
@@ -210,12 +211,12 @@ function Action({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-background p-4">
+    <div className="rounded-lg border border-border bg-background p-3">
       <button
         type="button"
         onClick={run}
         disabled={!onAction || status === "running" || status === "done"}
-        className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-secondary/85 disabled:cursor-not-allowed disabled:opacity-60"
+        className={buttonPrimary}
       >
         {status === "running" ? <Spinner /> : null}
         {status === "done" ? "Completed" : block.label}
@@ -265,7 +266,7 @@ function Block({
     case "metric": {
       const block = value as MetricBlock;
       return (
-        <article className="rounded-xl border border-border bg-background p-4">
+        <article className="rounded-lg border border-border bg-background p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {block.label}
           </p>
@@ -283,7 +284,7 @@ function Block({
     case "table": {
       const block = value as TableBlock;
       return (
-        <article className="rounded-xl bg-background p-3">
+        <article className="rounded-lg bg-background p-3">
           <h4 className="mb-3 font-semibold text-primary">{block.title}</h4>
           <DataTable table={block} />
         </article>
@@ -301,7 +302,7 @@ function Block({
       return (
         <div
           role="status"
-          className="flex gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950"
+          className="flex gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-950"
         >
           <AlertTriangle
             aria-hidden="true"
@@ -318,7 +319,7 @@ function Block({
       return (
         <section
           aria-label={block.title}
-          className="agent-suggestions rounded-xl border p-4"
+          className="agent-suggestions rounded-lg border p-4"
         >
           <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {block.title}
@@ -331,7 +332,7 @@ function Block({
                 onClick={() => void onPrompt?.(option.prompt)}
                 disabled={!onPrompt || promptDisabled}
                 title={option.prompt}
-                className="agent-suggestion-option inline-flex items-center gap-1.5 rounded-full border bg-chat-surface px-3 py-2 text-left text-xs font-semibold text-primary transition hover:-translate-y-0.5 hover:text-tertiary disabled:cursor-not-allowed disabled:opacity-50"
+                className="agent-suggestion-option inline-flex items-center gap-1.5 rounded-md border bg-chat-surface px-2.5 py-1.5 text-left text-xs font-medium text-primary transition hover:text-tertiary disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {option.label}
                 <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />

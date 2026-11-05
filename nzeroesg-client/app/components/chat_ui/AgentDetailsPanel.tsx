@@ -94,26 +94,26 @@ export default function AgentDetailsPanel({
   return (
     <aside
       aria-label="Response details"
-      className={`min-h-0 overflow-y-auto border-t border-border bg-muted/55 p-5 lg:border-l lg:border-t-0 ${className}`}
+      className={`min-h-0 overflow-y-auto border-t border-border bg-muted/55 p-4 lg:border-l lg:border-t-0 ${className}`}
     >
       {showTitle ? (
         <h3 className="text-sm font-semibold text-primary">Response details</h3>
       ) : null}
 
       {availability === "disabled" ? (
-        <p className="mt-3 rounded-xl border border-border bg-background p-3 text-sm leading-6 text-muted-foreground">
+        <p className="mt-3 rounded-lg border border-border bg-background p-3 text-sm leading-6 text-muted-foreground">
           CarbonSage is not configured in this environment. Files, calculations,
           scenarios, and reports remain available.
         </p>
       ) : availability === "unreachable" ? (
-        <p className="mt-3 rounded-xl border border-border bg-background p-3 text-sm leading-6 text-muted-foreground">
+        <p className="mt-3 rounded-lg border border-border bg-background p-3 text-sm leading-6 text-muted-foreground">
           CarbonSage could not be reached. Your workspace is still available.
         </p>
       ) : null}
 
       {response ? (
         <dl className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-1 xl:grid-cols-2">
-          <div className="rounded-xl border border-border bg-background p-3">
+          <div className="rounded-lg border border-border bg-background p-3">
             <dt className="flex items-center gap-2 text-xs text-muted-foreground">
               {response.evidence_status === "supported" ? (
                 <CheckCircle2
@@ -129,7 +129,7 @@ export default function AgentDetailsPanel({
               {evidenceLabels[response.evidence_status]}
             </dd>
           </div>
-          <div className="rounded-xl border border-border bg-background p-3">
+          <div className="rounded-lg border border-border bg-background p-3">
             <dt className="flex items-center gap-2 text-xs text-muted-foreground">
               <Clock3 aria-hidden="true" className="h-4 w-4" />
               Response time
@@ -148,12 +148,12 @@ export default function AgentDetailsPanel({
       )}
 
       {usage ? (
-        <section className="mt-6" aria-labelledby="agent-usage-title">
+        <section className="mt-4" aria-labelledby="agent-usage-title">
           <div className="flex items-end justify-between gap-3">
             <div>
               <h4
                 id="agent-usage-title"
-                className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+                className="text-xs font-semibold  text-muted-foreground"
               >
                 Today&apos;s AI use
               </h4>
@@ -191,7 +191,7 @@ export default function AgentDetailsPanel({
                 : `$${usage.spend_usd.toFixed(2)} USD`}
             </strong>
           </div>
-          <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+          <p className="mt-2 text-xs leading-4 text-muted-foreground">
             Resets daily at 00:00 UTC. Deterministic answers may use no paid
             model call.
           </p>
@@ -199,10 +199,10 @@ export default function AgentDetailsPanel({
       ) : null}
 
       {sources.length ? (
-        <section className="mt-6" aria-labelledby="agent-sources-title">
+        <section className="mt-4" aria-labelledby="agent-sources-title">
           <h4
             id="agent-sources-title"
-            className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+            className="flex items-center gap-2 text-xs font-semibold  text-muted-foreground"
           >
             <FileText aria-hidden="true" className="h-4 w-4" />
             Sources
@@ -223,10 +223,10 @@ export default function AgentDetailsPanel({
         </section>
       ) : null}
 
-      <section className="mt-6" aria-labelledby="agent-work-title">
+      <section className="mt-4" aria-labelledby="agent-work-title">
         <h4
           id="agent-work-title"
-          className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+          className="flex items-center gap-2 text-xs font-semibold  text-muted-foreground"
         >
           <Wrench aria-hidden="true" className="h-4 w-4" />
           Recent work
