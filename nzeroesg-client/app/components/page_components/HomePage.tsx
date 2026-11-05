@@ -451,6 +451,12 @@ export default function HomePage() {
                 <a className="rail-label hover:text-foreground" href="#top">
                   Top
                 </a>
+                <a
+                  className="rail-label hover:text-foreground"
+                  href="https://davidpalacios.dev"
+                >
+                  David P.
+                </a>
               </nav>
             </div>
             <details className="text-[13px] leading-5">

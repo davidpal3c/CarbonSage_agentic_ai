@@ -237,3 +237,41 @@ test("the saved theme is applied by an inline script before hydration", async ({
   const html = await response.text();
   expect(html).toContain('document.documentElement.classList.add("dark")');
 });
+
+test("the public surface stays light under a saved dark preference and has no theme control", async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("theme", "dark"));
+  for (const [width, height] of [
+    [1440, 900],
+    [390, 844],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    for (const path of ["/", "/login"]) {
+      await page.goto(path);
+      // The preference is still honoured for the workspace.
+      await expect(page.locator("html")).toHaveClass(/dark/);
+      const background = await page.evaluate(
+        () => getComputedStyle(document.body).backgroundColor,
+      );
+      expect(background).toBe("rgb(252, 250, 243)");
+      await expect(page.getByRole("button", { name: /Switch to/ })).toHaveCount(
+        0,
+      );
+    }
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open menu" }).click();
+  await expect(page.getByText("Theme", { exact: true })).toHaveCount(0);
+});
+
+test("the footer links to the author's site", async ({ page }) => {
+  await page.goto("/");
+  const link = page
+    .getByRole("contentinfo")
+    .getByRole("link", { name: "David P." });
+  await expect(link).toHaveAttribute("href", "https://davidpalacios.dev");
+  await link.focus();
+  await expect(link).toBeFocused();
+});

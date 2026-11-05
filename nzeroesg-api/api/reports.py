@@ -1,4 +1,4 @@
-"""Printable report preview and CSV export over typed workspace state."""
+"""Report preview, CSV export, and PDF export over typed workspace state."""
 
 from __future__ import annotations
 
@@ -31,6 +31,7 @@ from domain.artifacts.models import (
 from domain.scenarios.comparison import compare_shipment_modes
 from domain.shipments.analysis import analyze_shipments
 from domain.workspaces.principals import WorkspacePrincipal
+from services.report_pdf import render_report_pdf
 
 reports_router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -217,4 +218,22 @@ async def report_csv(
         content=output.getvalue(),
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=carbonsage-report.csv"},
+    )
+
+
+@reports_router.get("/export.pdf")
+async def report_pdf(
+    principal: Annotated[WorkspacePrincipal, Depends(require_workspace_principal)],
+    alternative_mode: Annotated[str | None, Query(max_length=30)] = None,
+) -> Response:
+    # An empty workspace still gets a labelled report; a scenario needs shipments.
+    has_shipments = bool(shipment_repository.list_for_workspace(principal.workspace_id))
+    report = _build_report(principal.workspace_id, alternative_mode if has_shipments else None)
+    return Response(
+        content=render_report_pdf(report.model_dump(mode="json")),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": "attachment; filename=carbonsage-report.pdf",
+            "Cache-Control": "no-store",
+        },
     )

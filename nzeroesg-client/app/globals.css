@@ -109,9 +109,9 @@ body:has(.surface-public) {
   --brand-secondary: #4a6648;
 }
 
-/* Public dark theme, and sections that stay dark in both themes. */
-.dark .surface-public,
-.dark body:has(.surface-public),
+/* Sections that stay dark in both themes. The public surface itself is always
+   light: a saved or system dark preference belongs to the workspace and is
+   ignored here (see `.surface-public` colour-scheme below). */
 .surface-public .tone-ink {
   --background: #37352f;
   --foreground: #fcfaf3;
@@ -131,13 +131,34 @@ body:has(.surface-public) {
   --brand-secondary: #aac3a0;
 }
 
-/* Public dark theme reading sections sit a step deeper than the ink bands. */
-.dark .surface-public,
-.dark body:has(.surface-public) {
-  --background: #2d2b26;
-  --card: #37352f;
-  --muted: #37352f;
-  --border: #48463f;
+/* The product glimpse shows the real workspace treatment, in light, even when
+   the saved workspace theme is dark (`.dark .surface-workspace` would match). */
+.surface-public .surface-workspace {
+  --background: #f6f6f4;
+  --foreground: #242422;
+  --secondary-bg: #eeeeeb;
+  --secondary-fg: #3d3d39;
+  --card: #ffffff;
+  --card-foreground: #242422;
+  --muted: #eeeeeb;
+  --muted-foreground: #62625c;
+  --border: #dcdcd6;
+  --control-border: #85857e;
+  --sidebar: #fafaf8;
+  --sidebar-border: #e2e2dd;
+  --chat-surface: #ffffff;
+  --user-message: #ecece8;
+  --primary: #242422;
+  --secondary: #3d5c45;
+  --tertiary: #3f5f48;
+  --accent: #3f5f48;
+  --brand-primary: #242422;
+  --brand-secondary: #3f5f48;
+  --chart-plane: #202326;
+  --chart-truck: #a8472a;
+  --chart-train: #b07f1f;
+  --chart-ship: #3f8f8a;
+  --chart-highlight: #2b6b68;
 }
 
 @theme inline {
@@ -171,6 +192,11 @@ body:has(.surface-public) {
 html {
   color-scheme: light dark;
   scroll-behavior: smooth;
+}
+
+/* Native controls and scrollbars on public pages stay light too. */
+html:has(.surface-public) {
+  color-scheme: light;
 }
 
 body {

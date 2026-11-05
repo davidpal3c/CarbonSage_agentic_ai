@@ -6,7 +6,6 @@ import { useEffect, useRef, useState } from "react";
 
 import BrandLockup from "@/app/components/BrandLockup";
 import BrandWordmark from "@/app/components/BrandWordmark";
-import ThemeToggle from "@/app/components/ThemeToggle";
 
 const navigation = [
   { name: "How it works", href: "#how" },
@@ -79,9 +78,6 @@ export default function PublicHeader() {
           </nav>
 
           <div className="ml-auto flex items-stretch">
-            <div className="hidden items-center border-l border-spine px-2 lg:flex">
-              <ThemeToggle />
-            </div>
             <Link
               href="/login"
               className="rail-label flex items-center border-l border-spine bg-foreground px-4 text-background transition-colors hover:bg-foreground/85 md:px-7"
@@ -132,10 +128,6 @@ export default function PublicHeader() {
               </li>
             ))}
           </ul>
-          <div className="mt-3 flex items-center justify-between">
-            <span className="rail-label text-muted-foreground">Theme</span>
-            <ThemeToggle />
-          </div>
         </nav>
       ) : null}
     </header>
