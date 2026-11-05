@@ -128,9 +128,12 @@ export function MetricStrip({
           <dd className="mt-0.5 font-mono text-xl font-medium leading-tight tabular-nums">
             {item.value}
             {item.unit ? (
-              <span className="ml-1 text-xs font-normal text-muted-foreground">
-                {item.unit}
-              </span>
+              <>
+                {" "}
+                <span className="whitespace-nowrap text-xs font-normal text-muted-foreground">
+                  {item.unit}
+                </span>
+              </>
             ) : null}
           </dd>
         </div>

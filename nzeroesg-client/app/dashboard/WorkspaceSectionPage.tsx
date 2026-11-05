@@ -717,11 +717,17 @@ export function WorkspaceSectionPage({
               },
               {
                 label: "Total emissions",
-                value: `${(activeShipmentAnalysis?.total_emissions_kg ?? 0).toFixed(2)} kg CO₂e`,
+                value: (
+                  activeShipmentAnalysis?.total_emissions_kg ?? 0
+                ).toFixed(2),
+                unit: "kg CO₂e",
               },
               {
                 label: "Freight weight",
-                value: `${(activeShipmentAnalysis?.total_weight_kg ?? 0).toFixed(2)} kg`,
+                value: (activeShipmentAnalysis?.total_weight_kg ?? 0).toFixed(
+                  2,
+                ),
+                unit: "kg",
               },
             ]}
           />

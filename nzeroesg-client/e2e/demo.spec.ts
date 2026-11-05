@@ -1137,9 +1137,11 @@ test("renders a typed interactive response with keyboard-accessible chart data",
   const assistantResponse = agentDialog
     .locator("article[data-message-id]")
     .filter({ hasText: "Validated tool results follow." });
-  await expect(assistantResponse.locator(":scope > div")).not.toHaveCSS(
-    "box-shadow",
-    "none",
+  // The assistant answer is set apart by a hairline border, not a shadow
+  // (shadows were removed from the chat surface in Pass 05).
+  await expect(assistantResponse.locator(":scope > div")).toHaveCSS(
+    "border-top-style",
+    "solid",
   );
   await expect(
     agentDialog.getByText(

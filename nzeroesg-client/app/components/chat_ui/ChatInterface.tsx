@@ -860,7 +860,11 @@ export default function ChatInterface({
                       }`}
                     >
                       <div
-                        className={`min-w-0 max-w-[94%] rounded-lg px-3.5 py-2.5 sm:max-w-[88%] ${
+                        className={`min-w-0 max-w-[94%] rounded-lg px-3.5 py-2.5 ${
+                          message.role === "user"
+                            ? "sm:max-w-[80%]"
+                            : "sm:max-w-[96%]"
+                        } ${
                           message.role === "user"
                             ? "bg-user-message text-primary"
                             : message.isError

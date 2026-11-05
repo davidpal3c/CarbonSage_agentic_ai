@@ -162,7 +162,7 @@ export default function ReportPage() {
         description="Review the current results, save a snapshot, or export the data."
       />
 
-      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-3">
+      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-3 print:hidden">
         <label className="flex min-w-56 max-w-sm flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
           Report alternative
           <select
@@ -254,7 +254,8 @@ export default function ReportPage() {
               },
               {
                 label: "Total emissions",
-                value: `${report.shipment_analysis.total_emissions_kg.toFixed(2)} kg CO2e`,
+                value: report.shipment_analysis.total_emissions_kg.toFixed(2),
+                unit: "kg CO2e",
               },
               { label: "Suppliers", value: report.suppliers.length },
             ]}
