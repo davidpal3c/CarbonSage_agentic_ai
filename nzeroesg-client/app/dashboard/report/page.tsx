@@ -6,6 +6,14 @@ import { Database } from "lucide-react";
 import { getBackendUrl } from "@/app/api/urls";
 import { LoadingState, Spinner } from "@/app/components/Spinner";
 import { useWorkspaceDataStore } from "@/app/dashboard/workspace-data-store";
+import {
+  buttonPrimary,
+  buttonSecondary,
+  Card,
+  MetricStrip,
+  PageHeader,
+  WorkspacePage,
+} from "@/app/dashboard/workspace-ui";
 
 const alternatives = ["plane", "truck", "train", "ship"] as const;
 
@@ -148,18 +156,14 @@ export default function ReportPage() {
     : [];
 
   return (
-    <section className="px-4 py-7 sm:px-6 lg:px-10 lg:py-9">
-      <header className="mb-7">
-        <h1 className="text-3xl font-bold tracking-tight text-primary sm:text-4xl">
-          Report
-        </h1>
-        <p className="mt-2 max-w-2xl leading-7 text-muted-foreground">
-          Review the current results, save a snapshot, or export the data.
-        </p>
-      </header>
+    <WorkspacePage>
+      <PageHeader
+        title="Report"
+        description="Review the current results, save a snapshot, or export the data."
+      />
 
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-5">
-        <label className="flex min-w-56 flex-1 flex-col gap-2 text-sm font-semibold text-primary">
+      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-3">
+        <label className="flex min-w-56 flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
           Report alternative
           <select
             value={alternativeMode}
@@ -167,7 +171,7 @@ export default function ReportPage() {
               setActionError(null);
               setAlternativeMode(event.target.value);
             }}
-            className="rounded-lg border border-border bg-background px-3 py-2 font-normal capitalize"
+            className="min-h-10 rounded-md border border-border bg-background px-3 text-sm font-normal capitalize text-primary lg:min-h-9"
           >
             {alternatives.map((mode) => (
               <option key={mode} value={mode}>
@@ -180,7 +184,7 @@ export default function ReportPage() {
           type="button"
           onClick={refreshReport}
           disabled={isLoading}
-          className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          className={buttonPrimary}
         >
           {isLoading ? <Spinner /> : null}
           Refresh report
@@ -189,7 +193,7 @@ export default function ReportPage() {
           type="button"
           onClick={saveSnapshot}
           disabled={isSaving || !report?.shipment_analysis.shipment_count}
-          className="inline-flex items-center gap-2 rounded-lg border border-tertiary px-3.5 py-2 text-sm font-semibold text-tertiary disabled:opacity-60"
+          className={`${buttonSecondary} border-tertiary text-tertiary`}
         >
           {isSaving ? <Spinner /> : null}
           Save report snapshot
@@ -199,7 +203,7 @@ export default function ReportPage() {
             type="button"
             onClick={exportReport}
             disabled={isExporting}
-            className="inline-flex items-center gap-2 rounded-lg border border-tertiary px-3.5 py-2 text-sm font-semibold text-tertiary disabled:opacity-60"
+            className={`${buttonSecondary} border-tertiary text-tertiary`}
           >
             {isExporting ? <Spinner /> : null}
             Export CSV report
@@ -208,26 +212,26 @@ export default function ReportPage() {
         <button
           type="button"
           onClick={() => window.print()}
-          className="rounded-lg border border-border px-3.5 py-2 text-sm font-semibold text-primary"
+          className={buttonSecondary}
         >
           Print report
         </button>
       </div>
 
       {statusMessage ? (
-        <p className="mt-4 rounded-lg border border-accent/35 bg-accent/10 px-4 py-3 text-sm text-primary">
+        <p className="mt-3 rounded-md border border-accent/35 bg-accent/10 px-3 py-2 text-sm text-primary">
           {statusMessage}
         </p>
       ) : null}
       {error ? (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200">
           <p>{error}</p>
           {canLoadDemoData ? (
             <button
               type="button"
               onClick={() => void loadDemoData()}
               disabled={isLoadingDemoData}
-              className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-secondary/85 disabled:opacity-60"
+              className={buttonPrimary}
             >
               {isLoadingDemoData ? (
                 <Spinner />
@@ -241,73 +245,72 @@ export default function ReportPage() {
       ) : null}
 
       {report ? (
-        <div className="mt-6 space-y-6">
-          <div className="grid gap-4 md:grid-cols-3">
-            <article className="rounded-xl border border-border bg-card p-5">
-              <p className="text-sm text-muted-foreground">Shipments</p>
-              <p className="mt-2 text-2xl font-bold text-primary">
-                {report.shipment_analysis.shipment_count}
-              </p>
-            </article>
-            <article className="rounded-xl border border-border bg-card p-5">
-              <p className="text-sm text-muted-foreground">Total emissions</p>
-              <p className="mt-2 text-2xl font-bold text-primary">
-                {report.shipment_analysis.total_emissions_kg.toFixed(2)} kg CO2e
-              </p>
-            </article>
-            <article className="rounded-xl border border-border bg-card p-5">
-              <p className="text-sm text-muted-foreground">Suppliers</p>
-              <p className="mt-2 text-2xl font-bold text-primary">
-                {report.suppliers.length}
-              </p>
-            </article>
-          </div>
+        <div className="mt-4 space-y-3">
+          <MetricStrip
+            items={[
+              {
+                label: "Shipments",
+                value: report.shipment_analysis.shipment_count,
+              },
+              {
+                label: "Total emissions",
+                value: `${report.shipment_analysis.total_emissions_kg.toFixed(2)} kg CO2e`,
+              },
+              { label: "Suppliers", value: report.suppliers.length },
+            ]}
+          />
 
           {report.scenario ? (
-            <article className="rounded-xl border border-border bg-card p-5">
-              <h2 className="text-xl font-semibold text-primary">
+            <Card as="article">
+              <h2 className="text-base font-semibold text-primary">
                 Scenario comparison
               </h2>
-              <dl className="mt-4 grid gap-4 sm:grid-cols-3">
+              <dl className="mt-3 grid gap-3 sm:grid-cols-3">
                 <div>
-                  <dt className="text-sm text-muted-foreground">
+                  <dt className="text-xs text-muted-foreground">
                     Current baseline
                   </dt>
-                  <dd className="mt-1 text-xl font-bold text-primary">
+                  <dd className="mt-0.5 font-mono text-lg font-medium tabular-nums text-primary">
                     {report.scenario.baseline_total_kg.toFixed(2)} kg
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm capitalize text-muted-foreground">
+                  <dt className="text-xs capitalize text-muted-foreground">
                     {report.scenario.alternative_mode}
                   </dt>
-                  <dd className="mt-1 text-xl font-bold text-primary">
+                  <dd className="mt-0.5 font-mono text-lg font-medium tabular-nums text-primary">
                     {report.scenario.alternative_total_kg.toFixed(2)} kg
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm text-muted-foreground">Change</dt>
-                  <dd className="mt-1 text-xl font-bold text-primary">
+                  <dt className="text-xs text-muted-foreground">Change</dt>
+                  <dd className="mt-0.5 font-mono text-lg font-medium tabular-nums text-primary">
                     {report.scenario.delta_kg > 0 ? "+" : ""}
                     {report.scenario.delta_kg.toFixed(2)} kg
                   </dd>
                 </div>
               </dl>
-            </article>
+            </Card>
           ) : null}
 
-          <article className="overflow-x-auto rounded-xl border border-border bg-card p-5">
-            <h2 className="text-xl font-semibold text-primary">
+          <Card as="article" className="overflow-x-auto">
+            <h2 className="text-base font-semibold text-primary">
               Emissions by mode
             </h2>
             {modes.length ? (
-              <table className="mt-4 min-w-full text-left text-sm">
-                <thead className="border-b border-border text-xs uppercase text-muted-foreground">
+              <table className="mt-2 min-w-full text-left text-sm">
+                <thead className="border-b border-border text-xs text-muted-foreground">
                   <tr>
-                    <th className="px-3 py-2">Mode</th>
-                    <th className="px-3 py-2">Shipments</th>
-                    <th className="px-3 py-2">Weight kg</th>
-                    <th className="px-3 py-2">Emissions kg</th>
+                    <th className="px-3 py-1.5 font-medium">Mode</th>
+                    <th className="px-3 py-1.5 text-right font-medium">
+                      Shipments
+                    </th>
+                    <th className="px-3 py-1.5 text-right font-medium">
+                      Weight kg
+                    </th>
+                    <th className="px-3 py-1.5 text-right font-medium">
+                      Emissions kg
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -316,14 +319,16 @@ export default function ReportPage() {
                       key={mode}
                       className="border-b border-border last:border-0"
                     >
-                      <td className="px-3 py-3 font-semibold capitalize">
+                      <td className="px-3 py-1.5 font-medium capitalize">
                         {mode}
                       </td>
-                      <td className="px-3 py-3">{values.shipment_count}</td>
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                        {values.shipment_count}
+                      </td>
+                      <td className="px-3 py-1.5 text-right font-mono tabular-nums">
                         {values.weight_kg.toFixed(2)}
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-1.5 text-right font-mono tabular-nums">
                         {values.emissions_kg.toFixed(2)}
                       </td>
                     </tr>
@@ -331,24 +336,26 @@ export default function ReportPage() {
                 </tbody>
               </table>
             ) : (
-              <p className="mt-3 text-sm text-muted-foreground">
+              <p className="mt-2 text-sm text-muted-foreground">
                 Upload shipment data to populate the report.
               </p>
             )}
-          </article>
+          </Card>
 
-          <article className="rounded-xl border border-border bg-card p-5">
-            <h2 className="text-xl font-semibold text-primary">Methodology</h2>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          <Card as="article">
+            <h2 className="text-base font-semibold text-primary">
+              Methodology
+            </h2>
+            <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
               {report.methodology.factor_source} · version{" "}
               {report.methodology.factor_version}.{" "}
               {report.methodology.factor_applicability}
             </p>
-          </article>
+          </Card>
         </div>
       ) : isLoading ? (
         <LoadingState label="Loading report" />
       ) : null}
-    </section>
+    </WorkspacePage>
   );
 }

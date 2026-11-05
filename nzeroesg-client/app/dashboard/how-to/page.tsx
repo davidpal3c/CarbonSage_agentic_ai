@@ -8,6 +8,14 @@ import {
   Upload,
 } from "lucide-react";
 
+import {
+  buttonPrimary,
+  buttonSecondary,
+  IconTile,
+  PageHeader,
+  WorkspacePage,
+} from "@/app/dashboard/workspace-ui";
+
 const steps = [
   {
     title: "Choose your workspace data",
@@ -43,60 +51,46 @@ const steps = [
 
 export default function HowToPage() {
   return (
-    <section className="px-4 py-7 sm:px-6 lg:px-10 lg:py-9">
-      <header>
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
-          Workspace guide
-        </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-primary sm:text-4xl">
-          How to use CarbonSage
-        </h1>
-        <p className="mt-2 max-w-2xl leading-7 text-muted-foreground">
-          Start with the agent, keep the source trail visible, and use the
-          workspace pages when you need to inspect or manage the underlying
-          information.
-        </p>
-      </header>
+    <WorkspacePage>
+      <PageHeader
+        eyebrow="Workspace guide"
+        title="How to use CarbonSage"
+        description="Start with the agent, keep the source trail visible, and use the workspace pages when you need to inspect or manage the underlying information."
+      />
 
-      <div className="mt-8 divide-y divide-border rounded-xl border border-border bg-card">
+      <ol className="divide-y divide-border rounded-lg border border-border bg-card">
         {steps.map((step, index) => {
           const Icon = step.icon;
           return (
-            <article key={step.title} className="flex gap-4 p-5 sm:p-6">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary/10 text-tertiary">
+            <li key={step.title} className="flex gap-3 px-4 py-3">
+              <IconTile>
                 <Icon aria-hidden="true" className="h-4 w-4" />
-              </span>
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground">
-                  Step {index + 1}
-                </p>
-                <h2 className="mt-1 font-semibold text-primary">
+              </IconTile>
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-primary">
+                  <span className="mr-2 font-normal text-muted-foreground">
+                    Step {index + 1}
+                  </span>
                   {step.title}
                 </h2>
-                <p className="mt-1.5 max-w-3xl text-sm leading-6 text-muted-foreground">
+                <p className="mt-0.5 max-w-3xl text-sm leading-6 text-muted-foreground">
                   {step.description}
                 </p>
               </div>
-            </article>
+            </li>
           );
         })}
-      </div>
+      </ol>
 
-      <div className="mt-6 flex flex-wrap gap-2">
-        <Link
-          href="/dashboard/agent"
-          className="rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-secondary/85"
-        >
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link href="/dashboard/agent" className={buttonPrimary}>
           Ask CarbonSage
         </Link>
-        <Link
-          href="/dashboard/integrations"
-          className="inline-flex items-center gap-2 rounded-lg border border-border px-3.5 py-2 text-sm font-semibold text-primary transition hover:bg-muted"
-        >
+        <Link href="/dashboard/integrations" className={buttonSecondary}>
           <Upload aria-hidden="true" className="h-4 w-4" />
           Choose data
         </Link>
       </div>
-    </section>
+    </WorkspacePage>
   );
 }

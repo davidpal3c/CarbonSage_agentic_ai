@@ -1,16 +1,13 @@
+import { PageHeader } from "@/app/dashboard/workspace-ui";
+
 export default function AgentPage() {
   return (
-    <section className="px-4 pt-7 sm:px-6 lg:px-10 lg:pt-9">
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight text-primary sm:text-4xl">
-          Ask CarbonSage
-        </h1>
-        <p className="mt-2 max-w-2xl leading-7 text-muted-foreground">
-          Explore your workspace, compare freight decisions, and review the
-          sources and calculations behind its answers, and see where the
-          evidence runs out.
-        </p>
-      </header>
+    <section className="px-4 pt-5 sm:px-5 lg:px-6">
+      <PageHeader
+        title="Ask CarbonSage"
+        description="Explore your workspace, compare freight decisions, and review the sources and calculations behind its answers, and see where the evidence runs out."
+        className="mb-3"
+      />
     </section>
   );
 }

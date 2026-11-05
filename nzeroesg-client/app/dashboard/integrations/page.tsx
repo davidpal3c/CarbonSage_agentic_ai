@@ -5,6 +5,15 @@ import { Cloud, Database, FileCheck2, LockKeyhole, Trash2 } from "lucide-react";
 
 import { Spinner } from "@/app/components/Spinner";
 import { useWorkspaceDataStore } from "@/app/dashboard/workspace-data-store";
+import {
+  buttonPrimary,
+  buttonSecondary,
+  Card,
+  chipClass,
+  IconTile,
+  PageHeader,
+  WorkspacePage,
+} from "@/app/dashboard/workspace-ui";
 
 export default function IntegrationsPage() {
   const demoData = useWorkspaceDataStore((state) => state.demoData);
@@ -73,43 +82,37 @@ export default function IntegrationsPage() {
   const error = actionError ?? demoError;
 
   return (
-    <section className="px-4 py-7 sm:px-6 lg:px-10 lg:py-9">
-      <header>
-        <h1 className="text-3xl font-bold tracking-tight text-primary sm:text-4xl">
-          Integrations
-        </h1>
-        <p className="mt-2 max-w-3xl leading-7 text-muted-foreground">
-          Bring supplier disclosures, spreadsheets, and shipment records into
-          one carbon-intelligence workspace. CarbonSage normalizes the useful
-          facts while preserving source identity for citations.
-        </p>
-      </header>
+    <WorkspacePage>
+      <PageHeader
+        title="Integrations"
+        description="Bring supplier disclosures, spreadsheets, and shipment records into one carbon-intelligence workspace. CarbonSage normalizes the useful facts while preserving source identity for citations."
+      />
 
       {error ? (
-        <p className="mt-5 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <p className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200">
           {error}
         </p>
       ) : null}
 
-      <div className="mt-7 space-y-4">
-        <article className="w-full rounded-xl border border-border bg-card p-5 sm:p-6">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary/10 text-tertiary">
-                <Database aria-hidden="true" className="h-5 w-5" />
-              </span>
+      <div className="space-y-3">
+        <Card as="article">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <IconTile>
+                <Database aria-hidden="true" className="h-4 w-4" />
+              </IconTile>
               <div>
-                <h2 className="text-lg font-semibold text-primary">
+                <h2 className="text-base font-semibold text-primary">
                   Demo simulation data
                 </h2>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
                   Load a fictional workspace with 30 supplier profiles, cited
                   disclosures, and a global mixed-mode shipment baseline.
                   Unloading it removes only seeded simulation records—not your
                   uploads.
                 </p>
                 {demoData?.loaded ? (
-                  <p className="mt-3 inline-flex items-center gap-2 text-xs font-medium text-tertiary">
+                  <p className="mt-2 inline-flex items-center gap-2 text-xs font-medium text-tertiary">
                     <FileCheck2 aria-hidden="true" className="h-4 w-4" />
                     {demoData.supplier_count} suppliers ·{" "}
                     {demoData.shipment_count} shipments ·{" "}
@@ -120,14 +123,12 @@ export default function IntegrationsPage() {
             </div>
             {demoData?.loaded ? (
               <div className="flex shrink-0 flex-wrap items-center gap-2">
-                <span className="rounded-md bg-secondary/10 px-2.5 py-1.5 text-xs font-semibold text-tertiary">
-                  Loaded
-                </span>
+                <span className={chipClass}>Loaded</span>
                 <button
                   type="button"
                   onClick={() => void unloadDemoData()}
                   disabled={pendingAction !== null}
-                  className="inline-flex items-center gap-2 rounded-lg border border-border px-3.5 py-2 text-sm font-semibold text-primary transition hover:border-red-300 hover:text-red-700 disabled:opacity-60"
+                  className={`${buttonSecondary} hover:border-red-300 hover:text-red-700`}
                 >
                   {pendingAction === "unload" ? (
                     <Spinner />
@@ -138,7 +139,7 @@ export default function IntegrationsPage() {
                 </button>
               </div>
             ) : hasWorkspaceData ? (
-              <span className="shrink-0 rounded-md border border-border bg-muted px-2.5 py-1.5 text-xs font-semibold text-muted-foreground">
+              <span className={`${chipClass} shrink-0`}>
                 Workspace data present
               </span>
             ) : (
@@ -146,36 +147,34 @@ export default function IntegrationsPage() {
                 type="button"
                 onClick={() => void loadDemoData()}
                 disabled={pendingAction !== null}
-                className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-secondary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-secondary/85 disabled:opacity-60"
+                className={`${buttonPrimary} shrink-0`}
               >
                 {pendingAction === "load" ? <Spinner /> : null}
                 Load demo data
               </button>
             )}
           </div>
-        </article>
+        </Card>
 
-        <article className="w-full rounded-xl border border-border bg-card p-5 sm:p-6">
-          <div className="flex items-start gap-4">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary/10 text-tertiary">
-              <Cloud aria-hidden="true" className="h-5 w-5" />
-            </span>
+        <Card as="article">
+          <div className="flex items-start gap-3">
+            <IconTile>
+              <Cloud aria-hidden="true" className="h-4 w-4" />
+            </IconTile>
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold text-primary">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-base font-semibold text-primary">
                   Google Drive
                 </h2>
-                <span className="rounded-md border border-border bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
-                  Coming soon
-                </span>
+                <span className={chipClass}>Coming soon</span>
               </div>
-              <p className="mt-3 max-w-4xl text-sm leading-6 text-muted-foreground">
+              <p className="mt-1 max-w-4xl text-sm leading-6 text-muted-foreground">
                 Select supplier reports, audit evidence, spreadsheets, and
                 shipment files from Drive. Imported files will retain their
                 source identity so CarbonSage can cite the document behind a
                 normalized fact or recommendation.
               </p>
-              <p className="mt-5 flex items-center gap-2 text-xs text-muted-foreground">
+              <p className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
                 <LockKeyhole
                   aria-hidden="true"
                   className="h-4 w-4 text-accent"
@@ -185,8 +184,8 @@ export default function IntegrationsPage() {
               </p>
             </div>
           </div>
-        </article>
+        </Card>
       </div>
-    </section>
+    </WorkspacePage>
   );
 }
