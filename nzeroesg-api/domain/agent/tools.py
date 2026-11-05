@@ -20,6 +20,7 @@ class AgentToolName(StrEnum):
     CALCULATE_FREIGHT_EMISSIONS = "calculate_freight_emissions"
     ANALYZE_SHIPMENT_EMISSIONS = "analyze_shipment_emissions"
     RECOMMEND_SHIPMENT_SUPPLIER = "recommend_shipment_supplier"
+    DISCOVER_SUPPLIER_LANES = "discover_supplier_lanes"
     COMPARE_TRANSPORT_SCENARIOS = "compare_transport_scenarios"
     SUMMARIZE_DATA_QUALITY = "summarize_data_quality"
     BUILD_DECISION_REPORT = "build_decision_report"
@@ -75,6 +76,18 @@ class RecommendShipmentSupplierInput(StrictModel):
     allow_nearest_origin: bool = False
 
 
+class DiscoverSupplierLanesInput(StrictModel):
+    """What a broad supplier question already says, to be narrowed against workspace lanes."""
+
+    origin: str | None = Field(default=None, max_length=160)
+    destination: str | None = Field(default=None, max_length=160)
+    place: str | None = Field(default=None, max_length=160)
+    weight_value: float | None = Field(default=None, gt=0)
+    weight_unit: Literal["g", "kg", "lb", "mt"] = "kg"
+    transport_method: TransportMode | None = None
+    objective: Literal["carbon", "carbon_and_cost"] = "carbon"
+
+
 class SummarizeDataQualityInput(NoArguments):
     pass
 
@@ -90,6 +103,7 @@ ToolArguments = (
     | CalculateFreightEmissionsInput
     | AnalyzeShipmentEmissionsInput
     | RecommendShipmentSupplierInput
+    | DiscoverSupplierLanesInput
     | CompareTransportScenariosInput
     | SummarizeDataQualityInput
     | BuildDecisionReportInput
@@ -261,6 +275,35 @@ class RecommendShipmentSupplierOutput(StrictModel):
     warnings: list[str]
 
 
+class SupplierLaneCoverageOutput(StrictModel):
+    """One origin-destination lane the workspace can actually compare suppliers on."""
+
+    origin: str
+    destination: str
+    transport_methods: list[str]
+    basis: Literal["declared_service", "shipment_history"]
+    supplier_count: int
+    suppliers: list[str] = Field(max_length=4)
+
+
+class DiscoverSupplierLanesOutput(StrictModel):
+    origin: str | None
+    destination: str | None
+    place: str | None
+    weight_kg: float | None
+    transport_method: str | None
+    objective: Literal["carbon", "carbon_and_cost"]
+    missing: list[Literal["route", "weight"]]
+    total_lane_count: int
+    total_supplier_count: int
+    workspace_shipment_count: int
+    matching_lane_count: int
+    matching_supplier_count: int
+    filters_matched: bool
+    lanes: list[SupplierLaneCoverageOutput]
+    basis: str
+
+
 class DataQualityIssue(StrictModel):
     area: str
     severity: Literal["info", "warning"]
@@ -311,6 +354,7 @@ TOOL_INPUT_MODELS = {
     AgentToolName.CALCULATE_FREIGHT_EMISSIONS: CalculateFreightEmissionsInput,
     AgentToolName.ANALYZE_SHIPMENT_EMISSIONS: AnalyzeShipmentEmissionsInput,
     AgentToolName.RECOMMEND_SHIPMENT_SUPPLIER: RecommendShipmentSupplierInput,
+    AgentToolName.DISCOVER_SUPPLIER_LANES: DiscoverSupplierLanesInput,
     AgentToolName.COMPARE_TRANSPORT_SCENARIOS: CompareTransportScenariosInput,
     AgentToolName.SUMMARIZE_DATA_QUALITY: SummarizeDataQualityInput,
     AgentToolName.BUILD_DECISION_REPORT: BuildDecisionReportInput,

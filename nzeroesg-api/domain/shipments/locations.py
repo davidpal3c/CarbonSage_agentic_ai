@@ -133,6 +133,12 @@ def country_key(value: str) -> str | None:
     return None
 
 
+def country_name(value: str) -> str | None:
+    """Return the country when the whole phrase is a country name or abbreviation."""
+
+    return _COUNTRY_ALIASES.get(_words(value))
+
+
 def canonical_location_label(value: str) -> str | None:
     resolved = resolve_location(value)
     return resolved.label if resolved is not None else None

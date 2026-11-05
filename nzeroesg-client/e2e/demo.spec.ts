@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, type Page, type Route, test } from "@playwright/test";
 
 const shipmentCsv = [
@@ -157,10 +158,65 @@ test("completes the five-minute demo workflow and exports a report", async ({
     timeout: backendActionTimeout,
   });
 
-  const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export CSV report" }).click();
-  const download = await downloadPromise;
-  expect(download.suggestedFilename()).toBe("carbonsage-report.csv");
+  // One Export control offers CSV and PDF; the old Print button is gone.
+  await expect(page.getByRole("button", { name: "Print report" })).toHaveCount(
+    0,
+  );
+  const exportButton = page.getByRole("button", { name: "Export" });
+  await expect(exportButton).toHaveAttribute("aria-expanded", "false");
+  await exportButton.click();
+  await expect(exportButton).toHaveAttribute("aria-expanded", "true");
+  const csvDownload = page.waitForEvent("download");
+  await page.getByRole("menuitem", { name: /CSV data/ }).click();
+  expect((await csvDownload).suggestedFilename()).toBe("carbonsage-report.csv");
+  await expect(page.getByRole("status")).toHaveText(
+    "Downloaded carbonsage-report.csv.",
+  );
+
+  // Keyboard: arrows open the menu on the first item, Escape returns focus.
+  await exportButton.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    page.getByRole("menuitem", { name: /PDF report/ }),
+  ).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("menuitem", { name: /CSV data/ })).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    page.getByRole("menuitem", { name: /PDF report/ }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(exportButton).toBeFocused();
+
+  const pdfResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/reports/export.pdf" &&
+      response.ok(),
+  );
+  const pdfDownload = page.waitForEvent("download");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  expect((await pdfResponse).headers()["content-type"]).toBe("application/pdf");
+  const pdf = await pdfDownload;
+  expect(pdf.suggestedFilename()).toBe("carbonsage-report.pdf");
+  const pdfBytes = readFileSync((await pdf.path()) as string);
+  expect(pdfBytes.subarray(0, 5).toString()).toBe("%PDF-");
+  await expect(page.getByRole("status")).toHaveText(
+    "Downloaded carbonsage-report.pdf.",
+  );
+
+  // A failed export is announced and the control recovers.
+  await page.route("**/reports/export.pdf*", (route) =>
+    route.fulfill({ status: 500, body: "boom" }),
+  );
+  await exportButton.click();
+  await page.getByRole("menuitem", { name: /PDF report/ }).click();
+  await expect(page.getByRole("alert")).toHaveText(
+    "The PDF export could not be completed.",
+  );
+  await expect(exportButton).toBeEnabled();
+  await page.unroute("**/reports/export.pdf*");
 
   await page.emulateMedia({ media: "print" });
   await expect(page.getByRole("heading", { name: "Report" })).toBeVisible();

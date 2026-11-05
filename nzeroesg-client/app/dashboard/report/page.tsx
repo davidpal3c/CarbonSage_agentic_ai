@@ -6,6 +6,9 @@ import { Database } from "lucide-react";
 import { getBackendUrl } from "@/app/api/urls";
 import { LoadingState, Spinner } from "@/app/components/Spinner";
 import { useWorkspaceDataStore } from "@/app/dashboard/workspace-data-store";
+import ExportMenu, {
+  type ExportFormat,
+} from "@/app/dashboard/report/ExportMenu";
 import {
   buttonPrimary,
   buttonSecondary,
@@ -37,7 +40,9 @@ export default function ReportPage() {
   );
   const [actionError, setActionError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [isExporting, setIsExporting] = useState(false);
+  const [exportingFormat, setExportingFormat] = useState<ExportFormat | null>(
+    null,
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingDemoData, setIsLoadingDemoData] = useState(false);
   const isLoading = reportStatus === "loading";
@@ -66,32 +71,38 @@ export default function ReportPage() {
     }
   }
 
-  async function exportReport() {
-    setIsExporting(true);
+  async function exportReport(format: ExportFormat) {
+    const filename = `carbonsage-report.${format}`;
+    setExportingFormat(format);
     setActionError(null);
+    setStatusMessage(null);
     try {
       const response = await fetch(
-        `${getBackendUrl()}/reports/export.csv?alternative_mode=${encodeURIComponent(alternativeMode)}`,
+        `${getBackendUrl()}/reports/export.${format}?alternative_mode=${encodeURIComponent(alternativeMode)}`,
         { credentials: "include" },
       );
-      if (!response.ok)
-        throw new Error("Report export could not be completed.");
+      if (!response.ok) {
+        throw new Error(
+          `The ${format.toUpperCase()} export could not be completed.`,
+        );
+      }
       const objectUrl = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
       link.href = objectUrl;
-      link.download = "carbonsage-report.csv";
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(objectUrl);
+      setStatusMessage(`Downloaded ${filename}.`);
     } catch (requestError) {
       setActionError(
         requestError instanceof Error
           ? requestError.message
-          : "Report export could not be completed.",
+          : `The ${format.toUpperCase()} export could not be completed.`,
       );
     } finally {
-      setIsExporting(false);
+      setExportingFormat(null);
     }
   }
 
@@ -198,33 +209,26 @@ export default function ReportPage() {
           {isSaving ? <Spinner /> : null}
           Save report snapshot
         </button>
-        {report?.shipment_analysis.shipment_count ? (
-          <button
-            type="button"
-            onClick={exportReport}
-            disabled={isExporting}
-            className={`${buttonSecondary} border-tertiary text-tertiary`}
-          >
-            {isExporting ? <Spinner /> : null}
-            Export CSV report
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className={buttonSecondary}
-        >
-          Print report
-        </button>
+        <ExportMenu
+          busyFormat={exportingFormat}
+          csvDisabled={!report?.shipment_analysis.shipment_count}
+          onExport={(format) => void exportReport(format)}
+        />
       </div>
 
       {statusMessage ? (
-        <p className="mt-3.5 rounded-md border border-accent/35 bg-accent/10 px-3.5 py-[9px] text-sm text-primary">
+        <p
+          role="status"
+          className="mt-3.5 rounded-md border border-accent/35 bg-accent/10 px-3.5 py-[9px] text-sm text-primary"
+        >
           {statusMessage}
         </p>
       ) : null}
       {error ? (
-        <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-300 bg-red-50 px-3.5 py-[9px] text-sm text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200">
+        <div
+          role="alert"
+          className="mt-3.5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-300 bg-red-50 px-3.5 py-[9px] text-sm text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200"
+        >
           <p>{error}</p>
           {canLoadDemoData ? (
             <button

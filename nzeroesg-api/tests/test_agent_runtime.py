@@ -122,7 +122,7 @@ def test_agent_plan_schema_closes_every_tool_argument_object():
 
     assert not _contains_open_object_schema(schema)
     argument_schema = schema["$defs"]["PlannedToolCall"]["properties"]["arguments"]
-    assert len(argument_schema["anyOf"]) == 9
+    assert len(argument_schema["anyOf"]) == 10
 
 
 def test_reported_shipment_questions_use_one_current_question_specific_tool():

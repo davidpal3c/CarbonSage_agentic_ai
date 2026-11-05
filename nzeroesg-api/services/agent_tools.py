@@ -25,6 +25,8 @@ from domain.agent.tools import (
     CompareTransportScenariosInput,
     CompareTransportScenariosOutput,
     DataQualityIssue,
+    DiscoverSupplierLanesInput,
+    DiscoverSupplierLanesOutput,
     EvidenceToolMatch,
     GetCitationContextInput,
     GetCitationContextOutput,
@@ -43,6 +45,7 @@ from domain.agent.tools import (
     ShipmentSupplierCandidateOutput,
     SummarizeDataQualityInput,
     SummarizeDataQualityOutput,
+    SupplierLaneCoverageOutput,
 )
 from domain.artifacts.models import ArtifactKind
 from domain.emissions.calculator import calculate_emissions
@@ -54,6 +57,8 @@ from domain.scenarios.comparison import compare_shipment_modes
 from domain.shipments.analysis import analyze_shipments
 from domain.shipments.locations import (
     canonical_location_label,
+    country_key,
+    country_name,
     location_key,
     nearest_supported_origin,
 )
@@ -211,6 +216,11 @@ class AgentToolRegistry:
             return self._recommend_shipment_supplier(
                 workspace_id,
                 RecommendShipmentSupplierInput.model_validate(payload),
+            )
+        if tool_name is AgentToolName.DISCOVER_SUPPLIER_LANES:
+            return self._discover_supplier_lanes(
+                workspace_id,
+                DiscoverSupplierLanesInput.model_validate(payload),
             )
         if tool_name is AgentToolName.COMPARE_TRANSPORT_SCENARIOS:
             return self._compare_scenario(
@@ -768,6 +778,138 @@ class AgentToolRegistry:
             if artifact.kind is ArtifactKind.SHIPMENT_DATASET
         )
         return output, (), artifact_ids, len(candidates)
+
+    def _discover_supplier_lanes(
+        self,
+        workspace_id: str,
+        payload: DiscoverSupplierLanesInput,
+    ) -> tuple[BaseModel, tuple[CitationRecord, ...], tuple[str, ...], int]:
+        """Describe which lanes this workspace can compare suppliers on.
+
+        Coverage mirrors the exact-lane recommendation: a lane with declared
+        supplier service is described by that service, and only a lane without
+        one falls back to supplier-linked shipment history. Nothing here ranks
+        suppliers, and unlike lanes are never compared with each other.
+        """
+
+        service_lanes = self.supplier_availability_repository.list_for_workspace(workspace_id)
+        shipments = self.shipment_repository.list_for_workspace(workspace_id)
+        # (origin, destination, mode, supplier, basis) for every directed lane.
+        entries: list[tuple[str, str, str, str, str]] = []
+        for lane in service_lanes:
+            ends = [(lane.origin, lane.destination)]
+            if lane.bidirectional:
+                ends.append((lane.destination, lane.origin))
+            entries.extend(
+                (origin, destination, lane.transport_method, lane.supplier_name, "declared_service")
+                for origin, destination in ends
+            )
+        entries.extend(
+            (
+                shipment.origin,
+                shipment.destination,
+                shipment.transport_method,
+                shipment.supplier_name,
+                "shipment_history",
+            )
+            for shipment in shipments
+            if shipment.supplier_name is not None
+        )
+
+        def label(value: str) -> str:
+            return canonical_location_label(value) or value
+
+        def matches(candidate: str, phrase: str) -> bool:
+            country = country_name(phrase)
+            if country is not None:
+                return country_key(candidate) == country
+            return location_key(candidate) == location_key(phrase)
+
+        def coverage(
+            rows: list[tuple[str, str, str, str, str]],
+        ) -> list[SupplierLaneCoverageOutput]:
+            grouped: dict[tuple[str, str], list[tuple[str, str, str, str, str]]] = {}
+            for row in rows:
+                grouped.setdefault((location_key(row[0]), location_key(row[1])), []).append(row)
+            lanes: list[SupplierLaneCoverageOutput] = []
+            for group in grouped.values():
+                declared = [row for row in group if row[4] == "declared_service"]
+                used = declared or group
+                suppliers = sorted({row[3] for row in used}, key=str.casefold)
+                lanes.append(
+                    SupplierLaneCoverageOutput(
+                        origin=label(used[0][0]),
+                        destination=label(used[0][1]),
+                        transport_methods=sorted({row[2] for row in used}),
+                        basis="declared_service" if declared else "shipment_history",
+                        supplier_count=len(suppliers),
+                        suppliers=suppliers[:4],
+                    )
+                )
+            return sorted(
+                lanes,
+                key=lambda lane: (
+                    -lane.supplier_count,
+                    -len(lane.transport_methods),
+                    lane.origin.casefold(),
+                    lane.destination.casefold(),
+                ),
+            )
+
+        mode = normalize_mode(payload.transport_method).value if payload.transport_method else None
+        selected = [
+            entry
+            for entry in entries
+            if (mode is None or entry[2] == mode)
+            and (payload.origin is None or matches(entry[0], payload.origin))
+            and (payload.destination is None or matches(entry[1], payload.destination))
+            and (
+                payload.place is None
+                or matches(entry[0], payload.place)
+                or matches(entry[1], payload.place)
+            )
+        ]
+        everything = coverage(entries)
+        matching = coverage(selected)
+        has_filter = any((mode, payload.origin, payload.destination, payload.place))
+        shown = matching if matching or not has_filter else everything
+        missing: list[str] = []
+        if payload.origin is None or payload.destination is None:
+            missing.append("route")
+        if payload.weight_value is None:
+            missing.append("weight")
+        output = DiscoverSupplierLanesOutput(
+            origin=payload.origin,
+            destination=payload.destination,
+            place=payload.place,
+            weight_kg=(
+                normalize_weight_kg(payload.weight_value, payload.weight_unit)
+                if payload.weight_value is not None
+                else None
+            ),
+            transport_method=mode,
+            objective=payload.objective,
+            missing=missing,  # type: ignore[arg-type]
+            total_lane_count=len(everything),
+            total_supplier_count=len({entry[3] for entry in entries}),
+            workspace_shipment_count=len(shipments),
+            matching_lane_count=len(matching),
+            matching_supplier_count=len({entry[3] for entry in selected}),
+            filters_matched=bool(matching) or not has_filter,
+            lanes=shown[:6],
+            basis=(
+                "Coverage comes from supplier-declared service lanes and, only where a lane has "
+                "no declared service, supplier-linked shipment history. It does not show live "
+                "availability, capacity, or quote validity, and lanes with different routes or "
+                "modes are not ranked against each other."
+            ),
+        )
+        artifact_ids = tuple(
+            artifact.artifact_id
+            for artifact in self.artifact_repository.list_for_workspace(workspace_id)
+            if artifact.kind is ArtifactKind.SHIPMENT_DATASET
+        )
+        return output, (), artifact_ids, len(output.lanes)
 
     @staticmethod
     def _scenario_output(payload: dict[str, object]) -> CompareTransportScenariosOutput:

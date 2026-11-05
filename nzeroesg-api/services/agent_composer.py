@@ -26,6 +26,7 @@ from domain.agent.tools import (
     BuildDecisionReportOutput,
     CalculateFreightEmissionsOutput,
     CompareTransportScenariosOutput,
+    DiscoverSupplierLanesOutput,
     GetCitationContextOutput,
     ListWorkspaceArtifactsOutput,
     RecommendShipmentSupplierOutput,
@@ -75,9 +76,52 @@ def _shipment_analytics_focus(question: str | None) -> str:
     return "overview"
 
 
+_EXAMPLE_WEIGHT_KG = 1_000
+
+
+def _lane_scope(output: DiscoverSupplierLanesOutput) -> str:
+    """The lanes the question is about, as a noun phrase: "lanes from Toronto by train"."""
+
+    parts = []
+    if output.origin:
+        parts.append(f"from {output.origin}")
+    if output.destination:
+        parts.append(f"to {output.destination}")
+    if output.place:
+        parts.append(f"involving {output.place}")
+    if output.transport_method:
+        parts.append(f"by {output.transport_method}")
+    return " ".join(["lanes", *parts])
+
+
+def _plural(count: int, noun: str) -> str:
+    return f"{count} {noun}{'s' if count != 1 else ''}"
+
+
+def _lane_suggestions(output: DiscoverSupplierLanesOutput) -> list[SuggestedPrompt]:
+    """Complete questions built from lanes the workspace really covers."""
+
+    weight = output.weight_kg if output.weight_kg is not None else _EXAMPLE_WEIGHT_KG
+    cost = " Consider cost as well." if output.objective == "carbon_and_cost" else ""
+    return [
+        SuggestedPrompt(
+            label=f"{lane.origin} to {lane.destination}",
+            prompt=(
+                "Recommend the most carbon efficient supplier for a "
+                f"{weight:g} kg shipment from {lane.origin} to {lane.destination}.{cost}"
+            ),
+        )
+        for lane in output.lanes[:3]
+    ]
+
+
 def _suggestions_for_output(output: object) -> SuggestionsBlock | None:
     options: list[SuggestedPrompt] = []
-    if isinstance(output, CompareTransportScenariosOutput):
+    if isinstance(output, DiscoverSupplierLanesOutput):
+        options.extend(_lane_suggestions(output))
+        if options:
+            return SuggestionsBlock(title="Pick a lane to compare", options=options)
+    elif isinstance(output, CompareTransportScenariosOutput):
         alternatives = [
             mode for mode in ("plane", "truck", "train", "ship") if mode != output.alternative_mode
         ]
@@ -665,6 +709,139 @@ def compose_agent_response(
                 )
             for warning in output.warnings:
                 blocks.append(WarningBlock(code="supplier_recommendation_limit", message=warning))
+        elif isinstance(output, DiscoverSupplierLanesOutput):
+            workspace_empty = output.total_lane_count == 0 and output.workspace_shipment_count == 0
+            scope = _lane_scope(output)
+            route_known = bool(output.origin and output.destination)
+            if output.total_lane_count == 0:
+                blocks.append(
+                    TextBlock(
+                        text=(
+                            "CarbonSage compares suppliers one lane at a time, and this workspace "
+                            "has no supplier service lanes or supplier-linked shipments to "
+                            "compare yet."
+                        )
+                    )
+                )
+                blocks.append(
+                    WarningBlock(
+                        code="no_supplier_lanes",
+                        message=(
+                            "Add supplier service lanes or shipments that name their supplier, "
+                            "then ask again."
+                        ),
+                    )
+                )
+            else:
+                if route_known and output.filters_matched:
+                    blocks.append(
+                        TextBlock(
+                            text=(
+                                f"CarbonSage can compare suppliers on the {output.origin} to "
+                                f"{output.destination} lane, but it needs the shipment weight "
+                                "first."
+                            )
+                        )
+                    )
+                else:
+                    blocks.append(
+                        TextBlock(
+                            text=(
+                                "There is no single best supplier across "
+                                f"{scope if scope != 'lanes' else 'all lanes'}. Emissions depend "
+                                "on the route, its distance and the mode, so CarbonSage compares "
+                                "suppliers only on one lane at a time."
+                            )
+                        )
+                    )
+                if output.filters_matched:
+                    blocks.append(
+                        TextBlock(
+                            text=(
+                                "This workspace covers "
+                                f"{_plural(output.matching_lane_count, 'lane')}"
+                                f"{scope.removeprefix('lanes')} with "
+                                f"{_plural(output.matching_supplier_count, 'supplier')}."
+                            )
+                        )
+                    )
+                else:
+                    blocks.append(
+                        WarningBlock(
+                            code="supplier_lane_not_covered",
+                            message=(
+                                f"This workspace has no supplier {scope}. These are the "
+                                f"{output.total_lane_count} lanes it does cover."
+                            ),
+                        )
+                    )
+                blocks.append(
+                    TableBlock(
+                        title="Lanes with supplier coverage",
+                        columns=[
+                            TableColumn(key="route", label="Lane"),
+                            TableColumn(key="modes", label="Modes"),
+                            TableColumn(key="suppliers", label="Suppliers"),
+                            TableColumn(key="basis", label="Coverage basis"),
+                            TableColumn(key="examples", label="Examples"),
+                        ],
+                        rows=[
+                            {
+                                "route": f"{lane.origin} to {lane.destination}",
+                                "modes": ", ".join(lane.transport_methods),
+                                "suppliers": lane.supplier_count,
+                                "basis": (
+                                    "Declared service"
+                                    if lane.basis == "declared_service"
+                                    else "Shipment history"
+                                ),
+                                "examples": ", ".join(lane.suppliers)
+                                + (
+                                    f" +{lane.supplier_count - len(lane.suppliers)} more"
+                                    if lane.supplier_count > len(lane.suppliers)
+                                    else ""
+                                ),
+                            }
+                            for lane in output.lanes
+                        ],
+                        caption=(
+                            "Declared service is supplier-stated; shipment history is past "
+                            "shipments that name the supplier."
+                        ),
+                    )
+                )
+                needs = []
+                if not output.origin and not output.destination:
+                    needs.append("the route (an origin and a destination)")
+                elif not output.destination:
+                    needs.append("the destination")
+                elif not output.origin:
+                    needs.append("the origin")
+                if output.weight_kg is None:
+                    needs.append("the shipment weight, for example 1,000 kg")
+                noted = [
+                    f"origin {output.origin}" if output.origin else None,
+                    f"destination {output.destination}" if output.destination else None,
+                    f"{output.weight_kg:g} kg" if output.weight_kg is not None else None,
+                ]
+                noted_text = ", ".join(part for part in noted if part)
+                if needs:
+                    blocks.append(
+                        TextBlock(
+                            text=(
+                                "To compare suppliers, tell me "
+                                + " and ".join(needs)
+                                + "."
+                                + (f" Noted so far: {noted_text}." if noted_text else "")
+                                + (
+                                    ""
+                                    if route_known
+                                    else " Choosing a lane below fills in the route."
+                                )
+                            )
+                        )
+                    )
+                blocks.append(TextBlock(text=output.basis))
         elif isinstance(output, CompareTransportScenariosOutput):
             if output.delta_kg < 0:
                 change_label = "Estimated reduction"
