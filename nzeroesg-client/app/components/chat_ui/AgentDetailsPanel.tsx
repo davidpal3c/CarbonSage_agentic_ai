@@ -94,7 +94,7 @@ export default function AgentDetailsPanel({
   return (
     <aside
       aria-label="Response details"
-      className={`min-h-0 overflow-y-auto border-t border-border bg-muted/55 p-4 lg:border-l lg:border-t-0 ${className}`}
+      className={`min-h-0 overflow-y-auto border-t border-border bg-muted/55 p-[18px] lg:border-l lg:border-t-0 ${className}`}
     >
       {showTitle ? (
         <h3 className="text-sm font-semibold text-primary">Response details</h3>
@@ -148,7 +148,7 @@ export default function AgentDetailsPanel({
       )}
 
       {usage ? (
-        <section className="mt-4" aria-labelledby="agent-usage-title">
+        <section className="mt-5" aria-labelledby="agent-usage-title">
           <div className="flex items-end justify-between gap-3">
             <div>
               <h4
@@ -199,7 +199,7 @@ export default function AgentDetailsPanel({
       ) : null}
 
       {sources.length ? (
-        <section className="mt-4" aria-labelledby="agent-sources-title">
+        <section className="mt-5" aria-labelledby="agent-sources-title">
           <h4
             id="agent-sources-title"
             className="flex items-center gap-2 text-xs font-semibold  text-muted-foreground"
@@ -223,7 +223,7 @@ export default function AgentDetailsPanel({
         </section>
       ) : null}
 
-      <section className="mt-4" aria-labelledby="agent-work-title">
+      <section className="mt-5" aria-labelledby="agent-work-title">
         <h4
           id="agent-work-title"
           className="flex items-center gap-2 text-xs font-semibold  text-muted-foreground"

@@ -94,7 +94,7 @@ export default function IntegrationsPage() {
         </p>
       ) : null}
 
-      <div className="space-y-3">
+      <div className="space-y-3.5">
         <Card as="article">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-3">
@@ -102,10 +102,10 @@ export default function IntegrationsPage() {
                 <Database aria-hidden="true" className="h-4 w-4" />
               </IconTile>
               <div>
-                <h2 className="text-base font-semibold text-primary">
+                <h2 className="text-[17px] font-semibold text-primary">
                   Demo simulation data
                 </h2>
-                <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+                <p className="mt-1.5 max-w-3xl text-sm leading-6 text-muted-foreground">
                   Load a fictional workspace with 30 supplier profiles, cited
                   disclosures, and a global mixed-mode shipment baseline.
                   Unloading it removes only seeded simulation records—not your
@@ -163,12 +163,12 @@ export default function IntegrationsPage() {
             </IconTile>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-base font-semibold text-primary">
+                <h2 className="text-[17px] font-semibold text-primary">
                   Google Drive
                 </h2>
                 <span className={chipClass}>Coming soon</span>
               </div>
-              <p className="mt-1 max-w-4xl text-sm leading-6 text-muted-foreground">
+              <p className="mt-1.5 max-w-4xl text-sm leading-6 text-muted-foreground">
                 Select supplier reports, audit evidence, spreadsheets, and
                 shipment files from Drive. Imported files will retain their
                 source identity so CarbonSage can cite the document behind a

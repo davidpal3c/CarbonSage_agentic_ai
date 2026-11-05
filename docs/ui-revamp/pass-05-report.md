@@ -101,6 +101,56 @@ Rendered pixels (scripts in the review folder):
 No dependency was added; bundle and build output are unchanged in kind. Only
 class names and a small shared module changed.
 
+## Follow-up: midpoint sizing (requested after review)
+
+The review asked for two changes, and this section supersedes the sizes quoted
+above for the work surfaces.
+
+**Landing page: nothing to roll back.** Pass 05 changed no public file (the only
+shared file touched was `globals.css`, and only the `.agent-suggestion*` rules used
+inside the chat panel). To prove it, the pre-Pass-05 source (`2fabbe7`) and the
+current build were rendered side by side and every public capture was
+pixel-diffed: home and `/login`, 1440/768/430/375 px, light and dark, viewport and
+full page: **32 captures, 0 pixel differences, 0 size differences**
+(`_workspace/ui-pass-05-review/public-check/`). The homepage and its product
+glimpse are exactly as they were before Pass 05.
+
+**Workspace: midpoint between Pass 04 and Pass 05.** Every element Pass 05 shrank
+was moved to roughly halfway between its Pass 04 and Pass 05 size, using the three
+builds measured in a browser at 1440 x 900 (`scripts/measure.mjs`):
+
+| Measure                                                      | Pass 04     | Midpoint                | Pass 05     |
+| ------------------------------------------------------------ | ----------- | ----------------------- | ----------- |
+| Page title on Agent, Report, Integrations, Scenarios, How to | 36 px       | 30 px                   | 24 px       |
+| Page padding (x / y) on those pages                          | 40 / 36 px  | 32 / 28 px              | 24 / 20 px  |
+| Card padding (Report)                                        | 20 px       | 18 px                   | 16 px       |
+| Toolbar padding (Report)                                     | 20 px       | 16 px                   | 12 px       |
+| Total-emissions value (Report)                               | 24 px       | 22 px                   | 20 px       |
+| Table row (Report)                                           | 45 px       | 39 px                   | 33 px       |
+| Table row (Shipments)                                        | 33 px       | 31 px                   | 29 px       |
+| Supplier card height / padding                               | 154 / 16 px | 134 / 14 px             | 114 / 12 px |
+| Supplier cards per row at 1440                               | 2           | 2 (3 only from 1536 px) | 3           |
+| Artifact row                                                 | 72 px       | 63 px                   | 57 px       |
+| How to step                                                  | 147 px      | 124 px                  | 95 px       |
+| Scenarios empty card                                         | 302 px      | 288 px                  | 264 px      |
+| Agent chat panel (900 px viewport)                           | 724 px      | 736 px                  | 748 px      |
+| Sidebar width, button height (36 px)                         | unchanged   | unchanged               | unchanged   |
+
+Shipments, Suppliers, Artifacts and Overview keep their Pass 04 frame, title
+(24 px) and header, because those were identical in Pass 04 and Pass 05; only
+their cards, table rows, chips, form spacing and supplier layout moved to the
+midpoint. No element ended up larger than its Pass 04 size. Titles are no longer
+identical across pages (30 px on the five pages that were 36 px, 24 px on the
+others), as in Pass 04 but with a smaller gap. Everything else in this report
+(structure, shared module, behaviour, checks) is unchanged.
+
+Rechecked on the midpoint build: typecheck, lint, format (exit 0), **30/30
+Playwright**, no overflow in 72 survey captures at 1440/768/430/375, 200% zoom with
+no overflow on 18 pages, drawer lists all routes, Suppliers label has no overlap at
+375 px, report print layout intact. Contrast was not re-audited because no colour
+changed in this follow-up (Pass 05's 0 active failures at 1440 and 375 stands).
+`comparison-mid.png` shows Pass 04, the midpoint and Pass 05 side by side.
+
 ## Method
 
 OrchestrA material read and applied as method: `redesign-existing-projects` (the

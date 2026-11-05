@@ -228,7 +228,7 @@ export function ArtifactViewerProvider({ children }: { children: ReactNode }) {
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-auto bg-background p-3 sm:p-4">
+        <div className="min-h-0 flex-1 overflow-auto bg-background p-3.5 sm:p-[18px]">
           {isLoading ? (
             <div className="flex min-h-72 items-center justify-center">
               <LoadingState label="Opening artifact" />
@@ -243,7 +243,7 @@ export function ArtifactViewerProvider({ children }: { children: ReactNode }) {
               </p>
             </div>
           ) : preview?.mode === "text" ? (
-            <pre className="min-h-72 whitespace-pre-wrap break-words rounded-md border border-border bg-card p-3 font-mono text-xs leading-6 text-primary">
+            <pre className="min-h-72 whitespace-pre-wrap break-words rounded-md border border-border bg-card p-3.5 font-mono text-xs leading-6 text-primary">
               {preview.text}
             </pre>
           ) : preview?.mode === "pdf" ? (

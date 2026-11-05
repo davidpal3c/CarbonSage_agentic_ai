@@ -628,7 +628,7 @@ export default function ChatInterface({
           aria-labelledby="carbonsage-agent-title"
           className={
             isPanel
-              ? "flex h-[calc(100vh-9.5rem)] min-h-[30rem] w-full flex-col overflow-hidden rounded-lg border border-border bg-chat-surface"
+              ? "flex h-[calc(100vh-10.25rem)] min-h-[34rem] w-full flex-col overflow-hidden rounded-lg border border-border bg-chat-surface"
               : `fixed inset-x-3 bottom-3 z-50 flex ${
                   hasAssistantMessage
                     ? "h-[min(48rem,calc(100vh-1.5rem))]"
@@ -636,7 +636,7 @@ export default function ChatInterface({
                 } flex-col overflow-hidden rounded-lg border border-border bg-chat-surface shadow-xl transition-[height] duration-200 sm:left-auto sm:right-4 sm:w-[min(48rem,calc(100vw-2rem))]`
           }
         >
-          <header className="flex items-start justify-between gap-4 border-b border-border bg-chat-surface px-4 py-2.5">
+          <header className="flex items-start justify-between gap-4 border-b border-border bg-chat-surface px-[18px] py-[13px]">
             <div>
               <h2
                 id="carbonsage-agent-title"
@@ -687,7 +687,7 @@ export default function ChatInterface({
           </header>
 
           {isPanel ? (
-            <div className="border-b border-border bg-chat-surface px-3 py-2">
+            <div className="border-b border-border bg-chat-surface px-3.5 py-2.5">
               <div className="flex flex-wrap items-center gap-2">
                 <label htmlFor="agent-conversation" className="sr-only">
                   Conversation
@@ -699,7 +699,7 @@ export default function ChatInterface({
                     void handleSelectConversation(event.target.value)
                   }
                   disabled={isSwitchingConversation || !conversations.length}
-                  className="min-w-0 flex-1 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-primary disabled:text-muted-foreground sm:min-w-56"
+                  className="min-w-0 flex-1 rounded-md border border-border bg-card px-3 py-[7px] text-sm text-primary disabled:text-muted-foreground sm:min-w-56"
                 >
                   {!conversations.length ? (
                     <option value="">No saved conversations</option>
@@ -724,7 +724,7 @@ export default function ChatInterface({
                     conversations.length >= 3 ||
                     assistantStatus !== "available"
                   }
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-primary transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-45"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-[7px] text-sm font-medium text-primary transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   <Plus aria-hidden="true" className="h-4 w-4" />
                   New
@@ -733,7 +733,7 @@ export default function ChatInterface({
                   type="button"
                   onClick={() => void handleCloseConversation()}
                   disabled={isSwitchingConversation || !activeConversation}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-muted-foreground transition hover:border-red-300 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-45"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-[7px] text-sm font-medium text-muted-foreground transition hover:border-red-300 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   <Trash2 aria-hidden="true" className="h-4 w-4" />
                   Close
@@ -775,7 +775,7 @@ export default function ChatInterface({
             }`}
           >
             <div className="flex min-h-0 flex-col">
-              <div className="min-h-0 flex-1 overflow-y-auto bg-chat-surface px-4 py-4">
+              <div className="min-h-0 flex-1 overflow-y-auto bg-chat-surface px-4 py-[18px]">
                 <div
                   className={
                     isPanel
@@ -786,7 +786,7 @@ export default function ChatInterface({
                   {isSwitchingConversation ? (
                     <LoadingState label="Loading conversation" />
                   ) : !messages.length && !isLoading ? (
-                    <div className="mx-auto flex h-full max-w-xl flex-col items-center justify-center py-6 text-center">
+                    <div className="mx-auto flex h-full max-w-xl flex-col items-center justify-center py-7 text-center">
                       <div className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card text-accent">
                         <BrandMark className="h-5 w-5" />
                       </div>
@@ -860,10 +860,10 @@ export default function ChatInterface({
                       }`}
                     >
                       <div
-                        className={`min-w-0 max-w-[94%] rounded-lg px-3.5 py-2.5 ${
+                        className={`min-w-0 max-w-[94%] rounded-lg px-[15px] py-[11px] ${
                           message.role === "user"
-                            ? "sm:max-w-[80%]"
-                            : "sm:max-w-[96%]"
+                            ? "sm:max-w-[84%]"
+                            : "sm:max-w-[92%]"
                         } ${
                           message.role === "user"
                             ? "bg-user-message text-primary"
@@ -872,7 +872,7 @@ export default function ChatInterface({
                               : "border border-border bg-transparent text-primary"
                         }`}
                       >
-                        <p className="mb-1 text-xs font-semibold">
+                        <p className="mb-1.5 text-xs font-semibold">
                           {message.role === "user" ? "You" : "CarbonSage"}
                         </p>
                         {message.response ? (
@@ -887,7 +887,7 @@ export default function ChatInterface({
                             {message.content}
                           </p>
                         )}
-                        <p className="mt-2 text-xs text-muted-foreground">
+                        <p className="mt-2.5 text-xs text-muted-foreground">
                           {message.timestamp.toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",

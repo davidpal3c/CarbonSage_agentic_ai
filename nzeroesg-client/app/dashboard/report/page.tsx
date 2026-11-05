@@ -162,8 +162,8 @@ export default function ReportPage() {
         description="Review the current results, save a snapshot, or export the data."
       />
 
-      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-3 print:hidden">
-        <label className="flex min-w-56 max-w-sm flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
+      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-4 print:hidden">
+        <label className="flex min-w-56 max-w-sm flex-1 flex-col gap-1.5 text-[13px] font-medium text-muted-foreground">
           Report alternative
           <select
             value={alternativeMode}
@@ -219,12 +219,12 @@ export default function ReportPage() {
       </div>
 
       {statusMessage ? (
-        <p className="mt-3 rounded-md border border-accent/35 bg-accent/10 px-3 py-2 text-sm text-primary">
+        <p className="mt-3.5 rounded-md border border-accent/35 bg-accent/10 px-3.5 py-[9px] text-sm text-primary">
           {statusMessage}
         </p>
       ) : null}
       {error ? (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200">
+        <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-300 bg-red-50 px-3.5 py-[9px] text-sm text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200">
           <p>{error}</p>
           {canLoadDemoData ? (
             <button
@@ -245,7 +245,7 @@ export default function ReportPage() {
       ) : null}
 
       {report ? (
-        <div className="mt-4 space-y-3">
+        <div className="mt-5 space-y-4">
           <MetricStrip
             items={[
               {
@@ -263,29 +263,29 @@ export default function ReportPage() {
 
           {report.scenario ? (
             <Card as="article">
-              <h2 className="text-base font-semibold text-primary">
+              <h2 className="text-[18px] font-semibold text-primary">
                 Scenario comparison
               </h2>
-              <dl className="mt-3 grid gap-3 sm:grid-cols-3">
+              <dl className="mt-3.5 grid gap-3.5 sm:grid-cols-3">
                 <div>
-                  <dt className="text-xs text-muted-foreground">
+                  <dt className="text-[13px] text-muted-foreground">
                     Current baseline
                   </dt>
-                  <dd className="mt-0.5 font-mono text-lg font-medium tabular-nums text-primary">
+                  <dd className="mt-1 font-mono text-[19px] font-medium tabular-nums text-primary">
                     {report.scenario.baseline_total_kg.toFixed(2)} kg
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs capitalize text-muted-foreground">
+                  <dt className="text-[13px] capitalize text-muted-foreground">
                     {report.scenario.alternative_mode}
                   </dt>
-                  <dd className="mt-0.5 font-mono text-lg font-medium tabular-nums text-primary">
+                  <dd className="mt-1 font-mono text-[19px] font-medium tabular-nums text-primary">
                     {report.scenario.alternative_total_kg.toFixed(2)} kg
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-muted-foreground">Change</dt>
-                  <dd className="mt-0.5 font-mono text-lg font-medium tabular-nums text-primary">
+                  <dt className="text-[13px] text-muted-foreground">Change</dt>
+                  <dd className="mt-1 font-mono text-[19px] font-medium tabular-nums text-primary">
                     {report.scenario.delta_kg > 0 ? "+" : ""}
                     {report.scenario.delta_kg.toFixed(2)} kg
                   </dd>
@@ -295,21 +295,21 @@ export default function ReportPage() {
           ) : null}
 
           <Card as="article" className="overflow-x-auto">
-            <h2 className="text-base font-semibold text-primary">
+            <h2 className="text-[18px] font-semibold text-primary">
               Emissions by mode
             </h2>
             {modes.length ? (
               <table className="mt-2 min-w-full text-left text-sm">
                 <thead className="border-b border-border text-xs text-muted-foreground">
                   <tr>
-                    <th className="px-3 py-1.5 font-medium">Mode</th>
-                    <th className="px-3 py-1.5 text-right font-medium">
+                    <th className="px-3 py-[7px] font-medium">Mode</th>
+                    <th className="px-3 py-[7px] text-right font-medium">
                       Shipments
                     </th>
-                    <th className="px-3 py-1.5 text-right font-medium">
+                    <th className="px-3 py-[7px] text-right font-medium">
                       Weight kg
                     </th>
-                    <th className="px-3 py-1.5 text-right font-medium">
+                    <th className="px-3 py-[7px] text-right font-medium">
                       Emissions kg
                     </th>
                   </tr>
@@ -320,16 +320,16 @@ export default function ReportPage() {
                       key={mode}
                       className="border-b border-border last:border-0"
                     >
-                      <td className="px-3 py-1.5 font-medium capitalize">
+                      <td className="px-3 py-[9px] font-medium capitalize">
                         {mode}
                       </td>
-                      <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                      <td className="px-3 py-[9px] text-right font-mono tabular-nums">
                         {values.shipment_count}
                       </td>
-                      <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                      <td className="px-3 py-[9px] text-right font-mono tabular-nums">
                         {values.weight_kg.toFixed(2)}
                       </td>
-                      <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                      <td className="px-3 py-[9px] text-right font-mono tabular-nums">
                         {values.emissions_kg.toFixed(2)}
                       </td>
                     </tr>
@@ -344,10 +344,10 @@ export default function ReportPage() {
           </Card>
 
           <Card as="article">
-            <h2 className="text-base font-semibold text-primary">
+            <h2 className="text-[18px] font-semibold text-primary">
               Methodology
             </h2>
-            <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
               {report.methodology.factor_source} · version{" "}
               {report.methodology.factor_version}.{" "}
               {report.methodology.factor_applicability}

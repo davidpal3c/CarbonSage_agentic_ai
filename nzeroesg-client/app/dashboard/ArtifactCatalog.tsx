@@ -235,12 +235,12 @@ export default function ArtifactCatalog({
 
   return (
     <section id="artifacts" className="rounded-lg border border-border bg-card">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border px-4 py-3">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border px-[18px] py-4">
         <div>
-          <h2 className="text-base font-semibold text-primary">
+          <h2 className="text-[18px] font-semibold text-primary">
             Files & reports
           </h2>
-          <p className="mt-0.5 text-sm leading-6 text-muted-foreground">
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
             Uploaded sources and saved outputs in this workspace.
           </p>
         </div>
@@ -288,7 +288,7 @@ export default function ArtifactCatalog({
       </div>
 
       {error ? (
-        <p className="mx-4 mt-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200">
+        <p className="mx-[18px] mt-3.5 rounded-md border border-red-300 bg-red-50 px-3.5 py-[9px] text-sm text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200">
           {error}
         </p>
       ) : null}
@@ -299,7 +299,7 @@ export default function ArtifactCatalog({
       {isLoading ? (
         <LoadingState label="Loading artifacts" />
       ) : artifacts.length === 0 ? (
-        <p className="m-4 rounded-md border border-dashed border-border bg-background p-3 text-sm text-muted-foreground">
+        <p className="m-[18px] rounded-md border border-dashed border-border bg-background p-3.5 text-sm text-muted-foreground">
           No active artifacts yet. Load demo data or upload shipment and
           supplier sources to begin.
         </p>
@@ -332,7 +332,7 @@ export default function ArtifactCatalog({
                       )
                     }
                     aria-expanded={expanded}
-                    className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-2.5 text-left md:grid-cols-[minmax(0,1.5fr)_0.7fr_0.8fr_auto]"
+                    className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-[18px] py-[13px] text-left md:grid-cols-[minmax(0,1.5fr)_0.7fr_0.8fr_auto]"
                   >
                     <div className="min-w-0">
                       <p className="text-xs text-muted-foreground">
@@ -351,7 +351,7 @@ export default function ArtifactCatalog({
                       }).format(new Date(artifact.created_at))}
                     </span>
                     <span className="flex items-center gap-2">
-                      <span className="rounded-md bg-secondary/10 px-2 py-0.5 text-xs font-medium capitalize text-tertiary">
+                      <span className="rounded-md bg-secondary/10 px-2 py-[3px] text-xs font-medium capitalize text-tertiary">
                         {artifact.status}
                       </span>
                       <ChevronDown
@@ -361,7 +361,7 @@ export default function ArtifactCatalog({
                     </span>
                   </button>
 
-                  <div className="relative flex items-center pr-3">
+                  <div className="relative flex items-center pr-4">
                     <button
                       type="button"
                       onClick={() =>
@@ -445,8 +445,8 @@ export default function ArtifactCatalog({
                 </div>
 
                 {expanded ? (
-                  <div className="border-t border-border bg-muted/35 px-4 py-3">
-                    <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="border-t border-border bg-muted/35 px-[18px] py-3.5">
+                    <dl className="grid gap-3.5 text-sm sm:grid-cols-2 lg:grid-cols-4">
                       <div>
                         <dt className="text-xs text-muted-foreground">
                           Source
@@ -492,8 +492,8 @@ export default function ArtifactCatalog({
                     </dl>
 
                     {editingId === artifact.artifact_id ? (
-                      <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-border pt-3">
-                        <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm font-medium text-primary">
+                      <div className="mt-3.5 flex flex-wrap items-end gap-2 border-t border-border pt-3.5">
+                        <label className="flex min-w-0 flex-1 flex-col gap-[5px] text-sm font-medium text-primary">
                           Artifact title
                           <input
                             value={draftTitle}
@@ -501,7 +501,7 @@ export default function ArtifactCatalog({
                               setDraftTitle(event.target.value)
                             }
                             maxLength={255}
-                            className="min-w-0 rounded-md border border-border bg-card px-3 py-1.5 font-normal"
+                            className="min-w-0 rounded-md border border-border bg-card px-3 py-[7px] font-normal"
                           />
                         </label>
                         <button

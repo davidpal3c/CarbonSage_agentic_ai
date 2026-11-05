@@ -62,18 +62,18 @@ export default function HowToPage() {
         {steps.map((step, index) => {
           const Icon = step.icon;
           return (
-            <li key={step.title} className="flex gap-3 px-4 py-3">
+            <li key={step.title} className="flex gap-3.5 px-[18px] py-[15px]">
               <IconTile>
                 <Icon aria-hidden="true" className="h-4 w-4" />
               </IconTile>
               <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-primary">
-                  <span className="mr-2 font-normal text-muted-foreground">
-                    Step {index + 1}
-                  </span>
+                <p className="text-xs font-medium text-muted-foreground">
+                  Step {index + 1}
+                </p>
+                <h2 className="mt-0.5 text-[15px] font-semibold text-primary">
                   {step.title}
                 </h2>
-                <p className="mt-0.5 max-w-3xl text-sm leading-6 text-muted-foreground">
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
                   {step.description}
                 </p>
               </div>
@@ -82,7 +82,7 @@ export default function HowToPage() {
         })}
       </ol>
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-5 flex flex-wrap gap-2">
         <Link href="/dashboard/agent" className={buttonPrimary}>
           Ask CarbonSage
         </Link>

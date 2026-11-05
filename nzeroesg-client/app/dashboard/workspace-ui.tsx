@@ -17,7 +17,7 @@ export function WorkspacePage({
 }) {
   return (
     <section
-      className={`min-w-0 px-4 py-5 sm:px-5 lg:px-6 lg:py-5 ${className}`}
+      className={`min-w-0 px-4 py-6 sm:px-[22px] lg:px-8 lg:py-7 ${className}`}
     >
       {children}
     </section>
@@ -30,7 +30,7 @@ export function PageHeader({
   description,
   eyebrow,
   actions,
-  className = "mb-4",
+  className = "mb-5",
 }: {
   title: string;
   description?: ReactNode;
@@ -46,11 +46,11 @@ export function PageHeader({
         {eyebrow ? (
           <p className="label-ui mb-1 text-muted-foreground">{eyebrow}</p>
         ) : null}
-        <h1 className="text-xl font-semibold tracking-tight text-primary sm:text-2xl">
+        <h1 className="text-[1.5625rem] font-semibold tracking-tight text-primary sm:text-[1.875rem]">
           {title}
         </h1>
         {description ? (
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+          <p className="mt-1.5 max-w-3xl text-[15px] leading-6 text-muted-foreground">
             {description}
           </p>
         ) : null}
@@ -60,7 +60,7 @@ export function PageHeader({
   );
 }
 
-export const cardClass = "rounded-lg border border-border bg-card p-4";
+export const cardClass = "rounded-lg border border-border bg-card p-[18px]";
 
 /** A bordered surface. Use sparingly: most sections are plain ledgers. */
 export function Card<T extends ElementType = "section">({
@@ -77,7 +77,7 @@ export function Card<T extends ElementType = "section">({
 
 /** Buttons: 40 px targets on touch, 36 px with a pointer. */
 const buttonBase =
-  "inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 lg:min-h-9";
+  "inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-[13px] text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 lg:min-h-9";
 export const buttonPrimary = `${buttonBase} bg-secondary text-white hover:bg-secondary/85`;
 export const buttonSecondary = `${buttonBase} border border-control bg-card text-primary hover:bg-muted`;
 
@@ -88,7 +88,7 @@ export const chipClass =
 /** Icon tile used at the head of cards and list rows. */
 export function IconTile({ children }: { children: ReactNode }) {
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-tertiary">
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted text-tertiary">
       {children}
     </span>
   );
@@ -118,14 +118,14 @@ export function MetricStrip({
       {items.map((item, index) => (
         <div
           key={item.label}
-          className={`bg-card px-4 py-3 ${
+          className={`bg-card px-[18px] py-3.5 ${
             items.length % 2 === 1 && index === items.length - 1
               ? "col-span-2 sm:col-span-1"
               : ""
           }`}
         >
-          <dt className="text-xs text-muted-foreground">{item.label}</dt>
-          <dd className="mt-0.5 font-mono text-xl font-medium leading-tight tabular-nums">
+          <dt className="text-[13px] text-muted-foreground">{item.label}</dt>
+          <dd className="mt-1 font-mono text-[1.375rem] font-medium leading-tight tabular-nums">
             {item.value}
             {item.unit ? (
               <>
@@ -157,10 +157,10 @@ export function EmptyNotice({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-4 py-6 text-center">
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-4 py-8 text-center">
       {icon ? <IconTile>{icon}</IconTile> : null}
       {label ? <p className="label-ui mt-3 text-accent">{label}</p> : null}
-      <h2 className="mt-1 text-base font-semibold text-primary">{title}</h2>
+      <h2 className="mt-1.5 text-[17px] font-semibold text-primary">{title}</h2>
       {children ? (
         <p className="mt-1 max-w-md text-sm leading-6 text-muted-foreground">
           {children}

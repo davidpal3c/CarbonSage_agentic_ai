@@ -66,7 +66,7 @@ function DataTable({ table }: { table: TableBlock }) {
               <th
                 scope="col"
                 key={column.key}
-                className="px-3 py-1.5 font-semibold"
+                className="px-3 py-[7px] font-semibold"
               >
                 {column.label}
                 {column.unit ? ` (${column.unit})` : ""}
@@ -78,7 +78,7 @@ function DataTable({ table }: { table: TableBlock }) {
           {table.rows.map((row, rowIndex) => (
             <tr key={rowIndex} className="border-b border-border last:border-0">
               {table.columns.map((column) => (
-                <td key={column.key} className="px-3 py-1.5 text-primary">
+                <td key={column.key} className="px-3 py-[7px] text-primary">
                   {formatValue(row[column.key] ?? null)}
                 </td>
               ))}
@@ -92,8 +92,8 @@ function DataTable({ table }: { table: TableBlock }) {
 
 function Chart({ block }: { block: ChartBlock }) {
   return (
-    <article className="rounded-lg border border-border bg-background p-3">
-      <div className="mb-2 flex items-center gap-2">
+    <article className="rounded-lg border border-border bg-background p-3.5">
+      <div className="mb-3 flex items-center gap-2">
         <BarChart3 aria-hidden="true" className="h-5 w-5 text-accent" />
         <h4 className="font-semibold text-primary">{block.title}</h4>
       </div>
@@ -106,7 +106,7 @@ function Chart({ block }: { block: ChartBlock }) {
         series={block.series}
         height={Math.max(220, Math.min(340, block.rows.length * 34))}
       />
-      <details className="mt-4 rounded-lg bg-muted px-3 py-1.5 text-primary">
+      <details className="mt-4 rounded-lg bg-muted px-3 py-[7px] text-primary">
         <summary className="cursor-pointer text-xs font-semibold">
           View chart data
         </summary>
@@ -159,7 +159,7 @@ function ArtifactReference({ block }: { block: ArtifactReferenceBlock }) {
     <button
       type="button"
       onClick={() => openArtifact(block.artifact_id, block.title)}
-      className="flex w-full items-start gap-3 rounded-lg border border-border bg-background p-3 text-left transition hover:border-accent"
+      className="flex w-full items-start gap-3 rounded-lg border border-border bg-background p-3.5 text-left transition hover:border-accent"
     >
       <FileText
         aria-hidden="true"
@@ -211,7 +211,7 @@ function Action({
   }
 
   return (
-    <div className="rounded-lg border border-border bg-background p-3">
+    <div className="rounded-lg border border-border bg-background p-3.5">
       <button
         type="button"
         onClick={run}
@@ -266,7 +266,7 @@ function Block({
     case "metric": {
       const block = value as MetricBlock;
       return (
-        <article className="rounded-lg border border-border bg-background p-3">
+        <article className="rounded-lg border border-border bg-background p-3.5">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {block.label}
           </p>
