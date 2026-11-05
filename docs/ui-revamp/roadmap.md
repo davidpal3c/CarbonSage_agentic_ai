@@ -1,6 +1,6 @@
 # CarbonSage UI revamp roadmap
 
-Status: planning, 3 November 2026. The central integration branch is
+Status: Pass 05 released, 5 November 2026. The central integration branch is
 `design/carbonsage-ui-revamp`; production `main` remains a separate release.
 
 ## Current position and reference assessment
@@ -57,23 +57,35 @@ Builder instructions: [`builder-pass-04.md`](builder-pass-04.md).
 The review and integration record is in
 [`pass-04-planner-review.md`](pass-04-planner-review.md).
 
-## Pass 05 — remaining enterprise work surfaces
+## Pass 05 — remaining enterprise work surfaces (complete)
 
 Carry the approved density system through Agent, Shipments, Suppliers,
 Artifacts, Scenarios, Integrations, Report, and How to. Recheck the 375 px
 Suppliers label and dark-theme first paint after shared styling changes.
 Preserve citations, provenance, data tables, exports, print, and session
-behavior.
+behavior. The reviewed result, including the user's sizing change, is at
+`d17dccf` on the central branch, `dev`, and `main`.
 The build scope and handoff are in [`pass-05-plan.md`](pass-05-plan.md) and
-[`builder-pass-05.md`](builder-pass-05.md).
+[`builder-pass-05.md`](builder-pass-05.md); review in
+[`pass-05-planner-review.md`](pass-05-planner-review.md).
 
-## Pass 06 — final media and release review
+## Pass 06 — guided supplier questions, report export, and interface polish
+
+Make broad supplier questions useful through evidence-backed narrowing, while
+keeping exact-lane recommendations bounded. Add a detailed PDF export with
+graphics alongside CSV in one export menu. Fix the chat composer spacing.
+Keep the public homepage in light mode and add the requested footer contact.
+The implementation brief is in [`pass-06-plan.md`](pass-06-plan.md) and
+[`builder-pass-06.md`](builder-pass-06.md).
+
+## Pass 07 — final media and release review
 
 Source commercial freight imagery to replace the temporary air runway and road
 landscape, refine the dark hero crop/scrim, and record media sources/licenses.
 Review responsive layout,
 keyboard, screen reader, Safari, Firefox, zoom, contrast, print, and
-performance. Decide separately when to release the revamp to production.
+performance. Review Pass 06's PDF rendering and broad-question behavior with
+real data. Decide separately when to release further changes to production.
 
 ## After the UI/UX revamp — mapped trajectory evaluation
 
